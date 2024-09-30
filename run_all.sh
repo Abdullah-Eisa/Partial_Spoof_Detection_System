@@ -1,7 +1,7 @@
 # echo "# Partial_Spoof_Detection_System" >> README.md
 git init
 git add *
-git commit -m "add all necessary files"
+git commit -m "add saving model during training after save_interval feature , add train_no_wandb.py file, update some files with new project structure  "
 git branch -M main
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 git push -u  origin main

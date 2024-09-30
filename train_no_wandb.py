@@ -67,7 +67,7 @@ import torch.optim as optim
 # from transformers import Wav2Vec2Processor, 
 from transformers import Wav2Vec2Tokenizer, Wav2Vec2Model
 
-import wandb
+# import wandb
 
 from utils import *
 from model import *
@@ -83,7 +83,7 @@ def train_model(train_directory, train_labels_dict,
                 DEVICE='cpu',save_interval=3):
 
     # Initialize W&B
-    wandb.init(project='partial_spoof_trial_0')
+    # wandb.init(project='partial_spoof_trial_0')
 
     # Ensure the model save path exists
     os.makedirs(model_save_path, exist_ok=True)
@@ -110,6 +110,7 @@ def train_model(train_directory, train_labels_dict,
     dev_segment_eer_per_epoch=[]
 
     for epoch in tqdm(range(NUM_EPOCHS), desc="Epochs"):
+        PS_Model.train()  # Set the model to training mode
 
         epoch_loss = 0
         epoch_segment_eer = 0
@@ -161,8 +162,6 @@ def train_model(train_directory, train_labels_dict,
             # Print batch training progress
             # print(f'Epoch [{epoch+1}/{NUM_EPOCHS}], Batch Loss: {loss.item()}, Batch Segment EER: {segment_eer:.4f}, Batch Segment EER Threshold: {segment_eer_threshold:.4f}')
 
-
-
         # Save checkpoint
         if (epoch + 1) % (NUM_EPOCHS//save_interval) == 0:
             # Generate a unique filename based on hyperparameters
@@ -170,7 +169,6 @@ def train_model(train_directory, train_labels_dict,
             model_filename = f"model_epochs{epoch + 1}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
                         
             save_checkpoint(PS_Model, optimizer, epoch + 1,os.path.join(model_save_path,model_filename))
-
 
         # Get Average Utterance EER for the epoch
         if epoch ==0: utterance_labels =[PartialSpoof_LA_cm_train_trl_dict[file_name] for file_name in files_names]
@@ -183,34 +181,34 @@ def train_model(train_directory, train_labels_dict,
         epoch_segment_eer_threshold /= len(train_loader)
 
         # Print epoch training progress
-        # print(f'Epoch [{epoch + 1}/{NUM_EPOCHS}] Complete. Average Loss /epoch : {epoch_loss:.4f},\n'
-        #        f'Average Segment EER: {epoch_segment_eer:.4f}, Average Segment EER Threshold: {epoch_segment_eer_threshold:.4f},\n'
-        #        f'Average Utterance EER: {utterance_eer:.4f}, Average Utterance EER Threshold: {utterance_eer_threshold:.4f}')
+        print(f'Epoch [{epoch + 1}/{NUM_EPOCHS}] Complete. Average Loss /epoch : {epoch_loss:.4f},\n'
+               f'Average Segment EER: {epoch_segment_eer:.4f}, Average Segment EER Threshold: {epoch_segment_eer_threshold:.4f},\n'
+               f'Average Utterance EER: {utterance_eer:.4f}, Average Utterance EER Threshold: {utterance_eer_threshold:.4f}')
 
 
         training_segment_eer_per_epoch.append(epoch_segment_eer)
 
         BASE_DIR = os.getcwd()
         # Define development files and labels
-        dev_files_path=os.path.join(BASE_DIR,'database\\dev\\con_wav')
-        # dev_files_path=os.path.join(BASE_DIR,'database\\mini_database\\dev')
+        # dev_files_path=os.path.join(BASE_DIR,'database\\dev\\con_wav')
+        dev_files_path=os.path.join(BASE_DIR,'database\\mini_database\\dev')
         dev_seglab_64_path=os.path.join(BASE_DIR,'database\\segment_labels\\dev_seglab_0.64.npy')
         dev_seglab_64_dict = np.load(dev_seglab_64_path, allow_pickle=True).item()
 
         dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict, tokenizer,feature_extractor, BATCH_SIZE,DEVICE=DEVICE)
         dev_segment_eer_per_epoch.append(dev_metrics_dict['segment_eer'])
 
-        wandb.log({'epoch': epoch+1,'training_loss_epoch': epoch_loss,
-            'training_segment_eer_epoch': epoch_segment_eer, 
-            'training_segment_eer_threshold_epoch': epoch_segment_eer_threshold,
-            'training_utterance_eer_epoch': utterance_eer,
-            'training_utterance_eer_threshold_epoch': utterance_eer_threshold, 
-            'validation_loss_epoch': dev_metrics_dict['epoch_loss'],
-            'validation_segment_eer_epoch': dev_metrics_dict['segment_eer'], 
-            'validation_segment_eer_threshold_epoch': dev_metrics_dict['segment_eer_threshold'],
-            'validation_utterance_eer_epoch': dev_metrics_dict['utterance_eer'],
-            'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold']                      
-            })
+        # wandb.log({'epoch': epoch+1,'training_loss_epoch': epoch_loss,
+        #     'training_segment_eer_epoch': epoch_segment_eer, 
+        #     'training_segment_eer_threshold_epoch': epoch_segment_eer_threshold,
+        #     'training_utterance_eer_epoch': utterance_eer,
+        #     'training_utterance_eer_threshold_epoch': utterance_eer_threshold, 
+        #     'validation_loss_epoch': dev_metrics_dict['epoch_loss'],
+        #     'validation_segment_eer_epoch': dev_metrics_dict['segment_eer'], 
+        #     'validation_segment_eer_threshold_epoch': dev_metrics_dict['segment_eer_threshold'],
+        #     'validation_utterance_eer_epoch': dev_metrics_dict['utterance_eer'],
+        #     'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold']                      
+        #     })
 
     # plot training EER per epoch
     plot_eer_per_epoch(NUM_EPOCHS, training_segment_eer_per_epoch,os.path.join(os.getcwd(),'outputs'))
@@ -237,50 +235,9 @@ def train_model(train_directory, train_labels_dict,
     save_json_dictionary(training_metrics_dict_save_path,training_metrics_dict)
 
     if DEVICE=='cuda': torch.cuda.empty_cache()
-    wandb.finish()
+    # wandb.finish()
     print("Training complete!")
 
-
-
-def train():
-    # Initialize W&B
-    wandb.init(project='partial_spoof_trial_0')
-
-    # Extract parameters from W&B configuration
-    config = wandb.config
-    
-    # Get Device
-    use_cuda= True
-    use_cuda =  use_cuda and torch.cuda.is_available()
-    DEVICE = torch.device("cuda" if use_cuda else "cpu")
-    print(f'device: {DEVICE}')
-
-    # Define your paths and other fixed arguments
-    BASE_DIR = os.getcwd()
-
-    # Define training files and labels
-    train_files_path=os.path.join(BASE_DIR,'database\\train\\con_wav')
-    # train_files_path=os.path.join(BASE_DIR,'database\\mini_database\\train3')
-    train_seglab_64_path=os.path.join(BASE_DIR,'database\\segment_labels\\train_seglab_0.64.npy')
-    train_seglab_64_dict = np.load(train_seglab_64_path, allow_pickle=True).item()
-
-    # Load the tokenizer and model from the local directory
-    Wav2Vec2_tokenizer = Wav2Vec2Tokenizer.from_pretrained("models/local_wav2vec2_tokenizer")
-    Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model")
-    Wav2Vec2_model.eval()
-
-
-    # Call train_model with parameters from W&B sweep
-    train_model(
-        train_directory=train_files_path,
-        train_labels_dict=train_seglab_64_dict,
-        tokenizer=Wav2Vec2_tokenizer,
-        feature_extractor=Wav2Vec2_model,
-        BATCH_SIZE=config.BATCH_SIZE,
-        NUM_EPOCHS=config.NUM_EPOCHS,
-        LEARNING_RATE=config.LEARNING_RATE,
-        DEVICE=DEVICE
-    )
 
 
 
@@ -312,7 +269,7 @@ if __name__ == "__main__":
     # Record the start time
     start_time = datetime.now()
     # train model
-    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=16,NUM_EPOCHS=5,DEVICE=DEVICE)
+    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=16,NUM_EPOCHS=3,DEVICE=DEVICE)
 
     # Record the end time
     end_time = datetime.now()

@@ -698,3 +698,24 @@ def plot_train_dev_eer_per_epoch(NUM_EPOCHS, train_eer_per_epoch, val_eer_per_ep
     # Close the plot to free up memory
     plt.close()
 
+
+
+
+
+
+
+
+def save_checkpoint(model, optimizer, epoch, path='checkpoint.pth'):
+    # os.makedirs(os.path.dirname(path), exist_ok=True)
+
+    torch.save({
+        'epoch': epoch,
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+    }, path)
+
+def load_checkpoint(model, optimizer, path='checkpoint.pth'):
+    checkpoint = torch.load(path)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    return checkpoint['epoch']
