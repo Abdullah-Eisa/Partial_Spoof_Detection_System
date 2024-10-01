@@ -54,8 +54,8 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
             with torch.no_grad():
                 # Calculate utterance predictions
                 # utterance_predictions.extend(torch.max(outputs, dim=1, keepdim=True)[0])
-                utterance_predictions.extend(torch.max(outputs, dim=1, keepdim=True).values)
-                # utterance_predictions.extend(torch.min(outputs, dim=1, keepdim=True).values)
+                # utterance_predictions.extend(torch.max(outputs, dim=1, keepdim=True).values)
+                utterance_predictions.extend(torch.min(outputs, dim=1, keepdim=True).values)
 
                 # Calculate segment EER
                 batch_segment_eer, batch_segment_eer_threshold = compute_eer(outputs, labels)
