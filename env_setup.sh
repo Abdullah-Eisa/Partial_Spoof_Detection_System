@@ -1,4 +1,43 @@
 #!/bin/bash
+
+# # ==================== ENV with CPU ==============================
+
+# # Install dependency for ps_scratch environment
+
+# # Name of the conda environment
+# ENVNAME=ps_scratch
+# REQUIREMENT_FILE=ps_scratch_requirements.txt
+
+# eval "$(conda shell.bash hook)"
+
+# # conda create --name ${ENVNAME} --file ${REQUIREMENT_FILE}
+# conda activate ${ENVNAME}
+# retVal=$?
+# if [ $retVal -ne 0 ]; then
+#     echo "Install conda environment ${ENVNAME}"
+    
+#     # conda env
+#     conda create -n ${ENVNAME} python=3.9 pip --yes --file ${REQUIREMENT_FILE}
+#     conda activate ${ENVNAME}
+
+
+
+#     # make empty folders if not available
+#     python -c "import os; os.makedirs("database", exist_ok=True)"
+#     python -c "import os; os.makedirs("models", exist_ok=True)"
+#     python -c "import os; os.makedirs("outputs", exist_ok=True)"
+
+
+
+# else
+#     echo "Conda environment ${ENVNAME} has been installed"
+# fi
+
+
+
+# ==================== ENV with GPU ==============================
+
+
 # Install dependency for ps_scratch environment
 
 # Name of the conda environment
@@ -14,10 +53,26 @@ if [ $retVal -ne 0 ]; then
     echo "Install conda environment ${ENVNAME}"
     
     # conda env
-    conda create -n ${ENVNAME} python=3.9 pip --yes --file ${REQUIREMENT_FILE}
+    conda create -n ${ENVNAME} python=3.9 pip --yes
     conda activate ${ENVNAME}
 
+    # install pytorch
+    echo "===========Install pytorch==========="
+    pip install torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 --index-url https://download.pytorch.org/whl/cu118
 
+
+    # install some foundational libraries
+    pip install os
+    pip install librosa
+    pip install matplotlib
+    pip install numpy
+    pip install pathlib
+    pip install protobuf
+    pip install scikit-learn
+    pip install scipy
+    pip install setuptools
+    pip install tqdm
+    pip install transformers
 
     # make empty folders if not available
     python -c "import os; os.makedirs("database", exist_ok=True)"

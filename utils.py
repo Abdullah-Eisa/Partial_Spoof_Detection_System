@@ -446,120 +446,6 @@ def collate_fn(batch):
 
 
 
-
-# def compute_eer(scores, labels):
-#     # Ensure scores and labels are PyTorch tensors and detach them
-#     scores = scores.detach().cpu().numpy()
-#     labels = labels.detach().cpu().numpy()
-
-#     # print(f'scores: {scores.shape}')
-#     # print(f'labels: {labels.shape}')
-
-#     # Check if labels are multi-label
-#     if labels.ndim > 1 and labels.shape[0] == scores.shape[0]:
-#         num_labels = labels.shape[0]
-#         eer_results = []
-
-#         for i in range(num_labels):
-#             # Flatten scores and labels for the i-th label
-#             label_i = labels[i, :]
-#             score_i = scores[i, :]
-#             # label_i = labels[:, i]
-#             # score_i = scores[:, i]
-#             # print(f"label_i: {label_i} ")
-#             # print(f"score_i: {score_i} ")
-
-#             # Check if there are positive samples
-#             # if np.sum(label_i) == 0 or np.sum(label_i) == len(label_i):
-#             #     print(f"Label {i} has no positive samples or all samples are positive. Skipping this label. Label[{i}]= {label_i}")
-#             #     continue
-
-#             # Compute ROC curve
-#             try:
-
-#                 fpr, tpr, thresholds = roc_curve(label_i, score_i)
-                
-#                 # FAR = False Positive Rate
-#                 # FRR = 1 - True Positive Rate
-#                 far = fpr
-#                 frr = 1 - tpr
-                
-#                 # Compute the EER
-#                 eer_index = np.nanargmin(np.abs(far - frr))
-#                 eer_threshold = thresholds[eer_index]
-#                 eer = (far[eer_index] + frr[eer_index]) / 2
-
-#                 eer_results.append((eer, eer_threshold))
-
-#             except ValueError as e:
-#                 print(f"Error computing ROC for label {i}: {e}")
-#                 continue
-
-
-#         if not eer_results:
-#             raise ValueError("No valid EER results found. Check your data for labels with no positive samples or other issues.")
-
-#         # Averaging EERs across all labels
-#         avg_eer = np.mean([eer for eer, _ in eer_results])
-#         avg_eer_threshold = np.mean([eer_threshold for _, eer_threshold in eer_results])
-        
-#         return avg_eer, avg_eer_threshold
-
-#     else:
-#         # print(f"in compute eer label_i: {labels} ")
-#         # print(f"in compute eer score_i: {scores} ")
-#         # Single label case
-#         fpr, tpr, thresholds = roc_curve(labels, scores)
-#         far = fpr
-#         frr = 1 - tpr
-
-#         # Check for NaN values in far and frr
-#         if np.any(np.isnan(far)) or np.any(np.isnan(frr)):
-#             raise ValueError("NaN values found in fpr or tpr. Cannot compute EER.")
-
-#         eer_index = np.nanargmin(np.abs(far - frr))
-#         eer_threshold = thresholds[eer_index]
-#         eer = (far[eer_index] + frr[eer_index]) / 2
-
-#         return eer, eer_threshold
-
-
-
-
-# ASV challenge metrics , https://github.com/asvspoof-challenge/2021/blob/main/eval-package/eval_metrics.py
-# def compute_det_curve(target_scores, nontarget_scores):
-
-#     n_scores = target_scores.size + nontarget_scores.size
-#     all_scores = np.concatenate((target_scores, nontarget_scores))
-#     labels = np.concatenate((np.ones(target_scores.size), np.zeros(nontarget_scores.size)))
-
-#     # Sort labels based on scores
-#     indices = np.argsort(all_scores, kind='mergesort')
-#     labels = labels[indices]
-
-#     # Compute false rejection and false acceptance rates
-#     tar_trial_sums = np.cumsum(labels)
-#     nontarget_trial_sums = nontarget_scores.size - (np.arange(1, n_scores + 1) - tar_trial_sums)
-
-#     frr = np.concatenate((np.atleast_1d(0), tar_trial_sums / target_scores.size))  # false rejection rates
-#     far = np.concatenate((np.atleast_1d(1), nontarget_trial_sums / nontarget_scores.size))  # false acceptance rates
-#     thresholds = np.concatenate((np.atleast_1d(all_scores[indices[0]] - 0.001), all_scores[indices]))  # Thresholds are the sorted scores
-
-#     return frr, far, thresholds
-
-
-# def compute_eer(target_scores, nontarget_scores):
-#     """ Returns equal error rate (EER) and the corresponding threshold. """
-#     frr, far, thresholds = compute_det_curve(target_scores, nontarget_scores)
-#     abs_diffs = np.abs(frr - far)
-#     min_index = np.argmin(abs_diffs)
-#     eer = np.mean((frr[min_index], far[min_index]))
-#     return eer, thresholds[min_index]
-
-
-
-
-
 def compute_det_curve(target_scores, nontarget_scores):
     # Flatten the input arrays to ensure they are 1D
     target_scores = np.ravel(target_scores)
@@ -841,6 +727,13 @@ def load_checkpoint(model, optimizer, path='checkpoint.pth'):
 
 
 
-
+def get_uttEER_by_seg(outputs):
+    """
+    Measure Utterance EER based on segment-level score vectors.
+    For each utteracne, using min() to choose the minimum segment score as the utterance score. 
+    """
+    # torch.max(outputs, dim=1, keepdim=True)[0])
+    # return torch.min(outputs, dim=1, keepdim=True).values
+    return torch.max(outputs, dim=1, keepdim=True).values
 
 

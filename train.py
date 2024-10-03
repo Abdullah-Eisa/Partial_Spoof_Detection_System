@@ -41,6 +41,16 @@
 #in the first 1600 training examples:  The maximum size in the second dimension of the tensors listed is 393.
 
 
+#  During training, we used the Adam optimizer
+# with a default configuration (β1 = 0.9, β2 = 0.999,  = 10−8
+# ).
+# The learning rate was initialized with 1 × 10−5
+# and halved
+# every 10 epochs.
+# All experiments were repeated three times
+# with different random seeds for CM initialization, except for
+# the pre-trained SSL front-end. The averaged results of the three
+# runs are reported
 
 
 # wav_samp_rate = 16000
@@ -142,9 +152,7 @@ def train_model(train_directory, train_labels_dict,
             with torch.no_grad():  # No need to compute gradients for EER calculation
 
                 # Calculate utterance predictions
-                # utterance_predictions.extend(torch.max(outputs, dim=1, keepdim=True)[0])
-                # utterance_predictions.extend(torch.max(outputs, dim=1, keepdim=True).values)
-                utterance_predictions.extend(torch.min(outputs, dim=1, keepdim=True).values)
+                utterance_predictions.extend(get_uttEER_by_seg(outputs))
 
                 # Calculate segment EER
                 batch_segment_eer, batch_segment_eer_threshold = compute_eer(outputs, labels)

@@ -1,7 +1,7 @@
 # echo "# Partial_Spoof_Detection_System" >> README.md
 git init
 git add *
-git commit -m "replace old compute_eer function with one similar to ASV challenge, change equation to get utterance scores for segment scores to min instead of max"
+git commit -m "add env_setup with GPU, modularize get_uttEER_by_seg "
 git branch -M main
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 git push -u  origin main

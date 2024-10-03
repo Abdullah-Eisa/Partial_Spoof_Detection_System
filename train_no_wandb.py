@@ -41,7 +41,16 @@
 #in the first 1600 training examples:  The maximum size in the second dimension of the tensors listed is 393.
 
 
-
+#  During training, we used the Adam optimizer
+# with a default configuration (β1 = 0.9, β2 = 0.999,  = 10−8
+# ).
+# The learning rate was initialized with 1 × 10−5
+# and halved
+# every 10 epochs.
+# All experiments were repeated three times
+# with different random seeds for CM initialization, except for
+# the pre-trained SSL front-end. The averaged results of the three
+# runs are reported
 
 # wav_samp_rate = 16000
 # truncate_seq = None
@@ -94,7 +103,7 @@ def train_model(train_directory, train_labels_dict,
 
     # Initialize the model, loss function, and optimizer
     hidd_dims ={'wav2vec2':768, 'wav2vec2_large':1024}
-    PS_Model = MyModel(d_model=hidd_dims['wav2vec2']).to(DEVICE)  # Move model to the configured device
+    PS_Model = MyModel(d_model=hidd_dims['wav2vec2'],gmlp_layers=5).to(DEVICE)  # Move model to the configured device
     # criterion = nn.BCEWithLogitsLoss()  # Binary Cross Entropy Loss with Logits for multi-label classification
     criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
     optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
@@ -143,9 +152,8 @@ def train_model(train_directory, train_labels_dict,
             with torch.no_grad():  # No need to compute gradients for EER calculation
 
                 # Calculate utterance predictions
-                # utterance_predictions.extend(torch.max(outputs, dim=1, keepdim=True)[0])
-                # utterance_predictions.extend(torch.max(outputs, dim=1, keepdim=True).values)
-                utterance_predictions.extend(torch.min(outputs, dim=1, keepdim=True).values)
+
+                utterance_predictions.extend(get_uttEER_by_seg(outputs))
 
                 # Calculate segment EER
                 batch_segment_eer, batch_segment_eer_threshold = compute_eer(outputs, labels)
@@ -190,8 +198,8 @@ def train_model(train_directory, train_labels_dict,
 
         BASE_DIR = os.getcwd()
         # Define development files and labels
-        # dev_files_path=os.path.join(BASE_DIR,'database\\dev\\con_wav')
-        dev_files_path=os.path.join(BASE_DIR,'database\\mini_database\\dev')
+        dev_files_path=os.path.join(BASE_DIR,'database\\dev\\con_wav')
+        # dev_files_path=os.path.join(BASE_DIR,'database\\mini_database\\dev')
         dev_seglab_64_path=os.path.join(BASE_DIR,'database\\segment_labels\\dev_seglab_0.64.npy')
         dev_seglab_64_dict = np.load(dev_seglab_64_path, allow_pickle=True).item()
 
@@ -255,7 +263,8 @@ if __name__ == "__main__":
     # Define training files and labels
     # train_files_path=os.path.join(BASE_DIR,'database\\mini_database\\train')
     # train_files_path=os.path.join(BASE_DIR,'database\\mini_database\\train2')
-    train_files_path=os.path.join(BASE_DIR,'database\\mini_database\\train3')
+    # train_files_path=os.path.join(BASE_DIR,'database\\mini_database\\train3')
+    train_files_path=os.path.join(BASE_DIR,'database\\train\\con_wav')
     train_seglab_64_path=os.path.join(BASE_DIR,'database\\segment_labels\\train_seglab_0.64.npy')
     train_seglab_64_dict = np.load(train_seglab_64_path, allow_pickle=True).item()
 
@@ -269,7 +278,7 @@ if __name__ == "__main__":
     # Record the start time
     start_time = datetime.now()
     # train model
-    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=16,NUM_EPOCHS=3,DEVICE=DEVICE)
+    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=16,NUM_EPOCHS=1,DEVICE=DEVICE)
 
     # Record the end time
     end_time = datetime.now()
