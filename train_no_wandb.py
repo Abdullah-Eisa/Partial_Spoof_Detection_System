@@ -104,6 +104,13 @@ def train_model(train_directory, train_labels_dict,
     # Initialize the model, loss function, and optimizer
     hidd_dims ={'wav2vec2':768, 'wav2vec2_large':1024}
     PS_Model = MyModel(d_model=hidd_dims['wav2vec2'],gmlp_layers=5).to(DEVICE)  # Move model to the configured device
+    
+    # Wrap the model with DataParallel
+    if torch.cuda.device_count() > 1:
+        PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
+        print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
+
+
     # criterion = nn.BCEWithLogitsLoss()  # Binary Cross Entropy Loss with Logits for multi-label classification
     criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
     optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
@@ -171,7 +178,7 @@ def train_model(train_directory, train_labels_dict,
             # print(f'Epoch [{epoch+1}/{NUM_EPOCHS}], Batch Loss: {loss.item()}, Batch Segment EER: {segment_eer:.4f}, Batch Segment EER Threshold: {segment_eer_threshold:.4f}')
 
         # Save checkpoint
-        if (epoch + 1) % (NUM_EPOCHS//save_interval) == 0:
+        if NUM_EPOCHS>=save_interval and (epoch + 1) % (NUM_EPOCHS//save_interval) == 0:
             # Generate a unique filename based on hyperparameters
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             model_filename = f"model_epochs{epoch + 1}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
@@ -198,8 +205,8 @@ def train_model(train_directory, train_labels_dict,
 
         BASE_DIR = os.getcwd()
         # Define development files and labels
-        dev_files_path=os.path.join(BASE_DIR,'database\\dev\\con_wav')
-        # dev_files_path=os.path.join(BASE_DIR,'database\\mini_database\\dev')
+        # dev_files_path=os.path.join(BASE_DIR,'database\\dev\\con_wav')
+        dev_files_path=os.path.join(BASE_DIR,'database\\mini_database\\dev')
         dev_seglab_64_path=os.path.join(BASE_DIR,'database\\segment_labels\\dev_seglab_0.64.npy')
         dev_seglab_64_dict = np.load(dev_seglab_64_path, allow_pickle=True).item()
 
@@ -263,8 +270,8 @@ if __name__ == "__main__":
     # Define training files and labels
     # train_files_path=os.path.join(BASE_DIR,'database\\mini_database\\train')
     # train_files_path=os.path.join(BASE_DIR,'database\\mini_database\\train2')
-    # train_files_path=os.path.join(BASE_DIR,'database\\mini_database\\train3')
-    train_files_path=os.path.join(BASE_DIR,'database\\train\\con_wav')
+    train_files_path=os.path.join(BASE_DIR,'database\\mini_database\\train3')
+    # train_files_path=os.path.join(BASE_DIR,'database\\train\\con_wav')
     train_seglab_64_path=os.path.join(BASE_DIR,'database\\segment_labels\\train_seglab_0.64.npy')
     train_seglab_64_dict = np.load(train_seglab_64_path, allow_pickle=True).item()
 
@@ -278,7 +285,13 @@ if __name__ == "__main__":
     # Record the start time
     start_time = datetime.now()
     # train model
-    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=16,NUM_EPOCHS=1,DEVICE=DEVICE)
+    if torch.cuda.device_count() > 1:  
+        gpu_num = torch.cuda.device_count()
+        BATCH_SIZE=int(count_files_in_directory(train_files_path)/ gpu_num) 
+        print(f"BATCH_SIZE={BATCH_SIZE}")
+    else:
+        BATCH_SIZE=16
+    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=1,DEVICE=DEVICE)
 
     # Record the end time
     end_time = datetime.now()

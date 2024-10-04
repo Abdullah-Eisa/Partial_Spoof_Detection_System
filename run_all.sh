@@ -1,7 +1,7 @@
 # echo "# Partial_Spoof_Detection_System" >> README.md
 git init
 git add *
-git commit -m "add env_setup with GPU, modularize get_uttEER_by_seg "
+git commit -m "add model parallelization using torch.nn.DataParallel , correct save_interval "
 git branch -M main
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 git push -u  origin main

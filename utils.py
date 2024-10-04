@@ -737,3 +737,12 @@ def get_uttEER_by_seg(outputs):
     return torch.max(outputs, dim=1, keepdim=True).values
 
 
+
+def count_files_in_directory(directory):
+    # Get a list of all entries in the directory
+    entries = os.listdir(directory)
+    
+    # Filter out only files (ignore directories)
+    file_count = sum(1 for entry in entries if os.path.isfile(os.path.join(directory, entry)))
+    
+    return file_count

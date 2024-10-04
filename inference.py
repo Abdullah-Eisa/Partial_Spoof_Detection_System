@@ -28,6 +28,12 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
     # Validation phase
     PS_Model.eval()  # Set the model to evaluation mode
 
+    # Wrap the model with DataParallel
+    if torch.cuda.device_count() > 1:
+        PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
+        print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
+
+
     criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
 
 
@@ -98,6 +104,12 @@ def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_
     # PS_Model.load_state_dict(torch.load(model_path, map_location=DEVICE))  # Load the trained model weights to the correct device
     _=load_checkpoint(PS_Model,optim.Adam(PS_Model.parameters()), path=model_path) 
     PS_Model.eval()  # Set the model to evaluation mode
+
+    # Wrap the model with DataParallel
+    if torch.cuda.device_count() > 1:
+        PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
+        print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
+
 
     # Get the test data loader
     test_loader = get_audio_data_loaders(test_directory, test_labels_dict, tokenizer, feature_extractor, batch_size=BATCH_SIZE, shuffle=False)

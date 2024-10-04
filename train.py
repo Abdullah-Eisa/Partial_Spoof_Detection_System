@@ -105,6 +105,13 @@ def train_model(train_directory, train_labels_dict,
     # Initialize the model, loss function, and optimizer
     hidd_dims ={'wav2vec2':768, 'wav2vec2_large':1024}
     PS_Model = MyModel(d_model=hidd_dims['wav2vec2']).to(DEVICE)  # Move model to the configured device
+    
+    # Wrap the model with DataParallel
+    if torch.cuda.device_count() > 1:
+        PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
+        print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
+
+    
     # criterion = nn.BCEWithLogitsLoss()  # Binary Cross Entropy Loss with Logits for multi-label classification
     criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
     optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
@@ -172,7 +179,7 @@ def train_model(train_directory, train_labels_dict,
 
 
         # Save checkpoint
-        if (epoch + 1) % (NUM_EPOCHS//save_interval) == 0:
+        if NUM_EPOCHS>=save_interval and (epoch + 1) % (NUM_EPOCHS//save_interval) == 0:
             # Generate a unique filename based on hyperparameters
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             model_filename = f"model_epochs{epoch + 1}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
