@@ -411,39 +411,82 @@ class AudioDataset(Dataset):
 
 
 
+# def collate_fn(batch):
+#     batch = [item for item in batch if item is not None]  # Remove None values
+#     if len(batch) == 0:
+#         return None
+    
+#     features = [item['features'] for item in batch]
+#     labels = [item['label'] for item in batch]
+    
+#     # Pad features to have the same length
+#     features_padded = pad_sequence(features, batch_first=True)
+
+#     # Determine the maximum length of labels in the batch
+#     max_label_length = 33
+
+#     # Pad labels to the fixed length of 33
+#     labels_padded = []
+#     for label in labels:
+#         # If the label is shorter than the fixed length, pad it
+#         if label.size(0) < max_label_length:
+#             padded_label = F.pad(label, (0, max_label_length - label.size(0)), value=0)
+#         else:
+#             padded_label = label[:max_label_length]
+#         labels_padded.append(padded_label)
+    
+#     # Stack padded labels to a single tensor
+#     labels_padded = torch.stack(labels_padded)
+
+#     return {
+#         'features': features_padded.to('cuda'),
+#         'label': labels_padded.to('cuda'),
+#         'file_name': [item['file_name'] for item in batch]
+#     }
+
+
+
+# upsampled_labels
+import torch
+import torch.nn.functional as F
+
 def collate_fn(batch):
     batch = [item for item in batch if item is not None]  # Remove None values
     if len(batch) == 0:
         return None
-    
+
     features = [item['features'] for item in batch]
     labels = [item['label'] for item in batch]
-    
+
     # Pad features to have the same length
     features_padded = pad_sequence(features, batch_first=True)
 
     # Determine the maximum length of labels in the batch
+    # max_label_length = max(label.size(0) for label in labels)
     max_label_length = 33
 
-    # Pad labels to the fixed length of 33
-    labels_padded = []
+    # Upsample labels to the maximum length using interpolation
+    labels_upsampled = []
     for label in labels:
-        # If the label is shorter than the fixed length, pad it
-        if label.size(0) < max_label_length:
-            padded_label = F.pad(label, (0, max_label_length - label.size(0)), value=0)
+        # Convert label to float for interpolation
+        label_float = label.float()  # Convert to float tensor
+        if label_float.size(0) < max_label_length:
+            # Calculate the scale factor
+            scale_factor = max_label_length / label_float.size(0)
+            # Upsample using interpolation
+            upsampled_label = F.interpolate(label_float.unsqueeze(0).unsqueeze(0), size=max_label_length, mode='linear', align_corners=True).squeeze(0).squeeze(0)
         else:
-            padded_label = label[:max_label_length]
-        labels_padded.append(padded_label)
-    
-    # Stack padded labels to a single tensor
-    labels_padded = torch.stack(labels_padded)
+            upsampled_label = label_float
+        labels_upsampled.append(upsampled_label)
+
+    # Stack upsampled labels to a single tensor
+    labels_upsampled = torch.stack(labels_upsampled)
 
     return {
         'features': features_padded.to('cuda'),
-        'label': labels_padded.to('cuda'),
+        'label': labels_upsampled.to('cuda'),
         'file_name': [item['file_name'] for item in batch]
     }
-
 
 
 

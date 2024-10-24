@@ -10,11 +10,14 @@ bash Miniconda3-latest-Linux-x86_64.sh
 
 ~/miniconda3/bin/conda init
 
+
+
 conda --version
 
 
-chmod -R 777 /path/to/your/folder
-
+# chmod -R 777 /path/to/your/folder
+PWD=pwd
+chmod -R 777 ${PWD}
 
 
 from transformers import Wav2Vec2Tokenizer, Wav2Vec2ForCTC

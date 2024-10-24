@@ -75,7 +75,8 @@ if [ $retVal -ne 0 ]; then
     pip install setuptools
     pip install tqdm
     pip install transformers
-
+    pip install wandb
+    
     # make empty folders if not available
     python -c "import os; os.makedirs('database', exist_ok=True)"
     python -c "import os; os.makedirs('models', exist_ok=True)"
@@ -83,6 +84,22 @@ if [ $retVal -ne 0 ]; then
     python -c "import os; os.makedirs('outputs', exist_ok=True)"
 
 
+
+    from transformers import Wav2Vec2Tokenizer, Wav2Vec2ForCTC
+
+    # Define the model name
+    model_name = "facebook/wav2vec2-base-960h"
+
+    # Load the tokenizer and model
+    tokenizer = Wav2Vec2Tokenizer.from_pretrained(model_name)
+    model = Wav2Vec2ForCTC.from_pretrained(model_name)
+
+    # Save them locally
+    tokenizer.save_pretrained("./models/local_wav2vec2_tokenizer")
+    model.save_pretrained("./models/local_wav2vec2_model")
+
+
+    
 
 else
     echo "Conda environment ${ENVNAME} has been installed"
