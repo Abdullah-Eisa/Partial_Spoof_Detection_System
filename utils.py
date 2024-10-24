@@ -376,6 +376,10 @@ class AudioDataset(Dataset):
         # print(f'{file_name} has tokenized inputs of type {type(inputs)}')
 
         with torch.no_grad():
+            for key in inputs:
+                inputs[key] = inputs[key].to('cuda')
+
+            # inputs = inputs().to('cuda')
             features = self.feature_extractor(**inputs).last_hidden_state.squeeze(0)
             # print(f'{file_name} has extracted features of type {type(features)}  with size {features.size()}')
 
@@ -389,7 +393,7 @@ class AudioDataset(Dataset):
         # label = self.labels_dict.get(file_name, -1).astype(int)
         label = self.labels_dict.get(file_name).astype(int)
         # print(f'{file_name} has label of type {type(label)}  with size , Array={label}')
-        label = torch.tensor(label, dtype=torch.uint8)
+        label = torch.tensor(label, dtype=torch.uint8).to('cuda')
         # print(f'{file_name} has label of type {type(label)}  with size {label.size()}, Array={label}')
 
 
@@ -435,8 +439,8 @@ def collate_fn(batch):
     labels_padded = torch.stack(labels_padded)
 
     return {
-        'features': features_padded,
-        'label': labels_padded,
+        'features': features_padded.to('cuda'),
+        'label': labels_padded.to('cuda'),
         'file_name': [item['file_name'] for item in batch]
     }
 
@@ -538,6 +542,7 @@ def get_audio_data_loaders(directory, labels_dict, tokenizer,feature_extractor, 
         batch_size=batch_size, 
         shuffle=shuffle, 
         num_workers=num_workers, 
+        # pin_memory=True,  # Enable this for faster transfers
         prefetch_factor=prefetch_factor,
         collate_fn=collate_fn
         )
@@ -733,8 +738,8 @@ def get_uttEER_by_seg(outputs):
     For each utteracne, using min() to choose the minimum segment score as the utterance score. 
     """
     # torch.max(outputs, dim=1, keepdim=True)[0])
-    # return torch.min(outputs, dim=1, keepdim=True).values
-    return torch.max(outputs, dim=1, keepdim=True).values
+    return torch.min(outputs, dim=1, keepdim=True).values
+    # return torch.max(outputs, dim=1, keepdim=True).values
 
 
 

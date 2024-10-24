@@ -36,7 +36,8 @@
 
 
 # ==================== ENV with GPU ==============================
-
+# git clone -b <branch> <remote_repo>
+# git clone -b <branch> <remote_repo>
 
 # Install dependency for ps_scratch environment
 

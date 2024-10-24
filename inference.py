@@ -23,6 +23,7 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
     PartialSpoof_LA_cm_dev_trl_dict= load_json_dictionary(PartialSpoof_LA_cm_dev_trl_dict_path)
 
     # Get the data loader
+    feature_extractor=feature_extractor.to(DEVICE)
     dev_loader = get_audio_data_loaders(dev_directory, labels_dict, tokenizer,feature_extractor, batch_size=BATCH_SIZE, shuffle=True)
 
     # Validation phase
@@ -112,6 +113,7 @@ def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_
 
 
     # Get the test data loader
+    feature_extractor=feature_extractor.to(DEVICE)
     test_loader = get_audio_data_loaders(test_directory, test_labels_dict, tokenizer, feature_extractor, batch_size=BATCH_SIZE, shuffle=False)
 
     # Get Utterance lables dictionary    
@@ -201,7 +203,8 @@ if __name__ == "__main__":
 
     # Load the tokenizer and model from the local directory
     Wav2Vec2_tokenizer = Wav2Vec2Tokenizer.from_pretrained("models/local_wav2vec2_tokenizer")
-    Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model")
+    # Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model")
+    Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model").to(DEVICE)
     Wav2Vec2_model.eval()
 
     # Backend model path

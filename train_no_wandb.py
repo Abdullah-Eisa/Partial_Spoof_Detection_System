@@ -104,7 +104,8 @@ def train_model(train_directory, train_labels_dict,
     # Initialize the model, loss function, and optimizer
     hidd_dims ={'wav2vec2':768, 'wav2vec2_large':1024}
     PS_Model = MyModel(d_model=hidd_dims['wav2vec2'],gmlp_layers=5).to(DEVICE)  # Move model to the configured device
-    
+    print(f"Move model to the configured device= {DEVICE}")
+
     # Wrap the model with DataParallel
     if torch.cuda.device_count() > 1:
         PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
@@ -259,6 +260,9 @@ def train_model(train_directory, train_labels_dict,
 
 if __name__ == "__main__":
 
+    # import torch.multiprocessing as mp
+    # mp.set_start_method('spawn', force=True)
+
     # Device configuration
     use_cuda= True
     use_cuda =  use_cuda and torch.cuda.is_available()
@@ -278,7 +282,8 @@ if __name__ == "__main__":
 
     # Load the tokenizer and model from the local directory
     Wav2Vec2_tokenizer = Wav2Vec2Tokenizer.from_pretrained("models/local_wav2vec2_tokenizer")
-    Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model")
+    # Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model")
+    Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model").to(DEVICE)
     Wav2Vec2_model.eval()
 
 
@@ -292,7 +297,7 @@ if __name__ == "__main__":
     else:
         # BATCH_SIZE=16
         BATCH_SIZE=32
-    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=10,DEVICE=DEVICE)
+    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=30,DEVICE=DEVICE)
 
     # Record the end time
     end_time = datetime.now()

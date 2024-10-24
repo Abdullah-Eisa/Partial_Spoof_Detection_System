@@ -37,8 +37,8 @@ def main():
         }
     }
 
-    # sweep_id = wandb.sweep(sweep=sweep_config,project='partial_spoof_trial_0')
-    sweep_id = wandb.sweep(sweep=sweep_config)
+    sweep_id = wandb.sweep(sweep=sweep_config,project='partial_spoof_trial_1')
+    # sweep_id = wandb.sweep(sweep=sweep_config)
     wandb.agent(sweep_id, function=train, count=2)
 
 
