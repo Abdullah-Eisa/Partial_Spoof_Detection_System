@@ -58,7 +58,8 @@ if [ $retVal -ne 0 ]; then
 
     # install pytorch
     echo "===========Install pytorch==========="
-    pip install torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 --index-url https://download.pytorch.org/whl/cu118
+    # pip install torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 --index-url https://download.pytorch.org/whl/cu118
+    pip install torch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 --index-url https://download.pytorch.org/whl/cu121
 
 
     # install some foundational libraries
@@ -75,9 +76,10 @@ if [ $retVal -ne 0 ]; then
     pip install transformers
 
     # make empty folders if not available
-    python -c "import os; os.makedirs("database", exist_ok=True)"
-    python -c "import os; os.makedirs("models", exist_ok=True)"
-    python -c "import os; os.makedirs("outputs", exist_ok=True)"
+    python -c "import os; os.makedirs('database', exist_ok=True)"
+    python -c "import os; os.makedirs('models', exist_ok=True)"
+    python -c "import os; os.makedirs('models/back_end_models', exist_ok=True)"
+    python -c "import os; os.makedirs('outputs', exist_ok=True)"
 
 
 

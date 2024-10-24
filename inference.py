@@ -19,7 +19,7 @@ from model import *
 def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor, BATCH_SIZE=32,epoch=0,DEVICE='cpu'):
 
     BASE_DIR = os.getcwd()
-    PartialSpoof_LA_cm_dev_trl_dict_path = os.path.join(BASE_DIR,'database\\utterance_labels\\PartialSpoof_LA_cm_dev_trl.json')
+    PartialSpoof_LA_cm_dev_trl_dict_path = os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json')
     PartialSpoof_LA_cm_dev_trl_dict= load_json_dictionary(PartialSpoof_LA_cm_dev_trl_dict_path)
 
     # Get the data loader
@@ -100,7 +100,7 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
 def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_extractor, BATCH_SIZE=32,DEVICE='cpu'):
     # Initialize the model
     PS_Model = MyModel().to(DEVICE)  # Initialize the model and move to the configured device
-    # model_path=os.path.join(os.getcwd(),'models\\back_end_models\\model_epochs1_batch16_lr0.001_20240911_234211.pth')
+    # model_path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs1_batch16_lr0.001_20240911_234211.pth')
     # PS_Model.load_state_dict(torch.load(model_path, map_location=DEVICE))  # Load the trained model weights to the correct device
     _=load_checkpoint(PS_Model,optim.Adam(PS_Model.parameters()), path=model_path) 
     PS_Model.eval()  # Set the model to evaluation mode
@@ -116,7 +116,7 @@ def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_
 
     # Get Utterance lables dictionary    
     BASE_DIR = os.getcwd()
-    PartialSpoof_LA_cm_eval_trl_dict_path = os.path.join(BASE_DIR,'database\\utterance_labels\\PartialSpoof_LA_cm_eval_trl.json')
+    PartialSpoof_LA_cm_eval_trl_dict_path = os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json')
     PartialSpoof_LA_cm_eval_trl_dict= load_json_dictionary(PartialSpoof_LA_cm_eval_trl_dict_path)
 
     criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
@@ -194,8 +194,8 @@ if __name__ == "__main__":
     BASE_DIR = os.getcwd()
 
     # Define testing files and labels
-    test_files_path=os.path.join(BASE_DIR,'database\\mini_database\\eval')
-    test_seglab_64_path=os.path.join(BASE_DIR,'database\\segment_labels\\eval_seglab_0.64.npy')
+    test_files_path=os.path.join(BASE_DIR,'database/mini_database/eval')
+    test_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/eval_seglab_0.64.npy')
     test_seglab_64_dict = np.load(test_seglab_64_path, allow_pickle=True).item()
 
 
@@ -205,8 +205,8 @@ if __name__ == "__main__":
     Wav2Vec2_model.eval()
 
     # Backend model path
-    # model_path=os.path.join(os.getcwd(),'models\\back_end_models\\model_epochs1_batch16_lr0.001_20240911_234211.pth')
-    model_path=os.path.join(os.getcwd(),'models\\back_end_models\\model_epochs3_batch16_lr0.001_20240930_110553.pth')
+    # model_path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs1_batch16_lr0.001_20240911_234211.pth')
+    model_path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs3_batch16_lr0.001_20240930_110553.pth')
 
     # inference
     inference_metrics_dict=infer_model(model_path,test_files_path, test_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=16,DEVICE=DEVICE)

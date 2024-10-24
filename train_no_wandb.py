@@ -88,7 +88,7 @@ from inference import dev_model
 def train_model(train_directory, train_labels_dict, 
                 tokenizer,feature_extractor,
                 BATCH_SIZE=32, NUM_EPOCHS=1,LEARNING_RATE=0.001,
-                model_save_path=os.path.join(os.getcwd(),'models\\back_end_models'),
+                model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
                 DEVICE='cpu',save_interval=3):
 
     # Initialize W&B
@@ -98,7 +98,7 @@ def train_model(train_directory, train_labels_dict,
     os.makedirs(model_save_path, exist_ok=True)
     # Load utterance labels
     BASE_DIR = os.getcwd()
-    PartialSpoof_LA_cm_train_trl_dict_path = os.path.join(BASE_DIR,'database\\utterance_labels\\PartialSpoof_LA_cm_train_trl.json')
+    PartialSpoof_LA_cm_train_trl_dict_path = os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_train_trl.json')
     PartialSpoof_LA_cm_train_trl_dict= load_json_dictionary(PartialSpoof_LA_cm_train_trl_dict_path)
 
     # Initialize the model, loss function, and optimizer
@@ -205,9 +205,9 @@ def train_model(train_directory, train_labels_dict,
 
         BASE_DIR = os.getcwd()
         # Define development files and labels
-        # dev_files_path=os.path.join(BASE_DIR,'database\\dev\\con_wav')
-        dev_files_path=os.path.join(BASE_DIR,'database\\mini_database\\dev')
-        dev_seglab_64_path=os.path.join(BASE_DIR,'database\\segment_labels\\dev_seglab_0.64.npy')
+        # dev_files_path=os.path.join(BASE_DIR,'database/dev/con_wav')
+        dev_files_path=os.path.join(BASE_DIR,'database/mini_database/dev')
+        dev_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/dev_seglab_0.64.npy')
         dev_seglab_64_dict = np.load(dev_seglab_64_path, allow_pickle=True).item()
 
         dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict, tokenizer,feature_extractor, BATCH_SIZE,DEVICE=DEVICE)
@@ -246,7 +246,7 @@ def train_model(train_directory, train_labels_dict,
     # Save metrics
     training_metrics_dict=create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_segment_eer,epoch_segment_eer_threshold,epoch_loss)
     training_metrics_dict_filename = f"metrics_dict_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.json"
-    training_metrics_dict_save_path=os.path.join(os.getcwd(),f'outputs\\{training_metrics_dict_filename}')
+    training_metrics_dict_save_path=os.path.join(os.getcwd(),f'outputs/{training_metrics_dict_filename}')
     save_json_dictionary(training_metrics_dict_save_path,training_metrics_dict)
 
     if DEVICE=='cuda': torch.cuda.empty_cache()
@@ -268,11 +268,11 @@ if __name__ == "__main__":
     BASE_DIR = os.getcwd()
 
     # Define training files and labels
-    # train_files_path=os.path.join(BASE_DIR,'database\\mini_database\\train')
-    # train_files_path=os.path.join(BASE_DIR,'database\\mini_database\\train2')
-    train_files_path=os.path.join(BASE_DIR,'database\\mini_database\\train3')
-    # train_files_path=os.path.join(BASE_DIR,'database\\train\\con_wav')
-    train_seglab_64_path=os.path.join(BASE_DIR,'database\\segment_labels\\train_seglab_0.64.npy')
+    # train_files_path=os.path.join(BASE_DIR,'database/mini_database/train')
+    # train_files_path=os.path.join(BASE_DIR,'database/mini_database/train2')
+    train_files_path=os.path.join(BASE_DIR,'database/mini_database/train3')
+    # train_files_path=os.path.join(BASE_DIR,'database/train/con_wav')
+    train_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/train_seglab_0.64.npy')
     train_seglab_64_dict = np.load(train_seglab_64_path, allow_pickle=True).item()
 
 
@@ -290,8 +290,9 @@ if __name__ == "__main__":
         BATCH_SIZE=int(count_files_in_directory(train_files_path)/ gpu_num) 
         print(f"BATCH_SIZE={BATCH_SIZE}")
     else:
-        BATCH_SIZE=16
-    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=1,DEVICE=DEVICE)
+        # BATCH_SIZE=16
+        BATCH_SIZE=32
+    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=10,DEVICE=DEVICE)
 
     # Record the end time
     end_time = datetime.now()

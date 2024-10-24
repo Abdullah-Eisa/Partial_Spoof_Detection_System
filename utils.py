@@ -394,7 +394,7 @@ class AudioDataset(Dataset):
 
 
         # Get file name from file path
-        # filename_with_extension = file_path.split('\\')[-1]  # Get the last part of the path
+        # filename_with_extension = file_path.split('/')[-1]  # Get the last part of the path
         # filename_without_extension = filename_with_extension.split('.')[0]  # Remove the extension
         # print(f'inside AudioDataset , file_name: {file_name} , filename_without_extension: {filename_without_extension} ')
 

@@ -1,11 +1,34 @@
-# echo "# Partial_Spoof_Detection_System" >> README.md
+# Create and switch to a new branch (e.g., "new-branch-name")
+git checkout -b cloud_instance_0
+
+
+# Initialize the Git repository
 git init
+
+# Add all files to the staging area
 git add *
-git commit -m "add model parallelization using torch.nn.DataParallel , correct save_interval "
-git branch -M main
+
+# Commit your changes
+git commit -m "cloud_instance setup"
+
+
+
+# Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
-git push -u  origin main
-# git push -u --force origin main
+
+# Push the new branch to GitHub and set it to track the remote branch
+git push -u origin cloud_instance_0
+
+
+
+# # echo "# Partial_Spoof_Detection_System" >> README.md
+# git init
+# git add *
+# git commit -m "add model parallelization using torch.nn.DataParallel , correct save_interval "
+# git branch -M main
+# git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
+# git push -u  origin main
+# # git push -u --force origin main
 
 
 
