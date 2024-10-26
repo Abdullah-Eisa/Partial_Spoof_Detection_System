@@ -9,7 +9,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m "cloud_instance setup v2 , add label upsampling feature to utils.py"
+git commit -m "cloud_instance setup v3 , modify clould_instance_setup.sh , modify env_setup.sh "
 
 
 

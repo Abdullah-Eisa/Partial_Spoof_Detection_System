@@ -11,24 +11,18 @@ bash Miniconda3-latest-Linux-x86_64.sh
 ~/miniconda3/bin/conda init
 
 
-
+# restart/close and reopen the terminal
 conda --version
 
 
-# chmod -R 777 /path/to/your/folder
-PWD=pwd
-chmod -R 777 ${PWD}
+# Get the current working directory
+PWD=$(pwd)
+
+# Set permissions recursively
+chmod -R 777 "${PWD}"
+
+echo "Running env_setup.sh ..."
+sh ./env_setup.sh
 
 
-from transformers import Wav2Vec2Tokenizer, Wav2Vec2ForCTC
-
-# Define the model name
-model_name = "facebook/wav2vec2-base-960h"
-
-# Load the tokenizer and model
-tokenizer = Wav2Vec2Tokenizer.from_pretrained(model_name)
-model = Wav2Vec2ForCTC.from_pretrained(model_name)
-
-# Save them locally
-tokenizer.save_pretrained("./models/local_wav2vec2_tokenizer")
-model.save_pretrained("./models/local_wav2vec2_model")
+echo "Done"

@@ -1,49 +1,14 @@
 #!/bin/bash
 
-# # ==================== ENV with CPU ==============================
-
-# # Install dependency for ps_scratch environment
-
-# # Name of the conda environment
-# ENVNAME=ps_scratch
-# REQUIREMENT_FILE=ps_scratch_requirements.txt
-
-# eval "$(conda shell.bash hook)"
-
-# # conda create --name ${ENVNAME} --file ${REQUIREMENT_FILE}
-# conda activate ${ENVNAME}
-# retVal=$?
-# if [ $retVal -ne 0 ]; then
-#     echo "Install conda environment ${ENVNAME}"
-    
-#     # conda env
-#     conda create -n ${ENVNAME} python=3.9 pip --yes --file ${REQUIREMENT_FILE}
-#     conda activate ${ENVNAME}
-
-
-
-#     # make empty folders if not available
-#     python -c "import os; os.makedirs("database", exist_ok=True)"
-#     python -c "import os; os.makedirs("models", exist_ok=True)"
-#     python -c "import os; os.makedirs("outputs", exist_ok=True)"
-
-
-
-# else
-#     echo "Conda environment ${ENVNAME} has been installed"
-# fi
-
-
-
 # ==================== ENV with GPU ==============================
 # git clone -b <branch> <remote_repo>
-# git clone -b <branch> <remote_repo>
+# git clone -b cloud_instance_0  https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
 # Install dependency for ps_scratch environment
 
 # Name of the conda environment
 ENVNAME=ps_scratch
-REQUIREMENT_FILE=ps_scratch_requirements.txt
+# REQUIREMENT_FILE=ps_scratch_requirements.txt
 
 eval "$(conda shell.bash hook)"
 
@@ -85,6 +50,7 @@ if [ $retVal -ne 0 ]; then
 
 
 
+    PYCMD=$(cat <<EOF
     from transformers import Wav2Vec2Tokenizer, Wav2Vec2ForCTC
 
     # Define the model name
@@ -97,6 +63,10 @@ if [ $retVal -ne 0 ]; then
     # Save them locally
     tokenizer.save_pretrained("./models/local_wav2vec2_tokenizer")
     model.save_pretrained("./models/local_wav2vec2_model")
+    EOF
+    )
+
+    python -c "$PYCMD"
 
 
     
@@ -107,6 +77,42 @@ fi
 
 
 
+
+
+
+
+# # ==================== ENV with CPU ==============================
+
+# # Install dependency for ps_scratch environment
+
+# # Name of the conda environment
+# ENVNAME=ps_scratch
+# REQUIREMENT_FILE=ps_scratch_requirements.txt
+
+# eval "$(conda shell.bash hook)"
+
+# # conda create --name ${ENVNAME} --file ${REQUIREMENT_FILE}
+# conda activate ${ENVNAME}
+# retVal=$?
+# if [ $retVal -ne 0 ]; then
+#     echo "Install conda environment ${ENVNAME}"
+    
+#     # conda env
+#     conda create -n ${ENVNAME} python=3.9 pip --yes --file ${REQUIREMENT_FILE}
+#     conda activate ${ENVNAME}
+
+
+
+#     # make empty folders if not available
+#     python -c "import os; os.makedirs("database", exist_ok=True)"
+#     python -c "import os; os.makedirs("models", exist_ok=True)"
+#     python -c "import os; os.makedirs("outputs", exist_ok=True)"
+
+
+
+# else
+#     echo "Conda environment ${ENVNAME} has been installed"
+# fi
 
 
 
