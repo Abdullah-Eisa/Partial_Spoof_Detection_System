@@ -14,38 +14,6 @@ import torch.nn as torch_nn
 import torchaudio
 import torch.nn.functional as torch_nn_func
 
-# import sandbox.block_nn as nii_nn
-# import sandbox.util_frontend as nii_front_end
-# import core_scripts.other_tools.debug as nii_debug
-# import core_scripts.data_io.seq_info as nii_seq_tk
-# import core_modules.p2sgrad as nii_p2sgrad
-
-# from multi_scale.post import MaxPool1dLin_gmlp_scales
-# #s3prl
-# import s3prl.hub as hub
-# device = 'cuda'
-
-# ##############
-# ## util
-# ##############
-# PS_PATH="/home/smg/zhanglin/workspace/PROJ/Public/CODE/PartialSpoof" #path to PartialSpoof
-
-# Scale_num=7   
-# SSL_shift=1   ##since SSL use 20ms as frame shift, we start from 1. and 0 is for 10 ms...
-
-# Base_step=0.01 #in sec
-# Frame_shifts= np.array([pow(2, i) for i in np.arange(Scale_num)])[SSL_shift:] 
-# Frame_shifts_list= [pow(2, i) for i in np.arange(Scale_num)][SSL_shift:] 
-
-# LABEL_SCALE = 1
-# Multi_scales=Frame_shifts * Base_step #[0.01, 0.02, 0.04, 0.08, 0.16]
-
-# ASVSPOOF_PROTOCAL=PS_PATH+'/project-NN-Pytorch-scripts.202102/project/02-asvspoof/DATA/asvspoof2019_LA/protocol.txt' #protocal of asvspoof2019
-
-
-# hidd_dims ={'wav2vec':512, 'wav2vec2':768, 'hubert':768, 'wav2vec2_xlsr':1024, 'wavlm_base_plus':768, 'wav2vec2_local':1024}
-# ssl_model='wav2vec2_local'
-# ssl_ckpt=PS_PATH+'/modules/ssl_pretrain/w2v_large_lv_fsh_swbd_cv.pt'
 
 
 def protocol_parse(protocol_filepath):
@@ -393,7 +361,7 @@ class AudioDataset(Dataset):
         # label = self.labels_dict.get(file_name, -1).astype(int)
         label = self.labels_dict.get(file_name).astype(int)
         # print(f'{file_name} has label of type {type(label)}  with size , Array={label}')
-        label = torch.tensor(label, dtype=torch.uint8).to('cuda')
+        label = torch.tensor(label, dtype=torch.int8).to('cuda')
         # print(f'{file_name} has label of type {type(label)}  with size {label.size()}, Array={label}')
 
 
@@ -411,89 +379,88 @@ class AudioDataset(Dataset):
 
 
 
+# # upsampled_labels
+# import torch
+# import torch.nn.functional as F
+
 # def collate_fn(batch):
 #     batch = [item for item in batch if item is not None]  # Remove None values
 #     if len(batch) == 0:
 #         return None
-    
+
 #     features = [item['features'] for item in batch]
 #     labels = [item['label'] for item in batch]
-    
+
 #     # Pad features to have the same length
 #     features_padded = pad_sequence(features, batch_first=True)
 
 #     # Determine the maximum length of labels in the batch
+#     # max_label_length = max(label.size(0) for label in labels)
 #     max_label_length = 33
 
-#     # Pad labels to the fixed length of 33
-#     labels_padded = []
+#     # Upsample labels to the maximum length using interpolation
+#     labels_upsampled = []
 #     for label in labels:
-#         # If the label is shorter than the fixed length, pad it
-#         if label.size(0) < max_label_length:
-#             padded_label = F.pad(label, (0, max_label_length - label.size(0)), value=0)
+#         # Convert label to float for interpolation
+#         label_float = label.float()  # Convert to float tensor
+#         if label_float.size(0) < max_label_length:
+#             # Calculate the scale factor
+#             scale_factor = max_label_length / label_float.size(0)
+#             # Upsample using interpolation
+#             upsampled_label = F.interpolate(label_float.unsqueeze(0).unsqueeze(0), size=max_label_length, mode='linear', align_corners=True).squeeze(0).squeeze(0)
 #         else:
-#             padded_label = label[:max_label_length]
-#         labels_padded.append(padded_label)
-    
-#     # Stack padded labels to a single tensor
-#     labels_padded = torch.stack(labels_padded)
+#             upsampled_label = label_float
+#         labels_upsampled.append(upsampled_label)
+
+#     # Stack upsampled labels to a single tensor
+#     labels_upsampled = torch.stack(labels_upsampled)
 
 #     return {
 #         'features': features_padded.to('cuda'),
-#         'label': labels_padded.to('cuda'),
+#         'label': labels_upsampled.to('cuda'),
 #         'file_name': [item['file_name'] for item in batch]
 #     }
 
 
 
-# upsampled_labels
-import torch
-import torch.nn.functional as F
-
 def collate_fn(batch):
     batch = [item for item in batch if item is not None]  # Remove None values
     if len(batch) == 0:
         return None
-
+    
     features = [item['features'] for item in batch]
     labels = [item['label'] for item in batch]
-
+    
     # Pad features to have the same length
     features_padded = pad_sequence(features, batch_first=True)
 
     # Determine the maximum length of labels in the batch
-    # max_label_length = max(label.size(0) for label in labels)
     max_label_length = 33
 
-    # Upsample labels to the maximum length using interpolation
-    labels_upsampled = []
+    # Pad labels to the fixed length of 33
+    labels_padded = []
     for label in labels:
-        # Convert label to float for interpolation
-        label_float = label.float()  # Convert to float tensor
-        if label_float.size(0) < max_label_length:
-            # Calculate the scale factor
-            scale_factor = max_label_length / label_float.size(0)
-            # Upsample using interpolation
-            upsampled_label = F.interpolate(label_float.unsqueeze(0).unsqueeze(0), size=max_label_length, mode='linear', align_corners=True).squeeze(0).squeeze(0)
+        # If the label is shorter than the fixed length, pad it
+        if label.size(0) < max_label_length:
+            padded_label = F.pad(label, (0, max_label_length - label.size(0)), value=-1)
+            # padded_label = F.pad(label, (0, max_label_length - label.size(0)), value=float('nan'))
         else:
-            upsampled_label = label_float
-        labels_upsampled.append(upsampled_label)
-
-    # Stack upsampled labels to a single tensor
-    labels_upsampled = torch.stack(labels_upsampled)
+            padded_label = label[:max_label_length]
+        labels_padded.append(padded_label)
+    
+    # Stack padded labels to a single tensor
+    labels_padded = torch.stack(labels_padded)
 
     return {
         'features': features_padded.to('cuda'),
-        'label': labels_upsampled.to('cuda'),
+        'label': labels_padded.to('cuda'),
         'file_name': [item['file_name'] for item in batch]
     }
 
 
 
 
-
-
-def compute_det_curve(target_scores, nontarget_scores):
+def compute_det_curve(nontarget_scores,target_scores):
     # Flatten the input arrays to ensure they are 1D
     target_scores = np.ravel(target_scores)
     nontarget_scores = np.ravel(nontarget_scores)
@@ -516,9 +483,13 @@ def compute_det_curve(target_scores, nontarget_scores):
 
     return frr, far, thresholds
 
-def compute_eer(target_scores, nontarget_scores):
+def compute_eer(nontarget_scores,target_scores):
     """ Returns equal error rate (EER) and the corresponding threshold. """
     
+    # Mask padding value
+    nontarget_scores,target_scores =get_masked_labels_and_outputs(nontarget_scores,target_scores)
+    print(f"after Mask padding value,\n nontarget_scores=\n{nontarget_scores} target_scores=\n{target_scores} ")
+
     # Ensure scores and labels are PyTorch tensors and detach them
     nontarget_scores = nontarget_scores.detach().cpu().numpy()
     target_scores = target_scores.detach().cpu().numpy()
@@ -535,7 +506,7 @@ def compute_eer(target_scores, nontarget_scores):
 
             # Compute EER for the i-th label
             try:
-                frr, far, thresholds = compute_det_curve(score_i, nontarget_i)
+                frr, far, thresholds = compute_det_curve(nontarget_i,score_i)
                 abs_diffs = np.abs(frr - far)
                 min_index = np.argmin(abs_diffs)
                 eer = np.mean((frr[min_index], far[min_index]))
@@ -555,7 +526,7 @@ def compute_eer(target_scores, nontarget_scores):
 
     else:
         # Single label case
-        frr, far, thresholds = compute_det_curve(target_scores, nontarget_scores)
+        frr, far, thresholds = compute_det_curve(nontarget_scores,target_scores)
         abs_diffs = np.abs(frr - far)
 
         # Check for NaN values
@@ -775,14 +746,28 @@ def load_checkpoint(model, optimizer, path='checkpoint.pth'):
 
 
 
-def get_uttEER_by_seg(outputs):
+def get_uttEER_by_seg(outputs,labels):
     """
     Measure Utterance EER based on segment-level score vectors.
     For each utteracne, using min() to choose the minimum segment score as the utterance score. 
     """
-    # torch.max(outputs, dim=1, keepdim=True)[0])
-    return torch.min(outputs, dim=1, keepdim=True).values
-    # return torch.max(outputs, dim=1, keepdim=True).values
+
+    mask_tensor = (labels != -1)
+    # Initialize masked_output with a default value (e.g., NaN) to keep the same shape
+    masked_outputs = outputs.clone()  # Copy the original output tensor
+    # masked_outputs[~mask_tensor] = float('nan')  # Set invalid positions to NaN
+    # masked_outputs[~mask_tensor] = float('inf')  # Set invalid positions to inf
+    masked_outputs[~mask_tensor] = 128  # Set invalid positions to a placeholder value (e.g., 128), max number in int8
+    # print(f"masked_output:\n {masked_outputs}")
+
+    # If masked_outputs is 1D, just get the minimum value
+    if masked_outputs.dim() == 1:
+        # print("masked_outputs.dim() = 1")
+        return torch.min(masked_outputs).unsqueeze(0)  # Return as 1D tensor
+
+    # If masked_outputs is 2D, get the minimum across the specified dimension
+    # return torch.max(masked_outputs, dim=1, keepdim=True).values
+    return torch.min(masked_outputs, dim=1, keepdim=True).values
 
 
 
@@ -794,3 +779,53 @@ def count_files_in_directory(directory):
     file_count = sum(1 for entry in entries if os.path.isfile(os.path.join(directory, entry)))
     
     return file_count
+
+
+
+
+import torch
+import torch.nn as nn
+
+class CustomLoss(nn.Module):
+    def __init__(self):
+        super(CustomLoss, self).__init__()
+
+    def forward(self, model_output, labels_tensor):
+        # Convert labels to float for BCEWithLogitsLoss
+        labels_tensor = labels_tensor.float()
+
+        # Create mask: 1 for valid entries (not -1), 0 for padding (-1)
+        mask_tensor = (labels_tensor != -1).float()
+
+        # Use BCEWithLogitsLoss with reduction='none' to compute loss per element
+        loss_fn = nn.BCEWithLogitsLoss(reduction='none')
+        loss_per_element = loss_fn(model_output, labels_tensor)
+
+        # Apply mask to ignore padding positions
+        masked_loss = loss_per_element * mask_tensor  # Zero out losses for padded positions
+
+        # Calculate the mean of the masked loss for valid positions
+        total_loss = masked_loss.sum()
+        valid_elements_count = mask_tensor.sum()
+
+        if valid_elements_count > 0:
+            return total_loss / valid_elements_count
+        else:
+            return torch.tensor(0.0, device=model_output.device)  # Return 0 if no valid entries
+
+
+
+
+def get_masked_labels_and_outputs(model_output,labels_tensor):
+    # Create mask to identify valid labels (not -1)
+    mask_tensor = (labels_tensor != -1)
+    # print(f"mask_tensor:\n {mask_tensor}")
+    # Remove -1 values from labels using the mask
+    masked_labels = labels_tensor[mask_tensor]
+
+    # Remove equivalent positions in the output tensor using the mask
+    masked_output = model_output[mask_tensor]
+
+    return masked_output,masked_labels 
+
+

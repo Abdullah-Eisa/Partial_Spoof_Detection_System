@@ -1,3 +1,6 @@
+git config --global user.email "s-abdallah@zewailcity.edu.eg"
+git config --global user.name "Abdullah"
+
 # Create and switch to a new branch (e.g., "new-branch-name")
 git checkout -b cloud_instance_0
 
@@ -9,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m "cloud_instance setup v3 , modify clould_instance_setup.sh , modify env_setup.sh "
+git commit -m "cloud_instance setup v4, add Labels Alignment via Padding with value=-1 , implement get_masked_labels_and_outputs function , add Masking to Custom loss function , add masking to compute_eer , add masking to get_uttEER_by_seg"
 
 
 

@@ -112,8 +112,9 @@ def train_model(train_directory, train_labels_dict,
         print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
 
     
-    # criterion = nn.BCEWithLogitsLoss()  # Binary Cross Entropy Loss with Logits for multi-label classification
-    criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
+
+    # criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
+    criterion = CustomLoss()
     optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
     
     # Get the data loader
@@ -147,7 +148,7 @@ def train_model(train_directory, train_labels_dict,
 
 
             # Calculate loss
-            loss = criterion(outputs, labels.float())  # Convert labels to float for BCELoss
+            loss = criterion(outputs, labels)  
             epoch_loss += loss.item()
 
 
@@ -159,7 +160,7 @@ def train_model(train_directory, train_labels_dict,
             with torch.no_grad():  # No need to compute gradients for EER calculation
 
                 # Calculate utterance predictions
-                utterance_predictions.extend(get_uttEER_by_seg(outputs))
+                utterance_predictions.extend(get_uttEER_by_seg(outputs,labels))
 
                 # Calculate segment EER
                 batch_segment_eer, batch_segment_eer_threshold = compute_eer(outputs, labels)

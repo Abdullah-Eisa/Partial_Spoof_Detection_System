@@ -35,8 +35,10 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
         print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
 
 
-    criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
 
+    # Calculate loss
+    # loss = criterion(outputs, labels.float())  # Convert labels to float for BCELoss
+    criterion = CustomLoss()
 
     files_names=[]
 
@@ -55,12 +57,12 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
             outputs = PS_Model(features)
 
             # Calculate loss
-            loss = criterion(outputs, labels.float())  # Convert labels to float for BCELoss
+            loss = criterion(outputs, labels) 
             epoch_loss += loss.item()
 
             with torch.no_grad():
                 # Calculate utterance predictions
-                utterance_predictions.extend(get_uttEER_by_seg(outputs))
+                utterance_predictions.extend(get_uttEER_by_seg(outputs,labels))
 
                 # Calculate segment EER
                 batch_segment_eer, batch_segment_eer_threshold = compute_eer(outputs, labels)
@@ -121,8 +123,9 @@ def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_
     PartialSpoof_LA_cm_eval_trl_dict_path = os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json')
     PartialSpoof_LA_cm_eval_trl_dict= load_json_dictionary(PartialSpoof_LA_cm_eval_trl_dict_path)
 
-    criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
-
+    # Calculate loss
+    # loss = criterion(outputs, labels.float())  # Convert labels to float for BCELoss
+    criterion = CustomLoss()
 
     files_names=[]
 
@@ -141,13 +144,13 @@ def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_
             labels = batch['label'].to(DEVICE)
             
             outputs = PS_Model(features)
-            loss = criterion(outputs, labels.float())  # Convert labels to float for BCELoss
+            loss = criterion(outputs, labels) 
             epoch_loss += loss.item()
 
 
             with torch.no_grad():
                 # Calculate utterance predictions
-                utterance_predictions.extend(get_uttEER_by_seg(outputs))
+                utterance_predictions.extend(get_uttEER_by_seg(outputs,labels))
 
                 # Calculate segment EER
                 batch_segment_eer, batch_segment_eer_threshold = compute_eer(outputs, labels)

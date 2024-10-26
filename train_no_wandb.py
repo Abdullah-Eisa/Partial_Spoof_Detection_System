@@ -89,10 +89,9 @@ def train_model(train_directory, train_labels_dict,
                 tokenizer,feature_extractor,
                 BATCH_SIZE=32, NUM_EPOCHS=1,LEARNING_RATE=0.001,
                 model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
-                DEVICE='cpu',save_interval=3):
+                DEVICE='cpu',save_interval=100):
 
-    # Initialize W&B
-    # wandb.init(project='partial_spoof_trial_0')
+
 
     # Ensure the model save path exists
     os.makedirs(model_save_path, exist_ok=True)
@@ -113,7 +112,8 @@ def train_model(train_directory, train_labels_dict,
 
 
     # criterion = nn.BCEWithLogitsLoss()  # Binary Cross Entropy Loss with Logits for multi-label classification
-    criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
+    # criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
+    criterion = CustomLoss()
     optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
     
     # Get the data loader
@@ -148,7 +148,7 @@ def train_model(train_directory, train_labels_dict,
 
 
             # Calculate loss
-            loss = criterion(outputs, labels.float())  # Convert labels to float for BCELoss
+            loss = criterion(outputs, labels) 
             epoch_loss += loss.item()
 
 
@@ -160,8 +160,7 @@ def train_model(train_directory, train_labels_dict,
             with torch.no_grad():  # No need to compute gradients for EER calculation
 
                 # Calculate utterance predictions
-
-                utterance_predictions.extend(get_uttEER_by_seg(outputs))
+                utterance_predictions.extend(get_uttEER_by_seg(outputs,labels))
 
                 # Calculate segment EER
                 batch_segment_eer, batch_segment_eer_threshold = compute_eer(outputs, labels)
@@ -188,6 +187,9 @@ def train_model(train_directory, train_labels_dict,
 
         # Get Average Utterance EER for the epoch
         if epoch ==0: utterance_labels =[PartialSpoof_LA_cm_train_trl_dict[file_name] for file_name in files_names]
+        print(f"utterance_labels:\n {utterance_labels}")
+        print(f"utterance_predictions:\n {utterance_predictions}") 
+
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_eer(utterance_predictions,torch.tensor(utterance_labels))
 
@@ -199,7 +201,7 @@ def train_model(train_directory, train_labels_dict,
         # Print epoch training progress
         print(f'Epoch [{epoch + 1}/{NUM_EPOCHS}] Complete. Average Loss /epoch : {epoch_loss:.4f},\n'
                f'Average Segment EER: {epoch_segment_eer:.4f}, Average Segment EER Threshold: {epoch_segment_eer_threshold:.4f},\n'
-               f'Average Utterance EER: {utterance_eer:.4f}, Average Utterance EER Threshold: {utterance_eer_threshold:.4f}')
+               f'Average Training  Utterance EER: {utterance_eer:.4f}, Average Training Utterance EER Threshold: {utterance_eer_threshold:.4f}')
 
 
         training_segment_eer_per_epoch.append(epoch_segment_eer)
@@ -214,17 +216,6 @@ def train_model(train_directory, train_labels_dict,
         dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict, tokenizer,feature_extractor, BATCH_SIZE,DEVICE=DEVICE)
         dev_segment_eer_per_epoch.append(dev_metrics_dict['segment_eer'])
 
-        # wandb.log({'epoch': epoch+1,'training_loss_epoch': epoch_loss,
-        #     'training_segment_eer_epoch': epoch_segment_eer, 
-        #     'training_segment_eer_threshold_epoch': epoch_segment_eer_threshold,
-        #     'training_utterance_eer_epoch': utterance_eer,
-        #     'training_utterance_eer_threshold_epoch': utterance_eer_threshold, 
-        #     'validation_loss_epoch': dev_metrics_dict['epoch_loss'],
-        #     'validation_segment_eer_epoch': dev_metrics_dict['segment_eer'], 
-        #     'validation_segment_eer_threshold_epoch': dev_metrics_dict['segment_eer_threshold'],
-        #     'validation_utterance_eer_epoch': dev_metrics_dict['utterance_eer'],
-        #     'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold']                      
-        #     })
 
     # plot training EER per epoch
     plot_eer_per_epoch(NUM_EPOCHS, training_segment_eer_per_epoch,os.path.join(os.getcwd(),'outputs'))
