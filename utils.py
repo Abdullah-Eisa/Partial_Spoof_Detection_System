@@ -488,7 +488,7 @@ def compute_eer(nontarget_scores,target_scores):
     
     # Mask padding value
     nontarget_scores,target_scores =get_masked_labels_and_outputs(nontarget_scores,target_scores)
-    print(f"after Mask padding value,\n nontarget_scores=\n{nontarget_scores} target_scores=\n{target_scores} ")
+    # print(f"after Mask padding value,\n nontarget_scores=\n{nontarget_scores} target_scores=\n{target_scores} ")
 
     # Ensure scores and labels are PyTorch tensors and detach them
     nontarget_scores = nontarget_scores.detach().cpu().numpy()

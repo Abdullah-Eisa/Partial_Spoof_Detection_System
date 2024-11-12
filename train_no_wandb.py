@@ -187,8 +187,8 @@ def train_model(train_directory, train_labels_dict,
 
         # Get Average Utterance EER for the epoch
         if epoch ==0: utterance_labels =[PartialSpoof_LA_cm_train_trl_dict[file_name] for file_name in files_names]
-        print(f"utterance_labels:\n {utterance_labels}")
-        print(f"utterance_predictions:\n {utterance_predictions}") 
+        # print(f"utterance_labels:\n {utterance_labels}")
+        # print(f"utterance_predictions:\n {utterance_predictions}") 
 
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_eer(utterance_predictions,torch.tensor(utterance_labels))
@@ -208,8 +208,8 @@ def train_model(train_directory, train_labels_dict,
 
         BASE_DIR = os.getcwd()
         # Define development files and labels
-        # dev_files_path=os.path.join(BASE_DIR,'database/dev/con_wav')
-        dev_files_path=os.path.join(BASE_DIR,'database/mini_database/dev')
+        dev_files_path=os.path.join(BASE_DIR,'database/dev/con_wav')
+        # dev_files_path=os.path.join(BASE_DIR,'database/mini_database/dev')
         dev_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/dev_seglab_0.64.npy')
         dev_seglab_64_dict = np.load(dev_seglab_64_path, allow_pickle=True).item()
 
@@ -265,8 +265,8 @@ if __name__ == "__main__":
     # Define training files and labels
     # train_files_path=os.path.join(BASE_DIR,'database/mini_database/train')
     # train_files_path=os.path.join(BASE_DIR,'database/mini_database/train2')
-    train_files_path=os.path.join(BASE_DIR,'database/mini_database/train3')
-    # train_files_path=os.path.join(BASE_DIR,'database/train/con_wav')
+    # train_files_path=os.path.join(BASE_DIR,'database/mini_database/train3')
+    train_files_path=os.path.join(BASE_DIR,'database/train/con_wav')
     train_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/train_seglab_0.64.npy')
     train_seglab_64_dict = np.load(train_seglab_64_path, allow_pickle=True).item()
 
@@ -287,8 +287,8 @@ if __name__ == "__main__":
         print(f"BATCH_SIZE={BATCH_SIZE}")
     else:
         # BATCH_SIZE=16
-        BATCH_SIZE=32
-    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=30,DEVICE=DEVICE)
+        BATCH_SIZE=8
+    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=1,DEVICE=DEVICE)
 
     # Record the end time
     end_time = datetime.now()
