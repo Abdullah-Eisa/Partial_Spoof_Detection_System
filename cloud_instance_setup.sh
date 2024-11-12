@@ -1,15 +1,17 @@
-# whoami
+whoami
 
-# apt update
-# apt install sudo
+apt update
+apt install sudo
 
 
-# wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 
-# bash Miniconda3-latest-Linux-x86_64.sh
+bash Miniconda3-latest-Linux-x86_64.sh
 
-# ~/miniconda3/bin/conda init
-
+# when using root/container disk 
+~/miniconda3/bin/conda init
+# when using workspace/network disk 
+# /workspace/miniconda3/bin/conda init
 
 # restart/close and reopen the terminal
 conda --version
