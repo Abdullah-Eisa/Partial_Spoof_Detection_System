@@ -312,15 +312,28 @@ from torch.nn.utils.rnn import pad_sequence
 
 
 
-class AudioDataset(Dataset):
-    def __init__(self, directory, labels_dict, tokenizer,feature_extractor, transform=None, normalize=True):
+class RawLabeledAudioDataset(Dataset):
+    def __init__(self, directory,labels_dict, transform=None):
+        """
+        Args:
+            directory (str): Path to the directory containing the audio files.
+            save_dir (str): Path to the directory where the extracted features will be saved.
+            tokenizer (callable): A tokenizer for preprocessing the audio data.
+            feature_extractor (callable): Feature extractor model (e.g., from HuggingFace).
+            transform (callable, optional): Optional transform to apply to the waveform.
+            normalize (bool, optional): Whether to normalize the extracted features. Default is True.
+        """
         self.directory = directory
         self.labels_dict = labels_dict
-        self.tokenizer = tokenizer
-        self.feature_extractor = feature_extractor
+        # self.save_dir = save_dir
+        # self.tokenizer = tokenizer
+        # self.feature_extractor = feature_extractor
         self.transform = transform
-        self.normalize = normalize
+        # self.normalize = normalize
         self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')]
+
+        # Ensure the save directory exists
+        # os.makedirs(save_dir, exist_ok=True)
 
     def __len__(self):
         return len(self.file_list)
@@ -333,108 +346,35 @@ class AudioDataset(Dataset):
             waveform, sample_rate = torchaudio.load(file_path)
         except Exception as e:
             print(f"Error loading audio file {file_path}: {e}")
-            return None  # Or handle the error differently
+            return None
 
         if self.transform:
             waveform = self.transform(waveform)
 
-        # inputs = self.tokenizer(waveform.squeeze().numpy(), sampling_rate=sample_rate, return_tensors="pt", padding=True)
-        inputs = self.tokenizer(waveform.squeeze().numpy(), sampling_rate=sample_rate, return_tensors="pt", padding="longest")
-        # print(f'{file_name} has tokenized inputs of type {type(inputs)}  with size {inputs.size()}')
-        # print(f'{file_name} has tokenized inputs of type {type(inputs)}')
-
-        with torch.no_grad():
-            for key in inputs:
-                inputs[key] = inputs[key].to('cuda')
-
-            # inputs = inputs().to('cuda')
-            features = self.feature_extractor(**inputs).last_hidden_state.squeeze(0)
-            # print(f'{file_name} has extracted features of type {type(features)}  with size {features.size()}')
-
-
-        if self.normalize:
-            features = F.normalize(features, dim=1)
-
-
-        file_name=file_name.split('.')[0]
-
-        # label = self.labels_dict.get(file_name, -1).astype(int)
+        # Return raw waveform and sample rate
+        file_name = file_name.split('.')[0]
         label = self.labels_dict.get(file_name).astype(int)
-        # print(f'{file_name} has label of type {type(label)}  with size , Array={label}')
-        label = torch.tensor(label, dtype=torch.int8).to('cuda')
-        # print(f'{file_name} has label of type {type(label)}  with size {label.size()}, Array={label}')
 
-
-        # Get file name from file path
-        # filename_with_extension = file_path.split('/')[-1]  # Get the last part of the path
-        # filename_without_extension = filename_with_extension.split('.')[0]  # Remove the extension
-        # print(f'inside AudioDataset , file_name: {file_name} , filename_without_extension: {filename_without_extension} ')
-
-        # return {'features': features, 'label': label, 'file_path': file_path}
-        return {'features': features, 'label': label, 'file_name': file_name}
-        # return {'features': features, 'label': label, 'file_path': filename_without_extension}
+        label = torch.tensor(label, dtype=torch.int8)
+        return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
 
 
 
 
 
 
-# # upsampled_labels
-# import torch
-# import torch.nn.functional as F
-
-# def collate_fn(batch):
-#     batch = [item for item in batch if item is not None]  # Remove None values
-#     if len(batch) == 0:
-#         return None
-
-#     features = [item['features'] for item in batch]
-#     labels = [item['label'] for item in batch]
-
-#     # Pad features to have the same length
-#     features_padded = pad_sequence(features, batch_first=True)
-
-#     # Determine the maximum length of labels in the batch
-#     # max_label_length = max(label.size(0) for label in labels)
-#     max_label_length = 33
-
-#     # Upsample labels to the maximum length using interpolation
-#     labels_upsampled = []
-#     for label in labels:
-#         # Convert label to float for interpolation
-#         label_float = label.float()  # Convert to float tensor
-#         if label_float.size(0) < max_label_length:
-#             # Calculate the scale factor
-#             scale_factor = max_label_length / label_float.size(0)
-#             # Upsample using interpolation
-#             upsampled_label = F.interpolate(label_float.unsqueeze(0).unsqueeze(0), size=max_label_length, mode='linear', align_corners=True).squeeze(0).squeeze(0)
-#         else:
-#             upsampled_label = label_float
-#         labels_upsampled.append(upsampled_label)
-
-#     # Stack upsampled labels to a single tensor
-#     labels_upsampled = torch.stack(labels_upsampled)
-
-#     return {
-#         'features': features_padded.to('cuda'),
-#         'label': labels_upsampled.to('cuda'),
-#         'file_name': [item['file_name'] for item in batch]
-#     }
-
-
-
-def collate_fn(batch):
+def custom_collate_fn(batch):
     batch = [item for item in batch if item is not None]  # Remove None values
     if len(batch) == 0:
         return None
     
-    features = [item['features'] for item in batch]
+    waveforms = [item['waveform'] for item in batch]
     labels = [item['label'] for item in batch]
-    
-    # Pad features to have the same length
-    features_padded = pad_sequence(features, batch_first=True)
 
-    # Determine the maximum length of labels in the batch
+    # Pad waveforms to have the same length
+    waveforms_padded=pad_sequence([waveform.squeeze(0) for waveform in waveforms], batch_first=True)
+
+    # Determine the maximum length of labels in the dataset
     max_label_length = 33
 
     # Pad labels to the fixed length of 33
@@ -452,114 +392,75 @@ def collate_fn(batch):
     labels_padded = torch.stack(labels_padded)
 
     return {
-        'features': features_padded.to('cuda'),
-        'label': labels_padded.to('cuda'),
+        'waveform': waveforms_padded,
+        'label': labels_padded,
+        'sample_rate': [item['sample_rate'] for item in batch],
         'file_name': [item['file_name'] for item in batch]
     }
 
 
 
 
-def compute_det_curve(nontarget_scores,target_scores):
-    # Flatten the input arrays to ensure they are 1D
-    target_scores = np.ravel(target_scores)
-    nontarget_scores = np.ravel(nontarget_scores)
 
-    n_scores = target_scores.size + nontarget_scores.size
-    all_scores = np.concatenate((target_scores, nontarget_scores))
-    labels = np.concatenate((np.ones(target_scores.size), np.zeros(nontarget_scores.size)))
+def compute_eer(predictions, labels):
 
-    # Sort labels based on scores
-    indices = np.argsort(all_scores, kind='mergesort')
-    labels = labels[indices]
-
-    # Compute false rejection and false acceptance rates
-    tar_trial_sums = np.cumsum(labels)
-    nontarget_trial_sums = nontarget_scores.size - (np.arange(1, n_scores + 1) - tar_trial_sums)
-
-    frr = np.concatenate((np.atleast_1d(0), tar_trial_sums / target_scores.size))  # false rejection rates
-    far = np.concatenate((np.atleast_1d(1), nontarget_trial_sums / nontarget_scores.size))  # false acceptance rates
-    thresholds = np.concatenate((np.atleast_1d(all_scores[indices[0]] - 0.001), all_scores[indices]))  # Thresholds are the sorted scores
-
-    return frr, far, thresholds
-
-def compute_eer(nontarget_scores,target_scores):
-    """ Returns equal error rate (EER) and the corresponding threshold. """
-    
     # Mask padding value
-    nontarget_scores,target_scores =get_masked_labels_and_outputs(nontarget_scores,target_scores)
+    predictions, labels =get_masked_labels_and_outputs(predictions, labels)
     # print(f"after Mask padding value,\n nontarget_scores=\n{nontarget_scores} target_scores=\n{target_scores} ")
-
+    # print(f"after Masking,\n predictions= {predictions} \n labels= {labels}")
     # Ensure scores and labels are PyTorch tensors and detach them
-    nontarget_scores = nontarget_scores.detach().cpu().numpy()
-    target_scores = target_scores.detach().cpu().numpy()
-
-    # Check if inputs are multi-dimensional
-    if target_scores.ndim > 1 and target_scores.shape[0] == nontarget_scores.shape[0]:
-        num_labels = target_scores.shape[0]
-        eer_results = []
-
-        for i in range(num_labels):
-            # Flatten scores for the i-th label
-            score_i = target_scores[i, :]
-            nontarget_i = nontarget_scores[i, :] if nontarget_scores.ndim > 1 else nontarget_scores
-
-            # Compute EER for the i-th label
-            try:
-                frr, far, thresholds = compute_det_curve(nontarget_i,score_i)
-                abs_diffs = np.abs(frr - far)
-                min_index = np.argmin(abs_diffs)
-                eer = np.mean((frr[min_index], far[min_index]))
-                eer_results.append((eer, thresholds[min_index]))
-            except Exception as e:
-                print(f"Error computing EER for label {i}: {e}")
-                continue
-
-        if not eer_results:
-            raise ValueError("No valid EER results found.")
-
-        # Averaging EERs across all labels
-        avg_eer = np.mean([eer for eer, _ in eer_results])
-        avg_eer_threshold = np.mean([eer_threshold for _, eer_threshold in eer_results])
-        
-        return avg_eer, avg_eer_threshold
-
+    predictions = predictions.detach().cpu().numpy()
+    labels = labels.detach().cpu().numpy()
+    
+    if labels.ndim > 1 and labels.shape[0] == predictions.shape[0]:
+        raise ValueError("labels dimension > 1, 1D vector is only supported for EER computation")
     else:
-        # Single label case
-        frr, far, thresholds = compute_det_curve(nontarget_scores,target_scores)
-        abs_diffs = np.abs(frr - far)
+        # Compute false positive rate (fpr), true positive rate (tpr), and thresholds
+        fpr, tpr, thresholds = roc_curve(labels, predictions)
+        
+        # False Rejection Rate (FRR) is equal to 1 - TPR
+        fnr = 1 - tpr
 
         # Check for NaN values
-        if np.any(np.isnan(frr)) or np.any(np.isnan(far)):
-            raise ValueError("NaN values found in frr or far. Cannot compute EER.")
+        if np.any(np.isnan(fnr)) or np.any(np.isnan(fpr)):
+            raise ValueError("NaN values found in fnr or fpr. Cannot compute EER.")
 
-        min_index = np.argmin(abs_diffs)
-        eer = np.mean((frr[min_index], far[min_index]))
-        return eer, thresholds[min_index]
-
-
-
-
-
-
-
+        # Find the threshold where fpr (FAR) and frr are closest
+        eer_threshold_index = np.nanargmin(np.abs(fpr - fnr))
+        eer = (fpr[eer_threshold_index] + fnr[eer_threshold_index]) / 2  # EER is the point where FAR ≈ FRR
+        
+        # EER value and threshold where it occurs
+        eer_threshold = thresholds[eer_threshold_index]
+        
+        return eer, eer_threshold
 
 
 
 
 
+# from torch.utils.data import DataLoader
+import torch.multiprocessing as mp
 
-def get_audio_data_loaders(directory, labels_dict, tokenizer,feature_extractor, batch_size=32, shuffle=True, num_workers=0, prefetch_factor=None):
-    dataset = AudioDataset(directory, labels_dict, tokenizer,feature_extractor)
+# Assuming AudioDataset and collate_fn are defined elsewhere
+def get_raw_labeled_audio_data_loaders(directory, labels_dict, batch_size=32, shuffle=True, num_workers=0, prefetch_factor=None):
+    
+    # If multiprocessing is used, set start method to 'spawn' (for avoiding pickling issues)
+    if num_workers > 0:
+        mp.set_start_method('spawn', force=True)
+    
+    # Create the dataset instance
+    dataset = RawLabeledAudioDataset(directory, labels_dict)
+    
+    # Create the DataLoader
     data_loader = DataLoader(
         dataset,
         batch_size=batch_size, 
         shuffle=shuffle, 
         num_workers=num_workers, 
-        # pin_memory=True,  # Enable this for faster transfers
-        prefetch_factor=prefetch_factor,
-        collate_fn=collate_fn
-        )
+        pin_memory=True,  # Enable page-locked memory for faster data transfer to GPU
+        prefetch_factor=prefetch_factor,  # How many batches to prefetch per worker
+        collate_fn=custom_collate_fn  # Custom collate function to handle variable-length inputs
+    )
     
     return data_loader
 
@@ -741,7 +642,7 @@ def load_checkpoint(model, optimizer, path='checkpoint.pth'):
     checkpoint = torch.load(path)
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    return checkpoint['epoch']
+    return model,optimizer,checkpoint['epoch']
 
 
 

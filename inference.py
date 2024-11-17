@@ -23,9 +23,17 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
     PartialSpoof_LA_cm_dev_trl_dict= load_json_dictionary(PartialSpoof_LA_cm_dev_trl_dict_path)
 
     # Get the data loader
-    feature_extractor=feature_extractor.to(DEVICE)
-    dev_loader = get_audio_data_loaders(dev_directory, labels_dict, tokenizer,feature_extractor, batch_size=BATCH_SIZE, shuffle=True)
 
+    # dev_loader = get_audio_data_loaders(dev_directory, labels_dict, tokenizer,feature_extractor, batch_size=BATCH_SIZE, shuffle=True)
+    dev_loader = get_raw_labeled_audio_data_loaders(dev_directory, labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=2, prefetch_factor=2)
+    # loader_iter = iter(data_loader) # preloading starts here
+
+    # with the default prefetch_factor of 2, 2*num_workers=16 batches will be preloaded
+    # the max index printed by __getitem__ is thus 31 (16*batch_size=32 samples loaded)
+
+    # data = next(loader_iter) # this will consume a batch and preload the next one from a single worker to fill the queue
+    # batch_size=2 new samples should be loaded
+    
     # Validation phase
     PS_Model.eval()  # Set the model to evaluation mode
 
@@ -38,22 +46,32 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
 
     # Calculate loss
     # loss = criterion(outputs, labels.float())  # Convert labels to float for BCELoss
-    criterion = CustomLoss()
+    criterion = CustomLoss().to(DEVICE)
 
     files_names=[]
 
     epoch_loss = 0
-    epoch_segment_eer = 0
-    epoch_segment_eer_threshold = 0
     utterance_eer, utterance_eer_threshold=0,0
+    segment_eer, segment_eer_threshold=0,0
     utterance_predictions=[]
+    segment_predictions=[]
+    segment_labels=[]
 
     with torch.no_grad():
         for batch in tqdm(dev_loader, desc="Dev Batches", leave=False):
-
-            features = batch['features'].to(DEVICE)
+        # for i in range(len(data_loader)):
+        #     data = next(loader_iter)
+        #     waveforms = data['waveform'].to(DEVICE)
+        #     labels = data['label'].to(DEVICE)
+            waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
 
+            # Forward pass through wav2vec2 for feature extraction
+            inputs = tokenizer(waveforms.squeeze().cpu().numpy(), sampling_rate=batch['sample_rate'], return_tensors="pt", padding="longest").to(DEVICE)
+            features = feature_extractor(input_values=inputs['input_values']).last_hidden_state
+            # print(f'type {type(features)}  with size {features.size()} , features= {features}')
+
+            # Pass features to model and get predictions
             outputs = PS_Model(features)
 
             # Calculate loss
@@ -64,10 +82,8 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
                 # Calculate utterance predictions
                 utterance_predictions.extend(get_uttEER_by_seg(outputs,labels))
 
-                # Calculate segment EER
-                batch_segment_eer, batch_segment_eer_threshold = compute_eer(outputs, labels)
-                epoch_segment_eer += batch_segment_eer
-                epoch_segment_eer_threshold += batch_segment_eer_threshold
+                segment_predictions.extend(outputs)
+                segment_labels.extend(labels)
 
 
                 # Accumulate files names
@@ -82,19 +98,21 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_eer(utterance_predictions,torch.tensor(utterance_labels))
 
-        # Average Segment EER and loss for the epoch
+        # Calculate Training segment EER
+        segment_predictions=torch.cat(segment_predictions, dim=0)
+        segment_labels=torch.cat(segment_labels, dim=0)
+        segment_eer, segment_eer_threshold = compute_eer(segment_predictions,segment_labels)
+
+        # Average loss for the epoch
         epoch_loss /= len(dev_loader)
-        epoch_segment_eer /= len(dev_loader)
-        epoch_segment_eer_threshold /= len(dev_loader)
 
 
     # Print epoch dev progress
     print(f'Epoch [{epoch + 1}] Complete. Validation Loss: {epoch_loss:.4f},\n'
-            f'Validation Segment EER: {epoch_segment_eer:.4f}, Validation Segment EER Threshold: {epoch_segment_eer_threshold:.4f},\n'
-            f'Validation Utterance EER: {utterance_eer:.4f}, Validation Utterance EER Threshold: {utterance_eer_threshold:.4f}')
+               f'Average Validation Segment EER: {segment_eer:.4f}, Average Validation Segment EER Threshold: {segment_eer_threshold:.4f},\n'
+               f'Average Validation Utterance EER: {utterance_eer:.4f}, Average Validation Utterance EER Threshold: {utterance_eer_threshold:.4f}')
 
-
-    return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_segment_eer,epoch_segment_eer_threshold,epoch_loss)
+    return create_metrics_dict(utterance_eer,utterance_eer_threshold,segment_eer,segment_eer_threshold,epoch_loss)
     
 
 
@@ -115,8 +133,15 @@ def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_
 
 
     # Get the test data loader
-    feature_extractor=feature_extractor.to(DEVICE)
-    test_loader = get_audio_data_loaders(test_directory, test_labels_dict, tokenizer, feature_extractor, batch_size=BATCH_SIZE, shuffle=False)
+    # test_loader = get_audio_data_loaders(test_directory, test_labels_dict, tokenizer, feature_extractor, batch_size=BATCH_SIZE, shuffle=False)
+    test_loader = get_raw_labeled_audio_data_loaders(test_directory, test_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=2, prefetch_factor=2)
+    # loader_iter = iter(data_loader) # preloading starts here
+
+    # with the default prefetch_factor of 2, 2*num_workers=16 batches will be preloaded
+    # the max index printed by __getitem__ is thus 31 (16*batch_size=32 samples loaded)
+
+    # data = next(loader_iter) # this will consume a batch and preload the next one from a single worker to fill the queue
+    # batch_size=2 new samples should be loaded
 
     # Get Utterance lables dictionary    
     BASE_DIR = os.getcwd()
@@ -125,23 +150,33 @@ def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_
 
     # Calculate loss
     # loss = criterion(outputs, labels.float())  # Convert labels to float for BCELoss
-    criterion = CustomLoss()
+    criterion = CustomLoss().to(DEVICE)
 
     files_names=[]
 
     epoch_loss = 0
-    epoch_segment_eer = 0
-    epoch_segment_eer_threshold = 0
     utterance_eer, utterance_eer_threshold=0,0
+    segment_eer, segment_eer_threshold=0,0
     utterance_predictions=[]
+    segment_predictions=[]
+    segment_labels=[]
 
     # all_predictions = []
     # all_labels = []
 
     with torch.no_grad():  # Disable gradient calculation during inference
         for batch in tqdm(test_loader, desc="Test Batches", leave=False):
-            features = batch['features'].to(DEVICE)
+        # for i in range(len(data_loader)):
+        #     data = next(loader_iter)
+        #     waveforms = data['waveform'].to(DEVICE)
+        #     labels = data['label'].to(DEVICE)
+            waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
+            
+            # Forward pass through wav2vec2 for feature extraction
+            inputs = tokenizer(waveforms.squeeze().cpu().numpy(), sampling_rate=batch['sample_rate'], return_tensors="pt", padding="longest").to(DEVICE)
+            features = feature_extractor(input_values=inputs['input_values']).last_hidden_state
+            # print(f'type {type(features)}  with size {features.size()} , features= {features}')
             
             outputs = PS_Model(features)
             loss = criterion(outputs, labels) 
@@ -152,11 +187,8 @@ def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_
                 # Calculate utterance predictions
                 utterance_predictions.extend(get_uttEER_by_seg(outputs,labels))
 
-                # Calculate segment EER
-                batch_segment_eer, batch_segment_eer_threshold = compute_eer(outputs, labels)
-                epoch_segment_eer += batch_segment_eer
-                epoch_segment_eer_threshold += batch_segment_eer_threshold
-
+                segment_predictions.extend(outputs)
+                segment_labels.extend(labels)
 
                 # Accumulate files names
                 batch_file_names = batch['file_name']
@@ -169,17 +201,19 @@ def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_eer(utterance_predictions,torch.tensor(utterance_labels))
 
-        # Average Segment EER and loss for the epoch
+        # Calculate  segment EER
+        segment_predictions=torch.cat(segment_predictions, dim=0)
+        segment_labels=torch.cat(segment_labels, dim=0)
+        segment_eer, segment_eer_threshold = compute_eer(segment_predictions,segment_labels)
+
+        # Average loss for the epoch
         epoch_loss /= len(test_loader)
-        epoch_segment_eer /= len(test_loader)
-        epoch_segment_eer_threshold /= len(test_loader)
 
 
     # Print epoch dev progress
     print(f'Testing/Inference Complete. Test Loss: {epoch_loss:.4f},\n'
-            f'Test Segment EER: {epoch_segment_eer:.4f}, Test Segment EER Threshold: {epoch_segment_eer_threshold:.4f},\n'
-            f'Test Utterance EER: {utterance_eer:.4f}, Test Utterance EER Threshold: {utterance_eer_threshold:.4f}')
-
+               f'Average Test Segment EER: {segment_eer:.4f}, Average Test Segment EER Threshold: {segment_eer_threshold:.4f},\n'
+               f'Average Test Utterance EER: {utterance_eer:.4f}, Average Test Utterance EER Threshold: {utterance_eer_threshold:.4f}')
 
     return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_segment_eer,epoch_segment_eer_threshold,epoch_loss)
 

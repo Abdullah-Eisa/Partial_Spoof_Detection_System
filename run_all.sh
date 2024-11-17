@@ -12,10 +12,10 @@ git init
 git add *
 
 # Commit your changes
-git commit -m "cloud_instance setup v4, add Labels Alignment via Padding with value=-1 , implement get_masked_labels_and_outputs function , add Masking to Custom loss function , add masking to compute_eer , add masking to get_uttEER_by_seg"
-
-
-
+git commit -m " change compute_eer function and relevant code parts accurate results ,
+modify code for more efficient data loading through manipulating num_workers and prefetch_factor ,
+add Loss criterion to Device , modify save_interval=float('inf') , add alternative pipeline of saving features then loading them for downstream training in preprocess.py file , add heuristics.md file
+"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

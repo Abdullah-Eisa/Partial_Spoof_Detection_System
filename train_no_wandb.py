@@ -1,66 +1,3 @@
-# Check --module-config config_ps.config_test_on_eval , for the following input:
-
-# mostly like PS , I will need
-# trn_set_name, \
-# trn_lst,
-# trn_input_dirs, \
-# input_exts, \
-# input_dims, \
-# input_reso, \
-# input_norm, \
-# output_dirs, \
-# output_exts, \
-# output_dims, \
-# output_reso, \
-# output_norm, \
-# params 
-# truncate_seq  
-# min_seq_len 
-# save_mean_std
-# wav_samp_rate 
-
-### check possible num_workers & prefetch_factor other than  num_workers=0, prefetch_factor=None for parallelized training
-
-
-# #stage 1:
-# if [ $stage -le 1 ]; then
-#     python main.py --module-model model --model-forward-with-file-name --seed 1 \
-# 	--ssl-finetune \
-# 	--multi-scale-active utt 64 32 16 8 4 2 \
-# 	--num-workers 4 --epochs 5000 --no-best-epochs 50 --batch-size 8 --not-save-each-epoch\
-#        	--sampler block_shuffle_by_length --lr-decay-factor 0.5 --lr-scheduler-type 1 --lr 0.00001 \
-# 	--module-config config_ps.config_test_on_eval \
-# 	--temp-flag ${CON_PATH}/segment_labels/train_seglab_0.01.npy \
-# 	--temp-flag-dev ${CON_PATH}/segment_labels/dev_seglab_0.01.npy --dev-flag >  ${OUTPUT_DIR}/log_train 2> ${OUTPUT_DIR}/log_err
-# fi
-
-
-
-
-
-#in the first 1600 training examples:  The maximum size in the second dimension of the tensors listed is 393.
-
-
-#  During training, we used the Adam optimizer
-# with a default configuration (β1 = 0.9, β2 = 0.999,  = 10−8
-# ).
-# The learning rate was initialized with 1 × 10−5
-# and halved
-# every 10 epochs.
-# All experiments were repeated three times
-# with different random seeds for CM initialization, except for
-# the pre-trained SSL front-end. The averaged results of the three
-# runs are reported
-
-# wav_samp_rate = 16000
-# truncate_seq = None
-
-# batch_size=8
-# epochs=5000
-# learning_rate=0.00001
-
-
-
 
 import os
 from tqdm import tqdm  # Correctly import tqdm
@@ -86,10 +23,9 @@ from inference import dev_model
 # ... (your training and inference functions)
 
 def train_model(train_directory, train_labels_dict, 
-                tokenizer,feature_extractor,
-                BATCH_SIZE=32, NUM_EPOCHS=1,LEARNING_RATE=0.001,
+                BATCH_SIZE=32, NUM_EPOCHS=1,LEARNING_RATE=0.0001,
                 model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
-                DEVICE='cpu',save_interval=100):
+                DEVICE='cpu',save_interval=float('inf')):
 
 
 
@@ -99,6 +35,11 @@ def train_model(train_directory, train_labels_dict,
     BASE_DIR = os.getcwd()
     PartialSpoof_LA_cm_train_trl_dict_path = os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_train_trl.json')
     PartialSpoof_LA_cm_train_trl_dict= load_json_dictionary(PartialSpoof_LA_cm_train_trl_dict_path)
+
+    # Load feature extractor
+    Wav2Vec2_tokenizer = Wav2Vec2Tokenizer.from_pretrained("models/local_wav2vec2_tokenizer")
+    Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model").to(DEVICE)
+    Wav2Vec2_model.eval()
 
     # Initialize the model, loss function, and optimizer
     hidd_dims ={'wav2vec2':768, 'wav2vec2_large':1024}
@@ -113,11 +54,21 @@ def train_model(train_directory, train_labels_dict,
 
     # criterion = nn.BCEWithLogitsLoss()  # Binary Cross Entropy Loss with Logits for multi-label classification
     # criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
-    criterion = CustomLoss()
+    criterion = CustomLoss().to(DEVICE)
     optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
-    
+    # optimizer = optim.Adam(list(PS_Model.parameters()) + list(wav2vec2_model.parameters()), lr=LEARNING_RATE)
+
     # Get the data loader
-    train_loader = get_audio_data_loaders(train_directory, train_labels_dict, tokenizer,feature_extractor, batch_size=BATCH_SIZE, shuffle=True)
+    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True)
+
+
+    # loader_iter = iter(data_loader) # preloading starts here
+
+    # with the default prefetch_factor of 2, 2*num_workers=16 batches will be preloaded
+    # the max index printed by __getitem__ is thus 31 (16*batch_size=32 samples loaded)
+
+    # data = next(loader_iter) # this will consume a batch and preload the next one from a single worker to fill the queue
+    # batch_size=2 new samples should be loaded
 
     PS_Model.train()  # Set the model to training mode
     
@@ -130,18 +81,27 @@ def train_model(train_directory, train_labels_dict,
         PS_Model.train()  # Set the model to training mode
 
         epoch_loss = 0
-        epoch_segment_eer = 0
-        epoch_segment_eer_threshold = 0
         utterance_eer, utterance_eer_threshold=0,0
+        segment_eer, segment_eer_threshold=0,0
         utterance_predictions=[]
-        # utterance_labels=[]
+        segment_predictions=[]
+        segment_labels=[]
 
         for batch in tqdm(train_loader, desc="Train Batches", leave=False):
-            features = batch['features'].to(DEVICE)
+        # for i in range(len(data_loader)):
+        #     data = next(loader_iter)
+        #     waveforms = data['waveform'].to(DEVICE)
+        #     labels = data['label'].to(DEVICE)
+            waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
 
             # Zero the parameter gradients
             optimizer.zero_grad()
+
+            # Forward pass through wav2vec2 for feature extraction
+            inputs = Wav2Vec2_tokenizer(waveforms.squeeze().cpu().numpy(), sampling_rate=batch['sample_rate'], return_tensors="pt", padding="longest").to(DEVICE)
+            features = Wav2Vec2_model(input_values=inputs['input_values']).last_hidden_state
+            # print(f'type {type(features)}  with size {features.size()} , features= {features}')
 
             # Pass features to model and get predictions
             outputs = PS_Model(features)
@@ -162,10 +122,8 @@ def train_model(train_directory, train_labels_dict,
                 # Calculate utterance predictions
                 utterance_predictions.extend(get_uttEER_by_seg(outputs,labels))
 
-                # Calculate segment EER
-                batch_segment_eer, batch_segment_eer_threshold = compute_eer(outputs, labels)
-                epoch_segment_eer += batch_segment_eer
-                epoch_segment_eer_threshold += batch_segment_eer_threshold
+                segment_predictions.extend(outputs)
+                segment_labels.extend(labels)
 
 
                 # Accumulate files names
@@ -187,24 +145,29 @@ def train_model(train_directory, train_labels_dict,
 
         # Get Average Utterance EER for the epoch
         if epoch ==0: utterance_labels =[PartialSpoof_LA_cm_train_trl_dict[file_name] for file_name in files_names]
+
+        utterance_predictions = torch.cat(utterance_predictions)
         # print(f"utterance_labels:\n {utterance_labels}")
         # print(f"utterance_predictions:\n {utterance_predictions}") 
 
-        utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_eer(utterance_predictions,torch.tensor(utterance_labels))
 
-        # Average Segment EER and loss for the epoch
+        # Calculate Training segment EER
+        segment_predictions=torch.cat(segment_predictions, dim=0)
+        segment_labels=torch.cat(segment_labels, dim=0)
+        # print(f"segment_labels:\n {segment_labels}")
+        # print(f"segment_predictions:\n {segment_predictions}")
+        segment_eer, segment_eer_threshold = compute_eer(segment_predictions,segment_labels)
+
+        # Average  loss for the epoch
         epoch_loss /= len(train_loader)
-        epoch_segment_eer /= len(train_loader)
-        epoch_segment_eer_threshold /= len(train_loader)
 
         # Print epoch training progress
         print(f'Epoch [{epoch + 1}/{NUM_EPOCHS}] Complete. Average Loss /epoch : {epoch_loss:.4f},\n'
-               f'Average Segment EER: {epoch_segment_eer:.4f}, Average Segment EER Threshold: {epoch_segment_eer_threshold:.4f},\n'
-               f'Average Training  Utterance EER: {utterance_eer:.4f}, Average Training Utterance EER Threshold: {utterance_eer_threshold:.4f}')
+               f'Average Training Segment EER: {segment_eer:.4f}, Average Training Segment EER Threshold: {segment_eer_threshold:.4f},\n'
+               f'Average Training Utterance EER: {utterance_eer:.4f}, Average Training Utterance EER Threshold: {utterance_eer_threshold:.4f}')
 
-
-        training_segment_eer_per_epoch.append(epoch_segment_eer)
+        training_segment_eer_per_epoch.append(segment_eer)
 
         BASE_DIR = os.getcwd()
         # Define development files and labels
@@ -213,7 +176,8 @@ def train_model(train_directory, train_labels_dict,
         dev_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/dev_seglab_0.64.npy')
         dev_seglab_64_dict = np.load(dev_seglab_64_path, allow_pickle=True).item()
 
-        dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict, tokenizer,feature_extractor, BATCH_SIZE,DEVICE=DEVICE)
+
+        dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE,DEVICE=DEVICE)        
         dev_segment_eer_per_epoch.append(dev_metrics_dict['segment_eer'])
 
 
@@ -235,8 +199,9 @@ def train_model(train_directory, train_labels_dict,
     print(f"Model saved to {model_save_path}")
 
 
-    # Save metrics
-    training_metrics_dict=create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_segment_eer,epoch_segment_eer_threshold,epoch_loss)
+
+    # Save last metrics
+    training_metrics_dict=create_metrics_dict(utterance_eer,utterance_eer_threshold,segment_eer,segment_eer_threshold,epoch_loss)
     training_metrics_dict_filename = f"metrics_dict_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.json"
     training_metrics_dict_save_path=os.path.join(os.getcwd(),f'outputs/{training_metrics_dict_filename}')
     save_json_dictionary(training_metrics_dict_save_path,training_metrics_dict)
@@ -271,11 +236,11 @@ if __name__ == "__main__":
     train_seglab_64_dict = np.load(train_seglab_64_path, allow_pickle=True).item()
 
 
-    # Load the tokenizer and model from the local directory
-    Wav2Vec2_tokenizer = Wav2Vec2Tokenizer.from_pretrained("models/local_wav2vec2_tokenizer")
-    # Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model")
-    Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model").to(DEVICE)
-    Wav2Vec2_model.eval()
+    # # Load the tokenizer and model from the local directory
+    # Wav2Vec2_tokenizer = Wav2Vec2Tokenizer.from_pretrained("models/local_wav2vec2_tokenizer")
+    # # Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model")
+    # Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model").to(DEVICE)
+    # Wav2Vec2_model.eval()
 
 
     # Record the start time
@@ -288,7 +253,8 @@ if __name__ == "__main__":
     else:
         # BATCH_SIZE=16
         BATCH_SIZE=8
-    train_model(train_files_path, train_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=1,DEVICE=DEVICE)
+
+    train_model(train_files_path, train_seglab_64_dict,BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=1,DEVICE=DEVICE)
 
     # Record the end time
     end_time = datetime.now()
