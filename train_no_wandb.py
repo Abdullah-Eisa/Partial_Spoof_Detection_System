@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.optim.lr_scheduler as lr_scheduler
 
 # from transformers import Wav2Vec2Processor, 
 from transformers import Wav2Vec2Tokenizer, Wav2Vec2Model
@@ -28,6 +29,8 @@ def train_model(train_directory, train_labels_dict,
                 DEVICE='cpu',save_interval=float('inf')):
 
 
+    if DEVICE == 'cuda':
+        torch.cuda.empty_cache()
 
     # Ensure the model save path exists
     os.makedirs(model_save_path, exist_ok=True)
@@ -57,6 +60,7 @@ def train_model(train_directory, train_labels_dict,
     criterion = CustomLoss().to(DEVICE)
     optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
     # optimizer = optim.Adam(list(PS_Model.parameters()) + list(wav2vec2_model.parameters()), lr=LEARNING_RATE)
+    # scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.3)
 
     # Get the data loader
     train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True)
@@ -100,6 +104,7 @@ def train_model(train_directory, train_labels_dict,
 
             # Forward pass through wav2vec2 for feature extraction
             inputs = Wav2Vec2_tokenizer(waveforms.squeeze().cpu().numpy(), sampling_rate=batch['sample_rate'], return_tensors="pt", padding="longest").to(DEVICE)
+            inputs = {k: v.to(DEVICE) for k, v in inputs.items()}  # Move tokenized inputs to GPU
             features = Wav2Vec2_model(input_values=inputs['input_values']).last_hidden_state
             # print(f'type {type(features)}  with size {features.size()} , features= {features}')
 
@@ -120,10 +125,10 @@ def train_model(train_directory, train_labels_dict,
             with torch.no_grad():  # No need to compute gradients for EER calculation
 
                 # Calculate utterance predictions
-                utterance_predictions.extend(get_uttEER_by_seg(outputs,labels))
+                utterance_predictions.extend(get_uttEER_by_seg(outputs,labels).cpu())
 
-                segment_predictions.extend(outputs)
-                segment_labels.extend(labels)
+                segment_predictions.extend(outputs.cpu())
+                segment_labels.extend(labels.cpu())
 
 
                 # Accumulate files names
@@ -180,6 +185,8 @@ def train_model(train_directory, train_labels_dict,
         dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE,DEVICE=DEVICE)        
         dev_segment_eer_per_epoch.append(dev_metrics_dict['segment_eer'])
 
+
+        scheduler.step()
 
     # plot training EER per epoch
     plot_eer_per_epoch(NUM_EPOCHS, training_segment_eer_per_epoch,os.path.join(os.getcwd(),'outputs'))
@@ -252,7 +259,7 @@ if __name__ == "__main__":
         print(f"BATCH_SIZE={BATCH_SIZE}")
     else:
         # BATCH_SIZE=16
-        BATCH_SIZE=8
+        BATCH_SIZE=4
 
     train_model(train_files_path, train_seglab_64_dict,BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=1,DEVICE=DEVICE)
 

@@ -12,10 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " change compute_eer function and relevant code parts accurate results ,
-modify code for more efficient data loading through manipulating num_workers and prefetch_factor ,
-add Loss criterion to Device , modify save_interval=float('inf') , add alternative pipeline of saving features then loading them for downstream training in preprocess.py file , add heuristics.md file
-"
+git commit -m " add environment files, modify train_no_wandb.py for out of GPU memory error "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
