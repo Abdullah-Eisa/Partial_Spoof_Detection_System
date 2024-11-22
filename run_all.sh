@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " add environment files, modify train_no_wandb.py for out of GPU memory error "
+git commit -m " add partialSpoof and conformers hyperparameters to heuristics.md, add simple conformer model to model.py , update train.py and train_no_wandb.py with conformer model , add learning rate scheduler and AdamW optimizer to train.py and train_no_wandb.py , some minor changes to  download_database.sh and  env_setup.sh"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

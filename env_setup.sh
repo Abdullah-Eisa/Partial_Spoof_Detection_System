@@ -10,7 +10,7 @@
 # Install dependency for ps_scratch environment
 
 # Name of the conda environment
-ENVNAME=ps_scratch
+ENVNAME=ps
 # REQUIREMENT_FILE=ps_scratch_requirements.txt
 
 eval "$(conda shell.bash hook)"

@@ -29,17 +29,17 @@ def main():
             # 'NUM_EPOCHS': {'values': [5, 7]},
             # 'LEARNING_RATE': {'values': [0.001]},
             # 'BATCH_SIZE': {'values': [16,32]},
-            'NUM_EPOCHS': {'values': [1]},
-            'LEARNING_RATE': {'values': [0.001]},
-            'BATCH_SIZE': {'values': [16]},
+            'NUM_EPOCHS': {'values': [10]},
+            'LEARNING_RATE': {'values': [0.0003]},
+            'BATCH_SIZE': {'values': [4]},
             # 'CLASS0_WEIGHT': {'values': [0.42,0.45,0.48]},
 
         }
     }
 
-    sweep_id = wandb.sweep(sweep=sweep_config,project='partial_spoof_trial_1')
+    sweep_id = wandb.sweep(sweep=sweep_config,project='partial_spoof_trial_2')
     # sweep_id = wandb.sweep(sweep=sweep_config)
-    wandb.agent(sweep_id, function=train, count=2)
+    wandb.agent(sweep_id, function=train, count=1)
 
 
 

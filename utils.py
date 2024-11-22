@@ -658,7 +658,7 @@ def get_uttEER_by_seg(outputs,labels):
     masked_outputs = outputs.clone()  # Copy the original output tensor
     # masked_outputs[~mask_tensor] = float('nan')  # Set invalid positions to NaN
     # masked_outputs[~mask_tensor] = float('inf')  # Set invalid positions to inf
-    masked_outputs[~mask_tensor] = 128  # Set invalid positions to a placeholder value (e.g., 128), max number in int8
+    masked_outputs[~mask_tensor] = 64  # Set invalid positions to a placeholder value (e.g., 128), max number in int8
     # print(f"masked_output:\n {masked_outputs}")
 
     # If masked_outputs is 1D, just get the minimum value

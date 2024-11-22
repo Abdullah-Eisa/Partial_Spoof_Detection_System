@@ -173,3 +173,221 @@ class MyModel(nn.Module):
 
 
 
+
+
+
+
+# ===================================  conformer model   =============================
+import torch
+import math
+
+class RelativePositionEncoding(nn.Module):
+    def __init__(self, num_heads, hidden_dim, max_len=5000):
+        super(RelativePositionEncoding, self).__init__()
+        self.num_heads = num_heads
+        self.hidden_dim = hidden_dim
+        
+        # We use the same approach as the Transformer to create sinusoidal embeddings
+        self.pos_embedding = self._generate_relative_positions_encoding(max_len, hidden_dim)
+    
+    def _generate_relative_positions_encoding(self, max_len, hidden_dim):
+        """
+        Generate sinusoidal relative position encodings.
+        """
+        position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
+        div_term = torch.exp(torch.arange(0, hidden_dim, 2).float() * -(math.log(10000.0) / hidden_dim))
+        encoding = torch.zeros(max_len, hidden_dim)
+        encoding[:, 0::2] = torch.sin(position * div_term)
+        encoding[:, 1::2] = torch.cos(position * div_term)
+        
+        # Add an extra dimension for each head
+        encoding = encoding.unsqueeze(0).repeat(self.num_heads, 1, 1)
+        return encoding
+
+    def forward(self, length):
+        """
+        Returns the relative position encoding up to a given length.
+        """
+        return self.pos_embedding[:, :length, :]
+
+
+class RelativeMultiheadAttention(nn.Module):
+    def __init__(self, input_dim, num_heads, max_len=5000):
+        super(RelativeMultiheadAttention, self).__init__()
+        self.num_heads = num_heads
+        self.hidden_dim = input_dim
+        self.head_dim = input_dim // num_heads
+
+        # Linear transformations for queries, keys, and values
+        self.query_linear = nn.Linear(input_dim, input_dim)
+        self.key_linear = nn.Linear(input_dim, input_dim)
+        self.value_linear = nn.Linear(input_dim, input_dim)
+        
+        # Output linear layer
+        self.out_linear = nn.Linear(input_dim, input_dim)
+        
+        # Relative position encoding
+        self.relative_pos_encoding = RelativePositionEncoding(num_heads, self.head_dim, max_len)
+
+    def forward(self, query, key, value, mask=None):
+        batch_size, seq_len, _ = query.size()
+
+        # Linear projections
+        Q = self.query_linear(query).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        K = self.key_linear(key).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+        V = self.value_linear(value).view(batch_size, seq_len, self.num_heads, self.head_dim).transpose(1, 2)
+
+        # Relative positional encoding
+        relative_pos = self.relative_pos_encoding(seq_len).to(Q.device)
+        # relative_pos = relative_pos.to(Q.device)
+
+        # Compute attention scores
+        attn_scores = torch.matmul(Q, K.transpose(-2, -1))  # Standard attention
+        # Incorporating relative position encoding
+        attn_scores = attn_scores + torch.matmul(Q, relative_pos.transpose(-2, -1))
+
+        if mask is not None:
+            attn_scores = attn_scores.masked_fill(mask == 0, float('-inf'))
+        
+        # Softmax attention weights
+        attn_weights = torch.softmax(attn_scores, dim=-1)
+        
+        # Attention output
+        output = torch.matmul(attn_weights, V)
+        
+        # Concatenate heads and pass through output linear layer
+        output = output.transpose(1, 2).contiguous().view(batch_size, seq_len, self.hidden_dim)
+        output = self.out_linear(output)
+        return output
+
+
+class ConformerBlock(nn.Module):
+    def __init__(self, input_dim, num_heads, expansion_factor=4, max_len=5000):
+        super(ConformerBlock, self).__init__()
+        self.attn = RelativeMultiheadAttention(input_dim, num_heads, max_len)
+        self.ffn = nn.Sequential(
+            nn.Linear(input_dim, input_dim * expansion_factor),
+            nn.ReLU(),
+            nn.Linear(input_dim * expansion_factor, input_dim)
+        )
+        self.norm1 = nn.LayerNorm(input_dim)
+        self.norm2 = nn.LayerNorm(input_dim)
+        self.conv = nn.Conv1d(input_dim, input_dim, kernel_size=3, padding=1)
+    
+    def forward(self, x):
+        # Multi-head self-attention with relative position encoding
+        attn_out = self.attn(x, x, x)
+        x = self.norm1(x + attn_out)  # Add & Norm
+
+        # Feed-forward
+        ff_out = self.ffn(x)
+        x = self.norm2(x + ff_out)  # Add & Norm
+
+        # Convolutional module
+        conv_out = self.conv(x.permute(0, 2, 1))  # Conv1d expects (batch, channels, seq_len)
+        return conv_out.permute(0, 2, 1)  # Permute back to (batch, seq_len, channels)
+
+
+# class ConformerBlock(nn.Module):
+#     def __init__(self, input_dim, num_heads, expansion_factor=4):
+#         super(ConformerBlock, self).__init__()
+#         self.attn = nn.MultiheadAttention(input_dim, num_heads)
+#         self.ffn = nn.Sequential(
+#             nn.Linear(input_dim, input_dim * expansion_factor),
+#             nn.ReLU(),
+#             nn.Linear(input_dim * expansion_factor, input_dim)
+#         )
+#         self.norm1 = nn.LayerNorm(input_dim)
+#         self.norm2 = nn.LayerNorm(input_dim)
+#         self.conv = nn.Conv1d(input_dim, input_dim, kernel_size=3, padding=1)
+    
+#     def forward(self, x):
+#         # Multi-head self-attention
+#         attn_out, _ = self.attn(x, x, x)
+#         x = self.norm1(x + attn_out)  # Add & Norm
+
+#         # Feed-forward
+#         ff_out = self.ffn(x)
+#         x = self.norm2(x + ff_out)  # Add & Norm
+
+#         # Convolutional module
+#         conv_out = self.conv(x.permute(0, 2, 1))  # Conv1d expects (batch, channels, seq_len)
+#         return conv_out.permute(0, 2, 1)  # Permute back to (batch, seq_len, channels)
+
+
+
+
+class BiLSTM(nn.Module):
+    def __init__(self, input_dim, hidden_dim, num_layers=1):
+        super(BiLSTM, self).__init__()
+        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers=num_layers, batch_first=True, bidirectional=True)
+
+    def forward(self, x):
+        return self.lstm(x)[0]
+
+
+class FullyConnectedBlock(nn.Module):
+    def __init__(self, input_dim, output_dim):
+        super(FullyConnectedBlock, self).__init__()
+        self.fc = nn.Linear(input_dim, output_dim)
+        self.sigmoid = nn.Sigmoid()
+
+    def forward(self, x):
+        x = self.fc(x)
+        return self.sigmoid(x)
+
+
+
+class PoolingIntegration(nn.Module):
+    def __init__(self, omega1=0.4, omega2=0.4, omega3=0.2):
+        super(PoolingIntegration, self).__init__()
+        self.omega1 = omega1
+        self.omega2 = omega2
+        self.omega3 = omega3
+    
+    def forward(self, x):
+        power_pooling = torch.pow(x, 2).sum(dim=1)
+        auto_softmax_pooling = torch.softmax(x, dim=1).sum(dim=1)
+        max_pooling = torch.max(x, dim=1)[0]
+
+        utterance_score = (self.omega1 * power_pooling + 
+                           self.omega2 * auto_softmax_pooling + 
+                           self.omega3 * max_pooling)
+        return utterance_score
+
+
+
+
+class SpoofingDetectionModel(nn.Module):
+    def __init__(self, feature_dim, num_heads, hidden_dim, num_classes):
+        super(SpoofingDetectionModel, self).__init__()
+        # self.selcnn = SELCNN(input_dim, 64)
+        self.SelfWeightedPooling = SelfWeightedPooling(feature_dim, mean_only=True)
+        self.projector = nn.Linear(feature_dim, 64)  # Project 768 -> conformer_dim
+        
+        self.conformer = ConformerBlock(64, num_heads)
+        self.bilstm = BiLSTM(64, hidden_dim)
+        self.fc_block = FullyConnectedBlock(hidden_dim * 2, num_classes)  # LSTM is bidirectional
+        # self.pooling_integration = PoolingIntegration()
+
+    def forward(self, x):
+        # Feature Extraction and Refinement
+        # x = self.selcnn(x)
+        # print(f"SpoofingDetectionModel , x size = { x.size()}")
+        x = self.SelfWeightedPooling(x)
+        x = self.projector(x)
+        x = self.conformer(x.unsqueeze(1))
+        
+        # Contextualization
+        x = self.bilstm(x)
+        
+        # Classification
+        segment_score = self.fc_block(x).squeeze(1)
+        
+        # Pooling and Final Score Calculation
+        # utterance_score = self.pooling_integration(segment_score)
+        # utterance_score = 0
+        
+        # return segment_score, utterance_score
+        return segment_score
+

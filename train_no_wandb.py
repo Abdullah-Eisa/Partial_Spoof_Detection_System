@@ -46,7 +46,8 @@ def train_model(train_directory, train_labels_dict,
 
     # Initialize the model, loss function, and optimizer
     hidd_dims ={'wav2vec2':768, 'wav2vec2_large':1024}
-    PS_Model = MyModel(d_model=hidd_dims['wav2vec2'],gmlp_layers=5).to(DEVICE)  # Move model to the configured device
+    # PS_Model = MyModel(d_model=hidd_dims['wav2vec2'],gmlp_layers=5).to(DEVICE)  # Move model to the configured device
+    PS_Model = SpoofingDetectionModel(feature_dim=hidd_dims['wav2vec2'], num_heads=8, hidden_dim=128, num_classes=33).to(DEVICE)  # Move model to the configured device
     print(f"Move model to the configured device= {DEVICE}")
 
     # Wrap the model with DataParallel
@@ -58,12 +59,14 @@ def train_model(train_directory, train_labels_dict,
     # criterion = nn.BCEWithLogitsLoss()  # Binary Cross Entropy Loss with Logits for multi-label classification
     # criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
     criterion = CustomLoss().to(DEVICE)
-    optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
+    # optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
     # optimizer = optim.Adam(list(PS_Model.parameters()) + list(wav2vec2_model.parameters()), lr=LEARNING_RATE)
-    # scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.3)
+    optimizer = optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.3)
 
     # Get the data loader
-    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True)
+    # train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True)
+    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True,num_workers=4, prefetch_factor=2)
 
 
     # loader_iter = iter(data_loader) # preloading starts here
@@ -104,7 +107,7 @@ def train_model(train_directory, train_labels_dict,
 
             # Forward pass through wav2vec2 for feature extraction
             inputs = Wav2Vec2_tokenizer(waveforms.squeeze().cpu().numpy(), sampling_rate=batch['sample_rate'], return_tensors="pt", padding="longest").to(DEVICE)
-            inputs = {k: v.to(DEVICE) for k, v in inputs.items()}  # Move tokenized inputs to GPU
+            # inputs = {k: v.to(DEVICE) for k, v in inputs.items()}  # Move tokenized inputs to GPU
             features = Wav2Vec2_model(input_values=inputs['input_values']).last_hidden_state
             # print(f'type {type(features)}  with size {features.size()} , features= {features}')
 
@@ -205,7 +208,11 @@ def train_model(train_directory, train_labels_dict,
     save_checkpoint(PS_Model, optimizer,NUM_EPOCHS,model_save_path)
     print(f"Model saved to {model_save_path}")
 
-
+    # Save segment_predictions, segment_labels, utterance_predictions, utterance_labels
+    torch.save(segment_predictions,os.path.join(os.getcwd(),f'outputs/segment_predictions_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pt'))
+    torch.save(utterance_predictions,os.path.join(os.getcwd(),f'outputs/utterance_predictions_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pt'))
+    torch.save(segment_labels,os.path.join(os.getcwd(),f'outputs/segment_labels_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pt'))
+    torch.save(torch.tensor(utterance_labels),os.path.join(os.getcwd(),f'outputs/utterance_labels_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pt'))
 
     # Save last metrics
     training_metrics_dict=create_metrics_dict(utterance_eer,utterance_eer_threshold,segment_eer,segment_eer_threshold,epoch_loss)

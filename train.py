@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.optim as optim
+import torch.optim.lr_scheduler as lr_scheduler
 
 # from transformers import Wav2Vec2Processor, 
 from transformers import Wav2Vec2Tokenizer, Wav2Vec2Model
@@ -44,8 +45,9 @@ def train_model(train_directory, train_labels_dict,
 
     # Initialize the model, loss function, and optimizer
     hidd_dims ={'wav2vec2':768, 'wav2vec2_large':1024}
-    PS_Model = MyModel(d_model=hidd_dims['wav2vec2'],gmlp_layers=5).to(DEVICE)  # Move model to the configured device
-    
+    # PS_Model = MyModel(d_model=hidd_dims['wav2vec2'],gmlp_layers=5).to(DEVICE)  # Move model to the configured device
+    PS_Model = SpoofingDetectionModel(feature_dim=hidd_dims['wav2vec2'], num_heads=8, hidden_dim=128, num_classes=33).to(DEVICE)  # Move model to the configured device
+
     # Wrap the model with DataParallel
     if torch.cuda.device_count() > 1:
         PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
@@ -57,9 +59,12 @@ def train_model(train_directory, train_labels_dict,
     # criterion = CustomLoss()
     criterion = CustomLoss().to(DEVICE)
     optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
-    
+    # optimizer = optim.Adam(list(PS_Model.parameters()) + list(wav2vec2_model.parameters()), lr=LEARNING_RATE)
+    optimizer = optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.3)
+
     # Get the data loader
-    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=2, prefetch_factor=2)
+    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=4, prefetch_factor=2)
 
     # loader_iter = iter(data_loader) # preloading starts here
 
@@ -77,11 +82,13 @@ def train_model(train_directory, train_labels_dict,
     dev_segment_eer_per_epoch=[]
 
     for epoch in tqdm(range(NUM_EPOCHS), desc="Epochs"):
+        PS_Model.train()  # Set the model to training mode
 
         epoch_loss = 0
         utterance_eer, utterance_eer_threshold=0,0
         segment_eer, segment_eer_threshold=0,0
         utterance_predictions=[]
+        # utterance_pooling_predictions=[]
         segment_predictions=[]
         segment_labels=[]
 
@@ -119,7 +126,9 @@ def train_model(train_directory, train_labels_dict,
 
                 # Calculate utterance predictions
                 utterance_predictions.extend(get_uttEER_by_seg(outputs,labels))
-
+                # utterance_pooling_predictions.extend(utterance_pooling_scores)
+                # print(f"utterance_pooling_predictions shape= {utterance_pooling_predictions.shape()},\n utterance_pooling_predictions= {utterance_pooling_predictions}")
+                # print(f" utterance_pooling_predictions= {utterance_pooling_predictions}")
                 segment_predictions.extend(outputs)
                 segment_labels.extend(labels)
 
@@ -148,6 +157,9 @@ def train_model(train_directory, train_labels_dict,
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_eer(utterance_predictions,torch.tensor(utterance_labels))
 
+        # utterance_pooling_predictions = torch.cat(utterance_pooling_predictions, dim=0)
+        # utterance_pooling_eer, utterance_pooling_eer_threshold = compute_eer(utterance_pooling_predictions,torch.tensor(utterance_labels))
+
         # Calculate Training segment EER
         segment_predictions=torch.cat(segment_predictions, dim=0)
         segment_labels=torch.cat(segment_labels, dim=0)
@@ -166,8 +178,8 @@ def train_model(train_directory, train_labels_dict,
 
         BASE_DIR = os.getcwd()
         # Define development files and labels
-        # dev_files_path=os.path.join(BASE_DIR,'database/dev/con_wav')
-        dev_files_path=os.path.join(BASE_DIR,'database/mini_database/dev')
+        dev_files_path=os.path.join(BASE_DIR,'database/dev/con_wav')
+        # dev_files_path=os.path.join(BASE_DIR,'database/mini_database/dev')
         dev_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/dev_seglab_0.64.npy')
         dev_seglab_64_dict = np.load(dev_seglab_64_path, allow_pickle=True).item()
 
@@ -179,6 +191,8 @@ def train_model(train_directory, train_labels_dict,
             'training_segment_eer_threshold_epoch': segment_eer_threshold,
             'training_utterance_eer_epoch': utterance_eer,
             'training_utterance_eer_threshold_epoch': utterance_eer_threshold, 
+            # 'training_utterance_pooling_eer_epoch': utterance_pooling_eer,
+            # 'training_utterance_pooling_eer_threshold_epoch': utterance_pooling_eer_threshold, 
             'validation_loss_epoch': dev_metrics_dict['epoch_loss'],
             'validation_segment_eer_epoch': dev_metrics_dict['segment_eer'], 
             'validation_segment_eer_threshold_epoch': dev_metrics_dict['segment_eer_threshold'],
@@ -186,9 +200,11 @@ def train_model(train_directory, train_labels_dict,
             'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold']                      
             })
 
+        scheduler.step()
+
     # plot training EER per epoch
     plot_eer_per_epoch(NUM_EPOCHS, training_segment_eer_per_epoch,os.path.join(os.getcwd(),'outputs'))
-    plot_train_dev_eer_per_epoch(NUM_EPOCHS, training_segment_eer_per_epoch, dev_segment_eer_per_epoch,os.path.join(os.getcwd(),'outputs'))
+    # plot_train_dev_eer_per_epoch(NUM_EPOCHS, training_segment_eer_per_epoch, dev_segment_eer_per_epoch,os.path.join(os.getcwd(),'outputs'))
     # # plot Vali EER per epoch
     # plot_eer_per_epoch(NUM_EPOCHS, training_eer_per_epoch)
 
@@ -203,6 +219,11 @@ def train_model(train_directory, train_labels_dict,
     save_checkpoint(PS_Model, optimizer,NUM_EPOCHS,model_save_path)
     print(f"Model saved to {model_save_path}")
 
+    # Save segment_predictions, segment_labels, utterance_predictions, utterance_labels
+    torch.save(segment_predictions,os.path.join(os.getcwd(),f'outputs/segment_predictions_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pt'))
+    torch.save(utterance_predictions,os.path.join(os.getcwd(),f'outputs/utterance_predictions_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pt'))
+    torch.save(segment_labels,os.path.join(os.getcwd(),f'outputs/segment_labels_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pt'))
+    torch.save(torch.tensor(utterance_labels),os.path.join(os.getcwd(),f'outputs/utterance_labels_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pt'))
 
     # Save last metrics
     training_metrics_dict=create_metrics_dict(utterance_eer,utterance_eer_threshold,segment_eer,segment_eer_threshold,epoch_loss)
@@ -233,8 +254,8 @@ def train():
     BASE_DIR = os.getcwd()
 
     # Define training files and labels
-    # train_files_path=os.path.join(BASE_DIR,'database/train/con_wav')
-    train_files_path=os.path.join(BASE_DIR,'database/mini_database/train3')
+    train_files_path=os.path.join(BASE_DIR,'database/train/con_wav')
+    # train_files_path=os.path.join(BASE_DIR,'database/mini_database/train3')
     train_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/train_seglab_0.64.npy')
     train_seglab_64_dict = np.load(train_seglab_64_path, allow_pickle=True).item()
 
