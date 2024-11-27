@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " update utils.py with normlized waveform , modify learning rate scheduler decay factor gamma = 0.9 , change backend classification model with pytorch implemented conformer with no relative positional coding followed by fc_refinement , minor changes to download_database.sh"
+git commit -m " update num_workers in inference.py"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

@@ -25,7 +25,7 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
     # Get the data loader
 
     # dev_loader = get_audio_data_loaders(dev_directory, labels_dict, tokenizer,feature_extractor, batch_size=BATCH_SIZE, shuffle=True)
-    dev_loader = get_raw_labeled_audio_data_loaders(dev_directory, labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=2, prefetch_factor=2)
+    dev_loader = get_raw_labeled_audio_data_loaders(dev_directory, labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
     # loader_iter = iter(data_loader) # preloading starts here
 
     # with the default prefetch_factor of 2, 2*num_workers=16 batches will be preloaded
@@ -141,7 +141,7 @@ def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_
 
     # Get the test data loader
     # test_loader = get_audio_data_loaders(test_directory, test_labels_dict, tokenizer, feature_extractor, batch_size=BATCH_SIZE, shuffle=False)
-    test_loader = get_raw_labeled_audio_data_loaders(test_directory, test_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=2, prefetch_factor=2)
+    test_loader = get_raw_labeled_audio_data_loaders(test_directory, test_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=6, prefetch_factor=2)
     # loader_iter = iter(data_loader) # preloading starts here
 
     # with the default prefetch_factor of 2, 2*num_workers=16 batches will be preloaded
