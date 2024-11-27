@@ -47,7 +47,8 @@ def train_model(train_directory, train_labels_dict,
     # Initialize the model, loss function, and optimizer
     hidd_dims ={'wav2vec2':768, 'wav2vec2_large':1024}
     # PS_Model = MyModel(d_model=hidd_dims['wav2vec2'],gmlp_layers=5).to(DEVICE)  # Move model to the configured device
-    PS_Model = SpoofingDetectionModel(feature_dim=hidd_dims['wav2vec2'], num_heads=8, hidden_dim=128, num_classes=33).to(DEVICE)  # Move model to the configured device
+    # PS_Model = SpoofingDetectionModel(feature_dim=hidd_dims['wav2vec2'], num_heads=8, hidden_dim=128, num_classes=33).to(DEVICE)  # Move model to the configured device
+    PS_Model = MyUpdatedSpoofingDetectionModel(feature_dim=hidd_dims['wav2vec2'], num_heads=8, hidden_dim=128, num_classes=33).to(DEVICE)  # Move model to the configured device
     print(f"Move model to the configured device= {DEVICE}")
 
     # Wrap the model with DataParallel
@@ -62,11 +63,12 @@ def train_model(train_directory, train_labels_dict,
     # optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
     # optimizer = optim.Adam(list(PS_Model.parameters()) + list(wav2vec2_model.parameters()), lr=LEARNING_RATE)
     optimizer = optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
-    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=0.3)
+    gamma=0.9
+    scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
 
     # Get the data loader
     # train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True)
-    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True,num_workers=4, prefetch_factor=2)
+    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True,num_workers=6, prefetch_factor=2)
 
 
     # loader_iter = iter(data_loader) # preloading starts here
@@ -93,12 +95,16 @@ def train_model(train_directory, train_labels_dict,
         utterance_predictions=[]
         segment_predictions=[]
         segment_labels=[]
-
+        c=0
         for batch in tqdm(train_loader, desc="Train Batches", leave=False):
         # for i in range(len(data_loader)):
         #     data = next(loader_iter)
         #     waveforms = data['waveform'].to(DEVICE)
         #     labels = data['label'].to(DEVICE)
+            # if c>8:
+            #     break
+            # else:
+            #         c+=1
             waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
 
@@ -111,8 +117,11 @@ def train_model(train_directory, train_labels_dict,
             features = Wav2Vec2_model(input_values=inputs['input_values']).last_hidden_state
             # print(f'type {type(features)}  with size {features.size()} , features= {features}')
 
+            # lengths should be the number of non-padded frames in each sequence
+            lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
+
             # Pass features to model and get predictions
-            outputs = PS_Model(features)
+            outputs = PS_Model(features,lengths)
 
 
             # Calculate loss

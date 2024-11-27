@@ -56,13 +56,17 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
     utterance_predictions=[]
     segment_predictions=[]
     segment_labels=[]
-
+    c=0
     with torch.no_grad():
         for batch in tqdm(dev_loader, desc="Dev Batches", leave=False):
         # for i in range(len(data_loader)):
         #     data = next(loader_iter)
         #     waveforms = data['waveform'].to(DEVICE)
         #     labels = data['label'].to(DEVICE)
+            # if c>8:
+            #     break
+            # else:
+            #     c+=1
             waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
 
@@ -71,8 +75,11 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
             features = feature_extractor(input_values=inputs['input_values']).last_hidden_state
             # print(f'type {type(features)}  with size {features.size()} , features= {features}')
 
+            # lengths should be the number of non-padded frames in each sequence
+            lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
+
             # Pass features to model and get predictions
-            outputs = PS_Model(features)
+            outputs = PS_Model(features,lengths)
 
             # Calculate loss
             loss = criterion(outputs, labels) 
@@ -178,7 +185,12 @@ def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_
             features = feature_extractor(input_values=inputs['input_values']).last_hidden_state
             # print(f'type {type(features)}  with size {features.size()} , features= {features}')
             
-            outputs = PS_Model(features)
+            # lengths should be the number of non-padded frames in each sequence
+            lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
+
+            # Pass features to model and get predictions
+            outputs = PS_Model(features,lengths)
+
             loss = criterion(outputs, labels) 
             epoch_loss += loss.item()
 

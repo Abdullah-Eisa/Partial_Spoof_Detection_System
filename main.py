@@ -29,8 +29,8 @@ def main():
             # 'NUM_EPOCHS': {'values': [5, 7]},
             # 'LEARNING_RATE': {'values': [0.001]},
             # 'BATCH_SIZE': {'values': [16,32]},
-            'NUM_EPOCHS': {'values': [10]},
-            'LEARNING_RATE': {'values': [0.0003]},
+            'NUM_EPOCHS': {'values': [50]},
+            'LEARNING_RATE': {'values': [0.0002]},
             'BATCH_SIZE': {'values': [4]},
             # 'CLASS0_WEIGHT': {'values': [0.42,0.45,0.48]},
 

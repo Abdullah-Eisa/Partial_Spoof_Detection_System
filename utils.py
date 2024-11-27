@@ -312,16 +312,62 @@ from torch.nn.utils.rnn import pad_sequence
 
 
 
+# class RawLabeledAudioDataset(Dataset):
+#     def __init__(self, directory,labels_dict, transform=None):
+#         """
+#         Args:
+#             directory (str): Path to the directory containing the audio files.
+#             save_dir (str): Path to the directory where the extracted features will be saved.
+#             tokenizer (callable): A tokenizer for preprocessing the audio data.
+#             feature_extractor (callable): Feature extractor model (e.g., from HuggingFace).
+#             transform (callable, optional): Optional transform to apply to the waveform.
+#             normalize (bool, optional): Whether to normalize the extracted features. Default is True.
+#         """
+#         self.directory = directory
+#         self.labels_dict = labels_dict
+#         # self.save_dir = save_dir
+#         # self.tokenizer = tokenizer
+#         # self.feature_extractor = feature_extractor
+#         self.transform = transform
+#         # self.normalize = normalize
+#         self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')]
+
+#         # Ensure the save directory exists
+#         # os.makedirs(save_dir, exist_ok=True)
+
+#     def __len__(self):
+#         return len(self.file_list)
+
+#     def __getitem__(self, idx):
+#         file_name = self.file_list[idx]
+#         file_path = os.path.join(self.directory, file_name)
+
+#         try:
+#             waveform, sample_rate = torchaudio.load(file_path)
+#         except Exception as e:
+#             print(f"Error loading audio file {file_path}: {e}")
+#             return None
+
+#         if self.transform:
+#             waveform = self.transform(waveform)
+
+#         # Return raw waveform and sample rate
+#         file_name = file_name.split('.')[0]
+#         label = self.labels_dict.get(file_name).astype(int)
+
+#         label = torch.tensor(label, dtype=torch.int8)
+#         return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
 class RawLabeledAudioDataset(Dataset):
-    def __init__(self, directory,labels_dict, transform=None):
+    def __init__(self, directory,labels_dict, transform=None,normalize=True):
         """
         Args:
             directory (str): Path to the directory containing the audio files.
+            labels_dict (dict): Dictionary of labels for each audio file.
             save_dir (str): Path to the directory where the extracted features will be saved.
             tokenizer (callable): A tokenizer for preprocessing the audio data.
             feature_extractor (callable): Feature extractor model (e.g., from HuggingFace).
             transform (callable, optional): Optional transform to apply to the waveform.
-            normalize (bool, optional): Whether to normalize the extracted features. Default is True.
+            normalize (bool, optional): Whether to normalize the waveform. Default is True.
         """
         self.directory = directory
         self.labels_dict = labels_dict
@@ -329,7 +375,7 @@ class RawLabeledAudioDataset(Dataset):
         # self.tokenizer = tokenizer
         # self.feature_extractor = feature_extractor
         self.transform = transform
-        # self.normalize = normalize
+        self.normalize = normalize
         self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')]
 
         # Ensure the save directory exists
@@ -338,6 +384,25 @@ class RawLabeledAudioDataset(Dataset):
     def __len__(self):
         return len(self.file_list)
 
+
+    def normalize_waveform(self, waveform):
+        """
+        Normalize the waveform by scaling it to [-1, 1] or applying Z-score normalization.
+        
+        Args:
+            waveform (Tensor): The input waveform tensor.
+        
+        Returns:
+            Tensor: The normalized waveform.
+        """
+        # Method 1: Normalize to [-1, 1]
+        # waveform = waveform / waveform.abs().max()
+
+        # Method 2: Z-score normalization (mean=0, std=1)
+        waveform = (waveform - waveform.mean()) / waveform.std()
+
+        return waveform
+    
     def __getitem__(self, idx):
         file_name = self.file_list[idx]
         file_path = os.path.join(self.directory, file_name)
@@ -347,7 +412,12 @@ class RawLabeledAudioDataset(Dataset):
         except Exception as e:
             print(f"Error loading audio file {file_path}: {e}")
             return None
+        
+        # Normalize waveform if needed
+        if self.normalize:
+            waveform = self.normalize_waveform(waveform)
 
+        # Apply any other transformations if provided
         if self.transform:
             waveform = self.transform(waveform)
 
@@ -357,6 +427,7 @@ class RawLabeledAudioDataset(Dataset):
 
         label = torch.tensor(label, dtype=torch.int8)
         return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
+    
 
 
 
