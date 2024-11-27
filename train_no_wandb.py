@@ -68,7 +68,7 @@ def train_model(train_directory, train_labels_dict,
 
     # Get the data loader
     # train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True)
-    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True,num_workers=6, prefetch_factor=2)
+    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True,num_workers=8, prefetch_factor=2)
 
 
     # loader_iter = iter(data_loader) # preloading starts here
@@ -275,9 +275,9 @@ if __name__ == "__main__":
         print(f"BATCH_SIZE={BATCH_SIZE}")
     else:
         # BATCH_SIZE=16
-        BATCH_SIZE=4
+        BATCH_SIZE=16
 
-    train_model(train_files_path, train_seglab_64_dict,BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=1,DEVICE=DEVICE)
+    train_model(train_files_path, train_seglab_64_dict,BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=3,DEVICE=DEVICE)
 
     # Record the end time
     end_time = datetime.now()

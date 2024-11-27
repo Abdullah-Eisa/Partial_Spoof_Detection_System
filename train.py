@@ -31,6 +31,8 @@ def train_model(train_directory, train_labels_dict,
     # Initialize W&B
     wandb.init(project='partial_spoof_trial_2')
 
+    if DEVICE == 'cuda':
+        torch.cuda.empty_cache()
     # Ensure the model save path exists
     os.makedirs(model_save_path, exist_ok=True)
     # Load utterance labels
@@ -65,7 +67,7 @@ def train_model(train_directory, train_labels_dict,
     gamma=0.9
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
     # Get the data loader
-    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=6, prefetch_factor=2)
+    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=2, prefetch_factor=2)
 
     # loader_iter = iter(data_loader) # preloading starts here
 
@@ -277,7 +279,8 @@ def train():
         BATCH_SIZE=config.BATCH_SIZE,
         NUM_EPOCHS=config.NUM_EPOCHS,
         LEARNING_RATE=config.LEARNING_RATE,
-        DEVICE=DEVICE
+        DEVICE=DEVICE,
+        save_interval=10
     )
 
 

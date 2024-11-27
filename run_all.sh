@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " update num_workers in inference.py"
+git commit -m " minor modifications to cloud_instance_setup.sh and download_database.sh ,  inference.py , main.py , train.py , train_no_wandb.py"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

@@ -2,9 +2,9 @@
 set -x
 	
 # FILE_NAMEs="train dev eval segment_labels_v1.2 protocols"
-# FILE_NAMEs="train segment_labels_v1.2 dev protocols eval"
+FILE_NAMEs="train segment_labels_v1.2 dev protocols eval"
 # FILE_NAMEs="train dev segment_labels_v1.2 protocols"
-FILE_NAMEs="eval"
+# FILE_NAMEs="eval"
 
 
 for file in ${FILE_NAMEs}; do
