@@ -2,6 +2,7 @@
 import wandb
 import os
 import random
+from datetime import datetime
 
 from train import train
 
@@ -29,9 +30,9 @@ def main():
             # 'NUM_EPOCHS': {'values': [5, 7]},
             # 'LEARNING_RATE': {'values': [0.001]},
             # 'BATCH_SIZE': {'values': [16,32]},
-            'NUM_EPOCHS': {'values': [50]},
+            'NUM_EPOCHS': {'values': [1]},
             'LEARNING_RATE': {'values': [0.0002]},
-            'BATCH_SIZE': {'values': [16]},
+            'BATCH_SIZE': {'values': [4]},
             # 'CLASS0_WEIGHT': {'values': [0.42,0.45,0.48]},
 
         }
@@ -45,7 +46,24 @@ def main():
 
 
 if __name__ == "__main__":
+    # Record the start time
+    start_time = datetime.now()
+
     main()
+
+    # Record the end time
+    end_time = datetime.now()
+    total_training_time = end_time - start_time
+    print(f"Total training time: {total_training_time}")
+
+    # Extract hours, minutes, and seconds
+    total_seconds = total_training_time.total_seconds()
+    hours = int(total_seconds // 3600)
+    minutes = int((total_seconds % 3600) // 60)
+    seconds = int(total_seconds % 60)
+
+    # Print training time in hours, minutes, and seconds
+    print(f"Total training time: {hours} hours, {minutes} minutes, {seconds} seconds")
 
 
 

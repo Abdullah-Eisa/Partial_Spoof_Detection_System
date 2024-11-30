@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " minor modifications to cloud_instance_setup.sh and download_database.sh ,  inference.py , main.py , train.py , train_no_wandb.py"
+git commit -m " correct utterance labels in database/utterance_labels/* , remove unnecessary addition of waveform to to GPU in train_no_wandb.py train.py inference.py , add training time calculation to main.py   "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

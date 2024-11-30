@@ -105,7 +105,8 @@ def train_model(train_directory, train_labels_dict,
             #     break
             # else:
             #         c+=1
-            waveforms = batch['waveform'].to(DEVICE)
+            # waveforms = batch['waveform'].to(DEVICE)
+            waveforms = batch['waveform']
             labels = batch['label'].to(DEVICE)
 
             # Zero the parameter gradients

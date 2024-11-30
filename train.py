@@ -67,7 +67,7 @@ def train_model(train_directory, train_labels_dict,
     gamma=0.9
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
     # Get the data loader
-    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=2, prefetch_factor=2)
+    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
 
     # loader_iter = iter(data_loader) # preloading starts here
 
@@ -100,7 +100,8 @@ def train_model(train_directory, train_labels_dict,
         #     data = next(loader_iter)
         #     waveforms = data['waveform'].to(DEVICE)
         #     labels = data['label'].to(DEVICE)
-            waveforms = batch['waveform'].to(DEVICE)
+            # waveforms = batch['waveform'].to(DEVICE)
+            waveforms = batch['waveform']
             labels = batch['label'].to(DEVICE)
 
             # Zero the parameter gradients
