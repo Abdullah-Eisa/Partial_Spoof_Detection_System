@@ -513,7 +513,31 @@ def compute_eer(predictions, labels):
 import torch.multiprocessing as mp
 
 # Assuming AudioDataset and collate_fn are defined elsewhere
-def get_raw_labeled_audio_data_loaders(directory, labels_dict, batch_size=32, shuffle=True, num_workers=0, prefetch_factor=None):
+# def get_raw_labeled_audio_data_loaders(directory, labels_dict, batch_size=32, shuffle=True, num_workers=0, prefetch_factor=None):
+    
+#     # If multiprocessing is used, set start method to 'spawn' (for avoiding pickling issues)
+#     if num_workers > 0:
+#         mp.set_start_method('spawn', force=True)
+    
+#     # Create the dataset instance
+#     dataset = RawLabeledAudioDataset(directory, labels_dict)
+    
+#     # Create the DataLoader
+#     data_loader = DataLoader(
+#         dataset,
+#         batch_size=batch_size, 
+#         shuffle=shuffle, 
+#         num_workers=num_workers, 
+#         pin_memory=True,  # Enable page-locked memory for faster data transfer to GPU
+#         prefetch_factor=prefetch_factor,  # How many batches to prefetch per worker
+#         collate_fn=custom_collate_fn  # Custom collate function to handle variable-length inputs
+#     )
+    
+#     return data_loader
+
+from torch.utils.data.distributed import DistributedSampler
+
+def get_raw_labeled_audio_data_loaders(rank,world_size,directory, labels_dict, batch_size=32, shuffle=True, num_workers=0, prefetch_factor=None):
     
     # If multiprocessing is used, set start method to 'spawn' (for avoiding pickling issues)
     if num_workers > 0:
@@ -521,7 +545,8 @@ def get_raw_labeled_audio_data_loaders(directory, labels_dict, batch_size=32, sh
     
     # Create the dataset instance
     dataset = RawLabeledAudioDataset(directory, labels_dict)
-    
+    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank)
+
     # Create the DataLoader
     data_loader = DataLoader(
         dataset,
@@ -530,11 +555,11 @@ def get_raw_labeled_audio_data_loaders(directory, labels_dict, batch_size=32, sh
         num_workers=num_workers, 
         pin_memory=True,  # Enable page-locked memory for faster data transfer to GPU
         prefetch_factor=prefetch_factor,  # How many batches to prefetch per worker
-        collate_fn=custom_collate_fn  # Custom collate function to handle variable-length inputs
+        collate_fn=custom_collate_fn,  # Custom collate function to handle variable-length inputs
+        sampler=sampler
     )
     
     return data_loader
-
 
 
 

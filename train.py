@@ -21,12 +21,91 @@ from model import *
 from inference import dev_model
 
 
-# ... (your training and inference functions)
+import torch.distributed as dist
 
-def train_model(train_directory, train_labels_dict, 
+import torch
+import torch.nn as nn
+import torch.optim as optim
+import torch.distributed as dist
+from torch.utils.data import DataLoader
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data.distributed import DistributedSampler
+import torch.multiprocessing as mp
+
+
+
+
+import os
+from tqdm import tqdm  # Correctly import tqdm
+# from transformers import Wav2Vec2Processor, 
+from transformers import Wav2Vec2Tokenizer, Wav2Vec2Model
+import numpy as np
+
+import torch
+import torch.optim as optim
+
+
+
+
+class EarlyStopping:
+    def __init__(self, patience=10, delta=0, verbose=False, path=os.path.join(os.getcwd(),'models/back_end_models/best_model.pth')):
+        """
+        Args:
+            patience (int): Number of epochs with no improvement after which training will be stopped.
+            delta (float): Minimum change to qualify as an improvement.
+            verbose (bool): If True, prints a message for each validation loss improvement.
+            path (str): Path to save the best model.
+        """
+        self.patience = patience
+        self.delta = delta
+        self.verbose = verbose
+        self.path = path
+        self.counter = 0
+        self.best_loss = np.inf
+        self.early_stop = False
+        self.best_model_wts = None
+
+    def __call__(self, val_loss, model):
+        if self.best_loss - val_loss > self.delta:
+            self.best_loss = val_loss
+            self.counter = 0
+            if self.verbose:
+                print(f'Validation loss decreased ({self.best_loss:.6f} --> {val_loss:.6f}). Saving model...')
+            self.best_model_wts = model.state_dict()  # Save best model weights
+            torch.save(self.best_model_wts, self.path)  # Save the model checkpoint
+        else:
+            self.counter += 1
+            if self.verbose:
+                print(f'Validation loss did not improve. Counter: {self.counter}/{self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+                print("Early stopping triggered.")
+
+
+def setup(rank, world_size):
+    # Initialize the distributed environment.
+    dist.init_process_group(
+        backend='nccl',  # Use NCCL for multi-GPU training
+        init_method='env://',  # Environment variable-based initialization
+        world_size=world_size,
+        rank=rank
+    )
+    torch.cuda.set_device(rank)  # Each process is assigned a specific GPU
+
+def cleanup():
+    dist.destroy_process_group()  # Clean up the distributed environment
+
+
+def train_model(rank,world_size,train_directory, train_labels_dict, 
                 BATCH_SIZE=32, NUM_EPOCHS=1,LEARNING_RATE=0.0001,
                 model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
-                DEVICE='cpu',save_interval=float('inf')):
+                DEVICE='cpu',save_interval=float('inf'),patience=10):
+
+    # Initialize early stopping
+    early_stopping = EarlyStopping(patience=patience, verbose=True)
+
+    # Initialize the distributed environment
+    setup(rank, world_size)
 
     # Initialize W&B
     wandb.init(project='partial_spoof_trial_2')
@@ -42,40 +121,35 @@ def train_model(train_directory, train_labels_dict,
 
     # Load feature extractor
     Wav2Vec2_tokenizer = Wav2Vec2Tokenizer.from_pretrained("models/local_wav2vec2_tokenizer")
-    Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model").to(DEVICE)
+    # Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model").to(DEVICE)
+    Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model").to(rank)
     Wav2Vec2_model.eval()
 
     # Initialize the model, loss function, and optimizer
     hidd_dims ={'wav2vec2':768, 'wav2vec2_large':1024}
     # PS_Model = MyModel(d_model=hidd_dims['wav2vec2'],gmlp_layers=5).to(DEVICE)  # Move model to the configured device
     # PS_Model = SpoofingDetectionModel(feature_dim=hidd_dims['wav2vec2'], num_heads=8, hidden_dim=128, num_classes=33).to(DEVICE)  # Move model to the configured device
-    PS_Model = MyUpdatedSpoofingDetectionModel(feature_dim=hidd_dims['wav2vec2'], num_heads=8, hidden_dim=128, num_classes=33).to(DEVICE)  # Move model to the configured device
+    PS_Model = MyUpdatedSpoofingDetectionModel(feature_dim=hidd_dims['wav2vec2'], num_heads=8, hidden_dim=128, num_classes=33).to(rank)  # Move model to the configured device
 
     # Wrap the model with DataParallel
     if torch.cuda.device_count() > 1:
-        PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
+        # Wav2Vec2_model = DDP(Wav2Vec2_model, device_ids=[rank])
+        PS_Model = DDP(PS_Model, device_ids=[rank])
         print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
 
     
 
     # criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
     # criterion = CustomLoss()
-    criterion = CustomLoss().to(DEVICE)
+    criterion = CustomLoss().to(rank)
     optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
     # optimizer = optim.Adam(list(PS_Model.parameters()) + list(wav2vec2_model.parameters()), lr=LEARNING_RATE)
     optimizer = optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
     gamma=0.9
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
     # Get the data loader
-    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
-
-    # loader_iter = iter(data_loader) # preloading starts here
-
-    # with the default prefetch_factor of 2, 2*num_workers=16 batches will be preloaded
-    # the max index printed by __getitem__ is thus 31 (16*batch_size=32 samples loaded)
-
-    # data = next(loader_iter) # this will consume a batch and preload the next one from a single worker to fill the queue
-    # batch_size=2 new samples should be loaded
+    # Create a DistributedSampler to ensure each process gets a unique subset of data    
+    train_loader = get_raw_labeled_audio_data_loaders(rank,world_size,train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True)
 
     PS_Model.train()  # Set the model to training mode
     
@@ -102,18 +176,18 @@ def train_model(train_directory, train_labels_dict,
         #     labels = data['label'].to(DEVICE)
             # waveforms = batch['waveform'].to(DEVICE)
             waveforms = batch['waveform']
-            labels = batch['label'].to(DEVICE)
+            labels = batch['label'].to(rank)
 
             # Zero the parameter gradients
             optimizer.zero_grad()
 
             # Forward pass through wav2vec2 for feature extraction
-            inputs = Wav2Vec2_tokenizer(waveforms.squeeze().cpu().numpy(), sampling_rate=batch['sample_rate'], return_tensors="pt", padding="longest").to(DEVICE)
+            inputs = Wav2Vec2_tokenizer(waveforms.squeeze().cpu().numpy(), sampling_rate=batch['sample_rate'], return_tensors="pt", padding="longest").to(rank)
             features = Wav2Vec2_model(input_values=inputs['input_values']).last_hidden_state
             # print(f'type {type(features)}  with size {features.size()} , features= {features}')
 
             # lengths should be the number of non-padded frames in each sequence
-            lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
+            lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(rank)  # (batch_size,)
 
             # Pass features to model and get predictions
             outputs = PS_Model(features,lengths)
@@ -190,7 +264,7 @@ def train_model(train_directory, train_labels_dict,
         dev_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/dev_seglab_0.64.npy')
         dev_seglab_64_dict = np.load(dev_seglab_64_path, allow_pickle=True).item()
 
-        dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE,DEVICE=DEVICE)
+        dev_metrics_dict=dev_model(rank,world_size, PS_Model,dev_files_path, dev_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE,DEVICE=DEVICE)
         dev_segment_eer_per_epoch.append(dev_metrics_dict['segment_eer'])
 
         wandb.log({'epoch': epoch+1,'training_loss_epoch': epoch_loss,
@@ -206,6 +280,13 @@ def train_model(train_directory, train_labels_dict,
             'validation_utterance_eer_epoch': dev_metrics_dict['utterance_eer'],
             'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold']                      
             })
+
+
+        # Early stopping check
+        early_stopping(dev_metrics_dict['epoch_loss'], PS_Model)
+        if early_stopping.early_stop:
+            print(f"Early stopping at epoch {epoch+1}")
+            break
 
         scheduler.step()
 
@@ -238,6 +319,10 @@ def train_model(train_directory, train_labels_dict,
     training_metrics_dict_save_path=os.path.join(os.getcwd(),f'outputs/{training_metrics_dict_filename}')
     save_json_dictionary(training_metrics_dict_save_path,training_metrics_dict)
 
+    # Sync the loss across all processes (optional)
+    dist.barrier()
+    cleanup()  # Clean up distributed environment
+    
     if DEVICE=='cuda': torch.cuda.empty_cache()
     wandb.finish()
     print("Training complete!")
@@ -273,8 +358,13 @@ def train():
     # Wav2Vec2_model.eval()
 
 
+    # Get the rank and world size from the environment variables
+    rank = int(os.environ['RANK'])
+    world_size = int(os.environ['WORLD_SIZE'])
     # Call train_model with parameters from W&B sweep
     train_model(
+        rank=rank,
+        world_size=world_size,
         train_directory=train_files_path,
         train_labels_dict=train_seglab_64_dict,
         BATCH_SIZE=config.BATCH_SIZE,

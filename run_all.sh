@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " correct utterance labels in database/utterance_labels/* , remove unnecessary addition of waveform to to GPU in train_no_wandb.py train.py inference.py , add training time calculation to main.py   "
+git commit -m " unsuccessfull DDP trial"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
