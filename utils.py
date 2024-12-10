@@ -1,4 +1,3 @@
-
 from __future__ import absolute_import
 from __future__ import print_function
 
@@ -432,6 +431,44 @@ class RawLabeledAudioDataset(Dataset):
 
 
 
+import random
+import torchaudio.transforms as T
+from torch.utils.data import Dataset
+import torch
+
+class PitchShiftTransform:
+    def __init__(self, sample_rate, pitch_shift_prob=0.5, pitch_shift_steps=(-3, 3)):
+        """
+        Args:
+            sample_rate (int): The sample rate of the audio data.
+            pitch_shift_prob (float): Probability of applying pitch shift augmentation.
+            pitch_shift_steps (tuple): Range of pitch shift steps in semitones (e.g., (-4, 4)).
+        """
+        self.sample_rate = sample_rate
+        self.pitch_shift_prob = pitch_shift_prob
+        self.pitch_shift_steps = pitch_shift_steps
+
+    def __call__(self, waveform):
+        """
+        Apply pitch shift with the given probability.
+        
+        Args:
+            waveform (Tensor): The input audio waveform tensor.
+        
+        Returns:
+            Tensor: The pitch-shifted waveform if the probability condition is met, otherwise original waveform.
+        """
+        # if random.random() < self.pitch_shift_prob:
+        if self.pitch_shift_prob > 0:
+            n_steps = random.randint(*self.pitch_shift_steps)
+            pitch_shift = T.PitchShift(self.sample_rate, n_steps)
+            waveform = pitch_shift(waveform)
+        return waveform
+
+
+
+
+
 
 
 def custom_collate_fn(batch):
@@ -513,39 +550,24 @@ def compute_eer(predictions, labels):
 import torch.multiprocessing as mp
 
 # Assuming AudioDataset and collate_fn are defined elsewhere
-# def get_raw_labeled_audio_data_loaders(directory, labels_dict, batch_size=32, shuffle=True, num_workers=0, prefetch_factor=None):
-    
-#     # If multiprocessing is used, set start method to 'spawn' (for avoiding pickling issues)
-#     if num_workers > 0:
-#         mp.set_start_method('spawn', force=True)
-    
-#     # Create the dataset instance
-#     dataset = RawLabeledAudioDataset(directory, labels_dict)
-    
-#     # Create the DataLoader
-#     data_loader = DataLoader(
-#         dataset,
-#         batch_size=batch_size, 
-#         shuffle=shuffle, 
-#         num_workers=num_workers, 
-#         pin_memory=True,  # Enable page-locked memory for faster data transfer to GPU
-#         prefetch_factor=prefetch_factor,  # How many batches to prefetch per worker
-#         collate_fn=custom_collate_fn  # Custom collate function to handle variable-length inputs
-#     )
-    
-#     return data_loader
-
-from torch.utils.data.distributed import DistributedSampler
-
-def get_raw_labeled_audio_data_loaders(rank,world_size,directory, labels_dict, batch_size=32, shuffle=True, num_workers=0, prefetch_factor=None):
+def get_raw_labeled_audio_data_loaders(directory, labels_dict, batch_size=32, shuffle=True, num_workers=0, prefetch_factor=None):
     
     # If multiprocessing is used, set start method to 'spawn' (for avoiding pickling issues)
     if num_workers > 0:
         mp.set_start_method('spawn', force=True)
     
     # Create the dataset instance
-    dataset = RawLabeledAudioDataset(directory, labels_dict)
-    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank)
+    # dataset = RawLabeledAudioDataset(directory, labels_dict)
+    
+    pitch_shift_transform = PitchShiftTransform(sample_rate=16000, pitch_shift_prob=0.5, pitch_shift_steps=(-2, 2))
+
+    # Initialize the dataset with the transform
+    dataset = RawLabeledAudioDataset(
+        directory=directory,
+        labels_dict=labels_dict,
+        transform=pitch_shift_transform  # Apply pitch shift as part of the dataset transform
+    )
+
 
     # Create the DataLoader
     data_loader = DataLoader(
@@ -555,11 +577,36 @@ def get_raw_labeled_audio_data_loaders(rank,world_size,directory, labels_dict, b
         num_workers=num_workers, 
         pin_memory=True,  # Enable page-locked memory for faster data transfer to GPU
         prefetch_factor=prefetch_factor,  # How many batches to prefetch per worker
-        collate_fn=custom_collate_fn,  # Custom collate function to handle variable-length inputs
-        sampler=sampler
+        collate_fn=custom_collate_fn  # Custom collate function to handle variable-length inputs
     )
     
     return data_loader
+
+# from torch.utils.data.distributed import DistributedSampler
+
+# def get_raw_labeled_audio_data_loaders(rank,world_size,directory, labels_dict, batch_size=32, shuffle=True, num_workers=0, prefetch_factor=None):
+    
+#     # If multiprocessing is used, set start method to 'spawn' (for avoiding pickling issues)
+#     if num_workers > 0:
+#         mp.set_start_method('spawn', force=True)
+    
+#     # Create the dataset instance
+#     dataset = RawLabeledAudioDataset(directory, labels_dict)
+#     sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank)
+
+#     # Create the DataLoader
+#     data_loader = DataLoader(
+#         dataset,
+#         batch_size=batch_size, 
+#         shuffle=shuffle, 
+#         num_workers=num_workers, 
+#         pin_memory=True,  # Enable page-locked memory for faster data transfer to GPU
+#         prefetch_factor=prefetch_factor,  # How many batches to prefetch per worker
+#         collate_fn=custom_collate_fn,  # Custom collate function to handle variable-length inputs
+#         sampler=sampler
+#     )
+    
+#     return data_loader
 
 
 

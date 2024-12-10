@@ -32,6 +32,7 @@ if [ $retVal -ne 0 ]; then
 
 
     # install some foundational libraries
+    pip install s3prl
     pip install os
     pip install librosa
     pip install matplotlib

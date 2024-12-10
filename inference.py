@@ -25,7 +25,7 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
     # Get the data loader
 
     # dev_loader = get_audio_data_loaders(dev_directory, labels_dict, tokenizer,feature_extractor, batch_size=BATCH_SIZE, shuffle=True)
-    dev_loader = get_raw_labeled_audio_data_loaders(rank,world_size,dev_directory, labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=2, prefetch_factor=2)
+    dev_loader = get_raw_labeled_audio_data_loaders(dev_directory, labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
     # loader_iter = iter(data_loader) # preloading starts here
 
     # with the default prefetch_factor of 2, 2*num_workers=16 batches will be preloaded
@@ -38,15 +38,15 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
     PS_Model.eval()  # Set the model to evaluation mode
 
     # Wrap the model with DataParallel
-    # if torch.cuda.device_count() > 1:
-    #     PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
-    #     print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
+    if torch.cuda.device_count() > 1:
+        PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
+        print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
 
 
 
     # Calculate loss
     # loss = criterion(outputs, labels.float())  # Convert labels to float for BCELoss
-    criterion = CustomLoss().to(rank)
+    criterion = CustomLoss().to(DEVICE)
 
     files_names=[]
 
@@ -69,15 +69,15 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
             #     c+=1
             # waveforms = batch['waveform'].to(DEVICE)
             waveforms = batch['waveform']
-            labels = batch['label'].to(rank)
+            labels = batch['label'].to(DEVICE)
 
             # Forward pass through wav2vec2 for feature extraction
-            inputs = tokenizer(waveforms.squeeze().cpu().numpy(), sampling_rate=batch['sample_rate'], return_tensors="pt", padding="longest").to(rank)
+            inputs = tokenizer(waveforms.squeeze().cpu().numpy(), sampling_rate=batch['sample_rate'], return_tensors="pt", padding="longest").to(DEVICE)
             features = feature_extractor(input_values=inputs['input_values']).last_hidden_state
             # print(f'type {type(features)}  with size {features.size()} , features= {features}')
 
             # lengths should be the number of non-padded frames in each sequence
-            lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(rank)  # (batch_size,)
+            lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
 
             # Pass features to model and get predictions
             outputs = PS_Model(features,lengths)
@@ -116,7 +116,7 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
 
 
     # Print epoch dev progress
-    print(f'Rank {rank},Epoch [{epoch + 1}] Complete. Validation Loss: {epoch_loss:.4f},\n'
+    print(f'Epoch [{epoch + 1}] Complete. Validation Loss: {epoch_loss:.4f},\n'
                f'Average Validation Segment EER: {segment_eer:.4f}, Average Validation Segment EER Threshold: {segment_eer_threshold:.4f},\n'
                f'Average Validation Utterance EER: {utterance_eer:.4f}, Average Validation Utterance EER Threshold: {utterance_eer_threshold:.4f}')
 

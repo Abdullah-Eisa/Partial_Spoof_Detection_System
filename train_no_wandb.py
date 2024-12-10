@@ -13,6 +13,7 @@ import torch.optim.lr_scheduler as lr_scheduler
 
 # from transformers import Wav2Vec2Processor, 
 from transformers import Wav2Vec2Tokenizer, Wav2Vec2Model
+import s3prl.hub as hub
 
 # import wandb
 
@@ -40,9 +41,9 @@ def train_model(train_directory, train_labels_dict,
     PartialSpoof_LA_cm_train_trl_dict= load_json_dictionary(PartialSpoof_LA_cm_train_trl_dict_path)
 
     # Load feature extractor
-    Wav2Vec2_tokenizer = Wav2Vec2Tokenizer.from_pretrained("models/local_wav2vec2_tokenizer")
-    Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model").to(DEVICE)
-    Wav2Vec2_model.eval()
+    ssl_ckpt_path = os.path.join(os.getcwd(), 'w2v_large_lv_fsh_swbd_cv.pt')
+    # Assuming that the model is registered in a hub (replace with actual model hub if exists)
+    feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
 
     # Initialize the model, loss function, and optimizer
     hidd_dims ={'wav2vec2':768, 'wav2vec2_large':1024}
@@ -106,17 +107,15 @@ def train_model(train_directory, train_labels_dict,
             # else:
             #         c+=1
             # waveforms = batch['waveform'].to(DEVICE)
-            waveforms = batch['waveform']
+            waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
 
             # Zero the parameter gradients
             optimizer.zero_grad()
 
             # Forward pass through wav2vec2 for feature extraction
-            inputs = Wav2Vec2_tokenizer(waveforms.squeeze().cpu().numpy(), sampling_rate=batch['sample_rate'], return_tensors="pt", padding="longest").to(DEVICE)
-            # inputs = {k: v.to(DEVICE) for k, v in inputs.items()}  # Move tokenized inputs to GPU
-            features = Wav2Vec2_model(input_values=inputs['input_values']).last_hidden_state
-            # print(f'type {type(features)}  with size {features.size()} , features= {features}')
+            features = feature_extractor(waveforms)['hidden_states'][-1] 
+            # print(f"Last hidden state type: {type(features)}  , Last hidden state shape: {features.shape}")
 
             # lengths should be the number of non-padded frames in each sequence
             lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
@@ -276,9 +275,9 @@ if __name__ == "__main__":
         print(f"BATCH_SIZE={BATCH_SIZE}")
     else:
         # BATCH_SIZE=16
-        BATCH_SIZE=16
+        BATCH_SIZE=8
 
-    train_model(train_files_path, train_seglab_64_dict,BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=3,DEVICE=DEVICE)
+    train_model(train_files_path, train_seglab_64_dict,BATCH_SIZE=BATCH_SIZE,NUM_EPOCHS=1,DEVICE=DEVICE)
 
     # Record the end time
     end_time = datetime.now()
@@ -298,3 +297,5 @@ if __name__ == "__main__":
     # file_name='CON_T_0000000'
     # print(train_seglab_64_dict[file_name])
     # print(type(train_seglab_64_dict[file_name]))
+
+
