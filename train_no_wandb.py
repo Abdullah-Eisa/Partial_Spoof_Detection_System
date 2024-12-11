@@ -57,37 +57,33 @@ def train_model(train_directory, train_labels_dict,
         PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
         print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
 
-    # Freeze all layers except the last one (final_proj)
-    for name, param in feature_extractor.named_parameters():
-        if 'final_proj' not in name:  # Check if the layer is not the last one
-            param.requires_grad = False
-        else:
-            param.requires_grad = True
+
+    if save_feature_extractor:
+        # Freeze all layers except the last one (final_proj)
+        for name, param in feature_extractor.named_parameters():
+            if 'final_proj' not in name:  # Check if the layer is not the last one
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
+
+        # optimizer = optim.Adam(list(PS_Model.parameters()) + list(wav2vec2_model.parameters()), lr=LEARNING_RATE)
+        optimizer = optim.AdamW([
+            {'params': feature_extractor.parameters(), 'lr': LEARNING_RATE / 5} ,
+            {'params': PS_Model.parameters()}], lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+
+    else:
+        # optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
+        optimizer = optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+        feature_extractor.eval()
 
     # criterion = nn.BCEWithLogitsLoss()  # Binary Cross Entropy Loss with Logits for multi-label classification
-    # criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
     criterion = CustomLoss().to(DEVICE)
-    # optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
-    # optimizer = optim.Adam(list(PS_Model.parameters()) + list(wav2vec2_model.parameters()), lr=LEARNING_RATE)
-    optimizer = optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
-    # optimizer = optim.AdamW([
-    #     {'params': feature_extractor.parameters(), 'lr': LEARNING_RATE / 5} ,
-    #     {'params': PS_Model.parameters()}], lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
 
     gamma=0.9
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
 
     # Get the data loader
     train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True,num_workers=8, prefetch_factor=4)
-
-
-    # loader_iter = iter(data_loader) # preloading starts here
-
-    # with the default prefetch_factor of 2, 2*num_workers=16 batches will be preloaded
-    # the max index printed by __getitem__ is thus 31 (16*batch_size=32 samples loaded)
-
-    # data = next(loader_iter) # this will consume a batch and preload the next one from a single worker to fill the queue
-    # batch_size=2 new samples should be loaded
 
     PS_Model.train()  # Set the model to training mode
     
@@ -110,15 +106,10 @@ def train_model(train_directory, train_labels_dict,
         segment_labels=[]
         c=0
         for batch in tqdm(train_loader, desc="Train Batches", leave=False):
-        # for i in range(len(data_loader)):
-        #     data = next(loader_iter)
-        #     waveforms = data['waveform'].to(DEVICE)
-        #     labels = data['label'].to(DEVICE)
             # if c>8:
             #     break
             # else:
             #         c+=1
-            # waveforms = batch['waveform'].to(DEVICE)
             waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
 

@@ -310,52 +310,6 @@ from torch.nn.utils.rnn import pad_sequence
 
 
 
-
-# class RawLabeledAudioDataset(Dataset):
-#     def __init__(self, directory,labels_dict, transform=None):
-#         """
-#         Args:
-#             directory (str): Path to the directory containing the audio files.
-#             save_dir (str): Path to the directory where the extracted features will be saved.
-#             tokenizer (callable): A tokenizer for preprocessing the audio data.
-#             feature_extractor (callable): Feature extractor model (e.g., from HuggingFace).
-#             transform (callable, optional): Optional transform to apply to the waveform.
-#             normalize (bool, optional): Whether to normalize the extracted features. Default is True.
-#         """
-#         self.directory = directory
-#         self.labels_dict = labels_dict
-#         # self.save_dir = save_dir
-#         # self.tokenizer = tokenizer
-#         # self.feature_extractor = feature_extractor
-#         self.transform = transform
-#         # self.normalize = normalize
-#         self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')]
-
-#         # Ensure the save directory exists
-#         # os.makedirs(save_dir, exist_ok=True)
-
-#     def __len__(self):
-#         return len(self.file_list)
-
-#     def __getitem__(self, idx):
-#         file_name = self.file_list[idx]
-#         file_path = os.path.join(self.directory, file_name)
-
-#         try:
-#             waveform, sample_rate = torchaudio.load(file_path)
-#         except Exception as e:
-#             print(f"Error loading audio file {file_path}: {e}")
-#             return None
-
-#         if self.transform:
-#             waveform = self.transform(waveform)
-
-#         # Return raw waveform and sample rate
-#         file_name = file_name.split('.')[0]
-#         label = self.labels_dict.get(file_name).astype(int)
-
-#         label = torch.tensor(label, dtype=torch.int8)
-#         return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
 class RawLabeledAudioDataset(Dataset):
     def __init__(self, directory,labels_dict, transform=None,normalize=True):
         """

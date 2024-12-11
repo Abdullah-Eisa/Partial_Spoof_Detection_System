@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " add the next features: relative positional encoding , early stopping , group optimization , drop out scheduling along the backend model architecture , normalize input , new cloud_instance_pip_requirements.txt with s3prl library  "
+git commit -m "re-structure save_feature_extractor code , clean unnecessary code  "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
