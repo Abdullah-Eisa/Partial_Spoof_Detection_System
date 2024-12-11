@@ -407,14 +407,14 @@ class RawLabeledAudioDataset(Dataset):
         file_path = os.path.join(self.directory, file_name)
 
         try:
-            waveform, sample_rate = torchaudio.load(file_path)
+            waveform, sample_rate = torchaudio.load(file_path, normalize=True)
         except Exception as e:
             print(f"Error loading audio file {file_path}: {e}")
             return None
         
         # Normalize waveform if needed
-        if self.normalize:
-            waveform = self.normalize_waveform(waveform)
+        # if self.normalize:
+        #     waveform = self.normalize_waveform(waveform)
 
         # Apply any other transformations if provided
         if self.transform:
@@ -557,16 +557,16 @@ def get_raw_labeled_audio_data_loaders(directory, labels_dict, batch_size=32, sh
         mp.set_start_method('spawn', force=True)
     
     # Create the dataset instance
-    # dataset = RawLabeledAudioDataset(directory, labels_dict)
+    dataset = RawLabeledAudioDataset(directory, labels_dict)
     
-    pitch_shift_transform = PitchShiftTransform(sample_rate=16000, pitch_shift_prob=0.5, pitch_shift_steps=(-2, 2))
+    # pitch_shift_transform = PitchShiftTransform(sample_rate=16000, pitch_shift_prob=0.5, pitch_shift_steps=(-2, 2))
 
-    # Initialize the dataset with the transform
-    dataset = RawLabeledAudioDataset(
-        directory=directory,
-        labels_dict=labels_dict,
-        transform=pitch_shift_transform  # Apply pitch shift as part of the dataset transform
-    )
+    # # Initialize the dataset with the transform
+    # dataset = RawLabeledAudioDataset(
+    #     directory=directory,
+    #     labels_dict=labels_dict,
+    #     transform=pitch_shift_transform  # Apply pitch shift as part of the dataset transform
+    # )
 
 
     # Create the DataLoader
@@ -873,3 +873,42 @@ def get_masked_labels_and_outputs(model_output,labels_tensor):
     return masked_output,masked_labels 
 
 
+
+
+
+
+
+
+class EarlyStopping:
+    def __init__(self, patience=10, delta=0, verbose=False, path=os.path.join(os.getcwd(),'models/back_end_models/best_model.pth')):
+        """
+        Args:
+            patience (int): Number of epochs with no improvement after which training will be stopped.
+            delta (float): Minimum change to qualify as an improvement.
+            verbose (bool): If True, prints a message for each validation loss improvement.
+            path (str): Path to save the best model.
+        """
+        self.patience = patience
+        self.delta = delta
+        self.verbose = verbose
+        self.path = path
+        self.counter = 0
+        self.best_loss = np.inf
+        self.early_stop = False
+        self.best_model_wts = None
+
+    def __call__(self, val_loss, model):
+        if self.best_loss - val_loss > self.delta and val_loss < 0.3:
+            self.best_loss = val_loss
+            self.counter = 0
+            if self.verbose:
+                print(f'Validation loss decreased ({self.best_loss:.6f} --> {val_loss:.6f}). Saving model...')
+            self.best_model_wts = model.state_dict()  # Save best model weights
+            torch.save(self.best_model_wts, self.path)  # Save the model checkpoint
+        else:
+            self.counter += 1
+            if self.verbose:
+                print(f'Validation loss did not improve. Counter: {self.counter}/{self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+                print("Early stopping triggered.")

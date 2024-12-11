@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " restore previous versions of inference.py , train.py before unsuccessfull DDP trial , modify the feature extractor model to be w2v_large_lv_fsh_swbd_cv.pt in train_no_wandb.py , add download_pretrained_model.sh for downloading w2v_large_lv_fsh_swbd_cv.pt , update utils.py with PitchShiftTransform data augmentation method"
+git commit -m " add the next features: relative positional encoding , early stopping , group optimization , drop out scheduling along the backend model architecture , normalize input , new cloud_instance_pip_requirements.txt with s3prl library  "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

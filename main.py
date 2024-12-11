@@ -32,7 +32,7 @@ def main():
             # 'BATCH_SIZE': {'values': [16,32]},
             'NUM_EPOCHS': {'values': [1]},
             'LEARNING_RATE': {'values': [0.0002]},
-            'BATCH_SIZE': {'values': [4]},
+            'BATCH_SIZE': {'values': [8]},
             # 'CLASS0_WEIGHT': {'values': [0.42,0.45,0.48]},
 
         }

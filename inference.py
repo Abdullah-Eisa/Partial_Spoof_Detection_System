@@ -2,7 +2,7 @@
 import os
 from tqdm import tqdm  # Correctly import tqdm
 # from transformers import Wav2Vec2Processor, 
-from transformers import Wav2Vec2Tokenizer, Wav2Vec2Model
+# from transformers import Wav2Vec2Tokenizer, Wav2Vec2Model
 import numpy as np
 
 import torch
@@ -16,7 +16,7 @@ from model import *
 
 
 
-def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor, BATCH_SIZE=32,epoch=0,DEVICE='cpu'):
+def dev_model( PS_Model,dev_directory, labels_dict,feature_extractor,dropout_prob, BATCH_SIZE=32,epoch=0,DEVICE='cpu'):
 
     BASE_DIR = os.getcwd()
     PartialSpoof_LA_cm_dev_trl_dict_path = os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json')
@@ -56,7 +56,7 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
     utterance_predictions=[]
     segment_predictions=[]
     segment_labels=[]
-    c=0
+    # c=0
     with torch.no_grad():
         for batch in tqdm(dev_loader, desc="Dev Batches", leave=False):
         # for i in range(len(data_loader)):
@@ -68,19 +68,18 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
             # else:
             #     c+=1
             # waveforms = batch['waveform'].to(DEVICE)
-            waveforms = batch['waveform']
+            waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
 
             # Forward pass through wav2vec2 for feature extraction
-            inputs = tokenizer(waveforms.squeeze().cpu().numpy(), sampling_rate=batch['sample_rate'], return_tensors="pt", padding="longest").to(DEVICE)
-            features = feature_extractor(input_values=inputs['input_values']).last_hidden_state
-            # print(f'type {type(features)}  with size {features.size()} , features= {features}')
+            features = feature_extractor(waveforms)['hidden_states'][-1] 
+             # print(f'type {type(features)}  with size {features.size()} , features= {features}')
 
             # lengths should be the number of non-padded frames in each sequence
             lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
 
             # Pass features to model and get predictions
-            outputs = PS_Model(features,lengths)
+            outputs = PS_Model(features,lengths,dropout_prob)
 
             # Calculate loss
             loss = criterion(outputs, labels) 
@@ -126,7 +125,7 @@ def dev_model( PS_Model,dev_directory, labels_dict, tokenizer,feature_extractor,
 
 
 
-def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_extractor, BATCH_SIZE=32,DEVICE='cpu'):
+def infer_model(model_path,test_directory, test_labels_dict,feature_extractor, BATCH_SIZE=32,DEVICE='cpu'):
     # Initialize the model
     PS_Model = MyModel().to(DEVICE)  # Initialize the model and move to the configured device
     # model_path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs1_batch16_lr0.001_20240911_234211.pth')
@@ -179,14 +178,12 @@ def infer_model(model_path,test_directory, test_labels_dict, tokenizer, feature_
         #     waveforms = data['waveform'].to(DEVICE)
         #     labels = data['label'].to(DEVICE)
             # waveforms = batch['waveform'].to(DEVICE)
-            waveforms = batch['waveform']
+            waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
             
             # Forward pass through wav2vec2 for feature extraction
-            inputs = tokenizer(waveforms.squeeze().cpu().numpy(), sampling_rate=batch['sample_rate'], return_tensors="pt", padding="longest").to(DEVICE)
-            features = feature_extractor(input_values=inputs['input_values']).last_hidden_state
-            # print(f'type {type(features)}  with size {features.size()} , features= {features}')
-            
+            features = feature_extractor(waveforms)['hidden_states'][-1] 
+
             # lengths should be the number of non-padded frames in each sequence
             lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
 
@@ -252,18 +249,16 @@ if __name__ == "__main__":
     test_seglab_64_dict = np.load(test_seglab_64_path, allow_pickle=True).item()
 
 
-    # Load the tokenizer and model from the local directory
-    Wav2Vec2_tokenizer = Wav2Vec2Tokenizer.from_pretrained("models/local_wav2vec2_tokenizer")
-    # Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model")
-    Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model").to(DEVICE)
-    Wav2Vec2_model.eval()
+    # Load feature extractor
+    ssl_ckpt_path = os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
+    feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
 
     # Backend model path
     # model_path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs1_batch16_lr0.001_20240911_234211.pth')
     model_path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs3_batch16_lr0.001_20240930_110553.pth')
 
     # inference
-    inference_metrics_dict=infer_model(model_path,test_files_path, test_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE=16,DEVICE=DEVICE)
+    inference_metrics_dict=infer_model(model_path,test_files_path, test_seglab_64_dict,feature_extractor, BATCH_SIZE=16,DEVICE=DEVICE)
 
 
     # file_name='CON_T_0000000'

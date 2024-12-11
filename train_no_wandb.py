@@ -12,13 +12,14 @@ import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
 
 # from transformers import Wav2Vec2Processor, 
-from transformers import Wav2Vec2Tokenizer, Wav2Vec2Model
+# from transformers import Wav2Vec2Tokenizer, Wav2Vec2Model
 import s3prl.hub as hub
 
 # import wandb
 
 from utils import *
 from model import *
+from model import MyUpdatedSpoofingDetectionModel
 from inference import dev_model
 
 
@@ -27,7 +28,7 @@ from inference import dev_model
 def train_model(train_directory, train_labels_dict, 
                 BATCH_SIZE=32, NUM_EPOCHS=1,LEARNING_RATE=0.0001,
                 model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
-                DEVICE='cpu',save_interval=float('inf')):
+                DEVICE='cpu',save_interval=float('inf'),save_feature_extractor=False):
 
 
     if DEVICE == 'cuda':
@@ -41,8 +42,7 @@ def train_model(train_directory, train_labels_dict,
     PartialSpoof_LA_cm_train_trl_dict= load_json_dictionary(PartialSpoof_LA_cm_train_trl_dict_path)
 
     # Load feature extractor
-    ssl_ckpt_path = os.path.join(os.getcwd(), 'w2v_large_lv_fsh_swbd_cv.pt')
-    # Assuming that the model is registered in a hub (replace with actual model hub if exists)
+    ssl_ckpt_path = os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
     feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
 
     # Initialize the model, loss function, and optimizer
@@ -57,6 +57,12 @@ def train_model(train_directory, train_labels_dict,
         PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
         print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
 
+    # Freeze all layers except the last one (final_proj)
+    for name, param in feature_extractor.named_parameters():
+        if 'final_proj' not in name:  # Check if the layer is not the last one
+            param.requires_grad = False
+        else:
+            param.requires_grad = True
 
     # criterion = nn.BCEWithLogitsLoss()  # Binary Cross Entropy Loss with Logits for multi-label classification
     # criterion = nn.BCELoss()  # Binary Cross Entropy Loss for multi-label classification
@@ -64,12 +70,15 @@ def train_model(train_directory, train_labels_dict,
     # optimizer = optim.Adam(PS_Model.parameters(), lr=LEARNING_RATE)
     # optimizer = optim.Adam(list(PS_Model.parameters()) + list(wav2vec2_model.parameters()), lr=LEARNING_RATE)
     optimizer = optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+    # optimizer = optim.AdamW([
+    #     {'params': feature_extractor.parameters(), 'lr': LEARNING_RATE / 5} ,
+    #     {'params': PS_Model.parameters()}], lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+
     gamma=0.9
     scheduler = lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
 
     # Get the data loader
-    # train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True)
-    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True,num_workers=8, prefetch_factor=2)
+    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True,num_workers=8, prefetch_factor=4)
 
 
     # loader_iter = iter(data_loader) # preloading starts here
@@ -89,6 +98,9 @@ def train_model(train_directory, train_labels_dict,
 
     for epoch in tqdm(range(NUM_EPOCHS), desc="Epochs"):
         PS_Model.train()  # Set the model to training mode
+
+        # Adjust dropout probability for the current epoch
+        dropout_prob = PS_Model.adjust_dropout(epoch, NUM_EPOCHS)
 
         epoch_loss = 0
         utterance_eer, utterance_eer_threshold=0,0
@@ -120,8 +132,9 @@ def train_model(train_directory, train_labels_dict,
             # lengths should be the number of non-padded frames in each sequence
             lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
 
+            
             # Pass features to model and get predictions
-            outputs = PS_Model(features,lengths)
+            outputs = PS_Model(features,lengths,dropout_prob)
 
 
             # Calculate loss
@@ -151,6 +164,7 @@ def train_model(train_directory, train_labels_dict,
 
             # Print batch training progress
             # print(f'Epoch [{epoch+1}/{NUM_EPOCHS}], Batch Loss: {loss.item()}, Batch Segment EER: {segment_eer:.4f}, Batch Segment EER Threshold: {segment_eer_threshold:.4f}')
+
 
         # Save checkpoint
         if NUM_EPOCHS>=save_interval and (epoch + 1) % (NUM_EPOCHS//save_interval) == 0:
@@ -194,7 +208,7 @@ def train_model(train_directory, train_labels_dict,
         dev_seglab_64_dict = np.load(dev_seglab_64_path, allow_pickle=True).item()
 
 
-        dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict, Wav2Vec2_tokenizer,Wav2Vec2_model, BATCH_SIZE,DEVICE=DEVICE)        
+        dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict, feature_extractor,dropout_prob, BATCH_SIZE,DEVICE=DEVICE)        
         dev_segment_eer_per_epoch.append(dev_metrics_dict['segment_eer'])
 
 
@@ -210,12 +224,15 @@ def train_model(train_directory, train_labels_dict,
     # Generate a unique filename based on hyperparameters
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
     model_filename = f"model_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
-    
+    if save_feature_extractor:
+        feature_extractor_filename = f"w2v_large_lv_fsh_swbd_cv_{timestamp}.pt"
+        feature_extractor_save_path=os.path.join(model_save_path,feature_extractor_filename)
+        save_checkpoint(feature_extractor, optimizer,NUM_EPOCHS,feature_extractor_save_path)
+
     # Save the trained model
     model_save_path=os.path.join(model_save_path,model_filename)
-    # torch.save(PS_Model.state_dict(), model_save_path)
     save_checkpoint(PS_Model, optimizer,NUM_EPOCHS,model_save_path)
-    print(f"Model saved to {model_save_path}")
+    print(f"Models saved to {model_save_path}")
 
     # Save segment_predictions, segment_labels, utterance_predictions, utterance_labels
     torch.save(segment_predictions,os.path.join(os.getcwd(),f'outputs/segment_predictions_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pt'))
@@ -257,13 +274,6 @@ if __name__ == "__main__":
     train_files_path=os.path.join(BASE_DIR,'database/train/con_wav')
     train_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/train_seglab_0.64.npy')
     train_seglab_64_dict = np.load(train_seglab_64_path, allow_pickle=True).item()
-
-
-    # # Load the tokenizer and model from the local directory
-    # Wav2Vec2_tokenizer = Wav2Vec2Tokenizer.from_pretrained("models/local_wav2vec2_tokenizer")
-    # # Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model")
-    # Wav2Vec2_model = Wav2Vec2Model.from_pretrained("models/local_wav2vec2_model").to(DEVICE)
-    # Wav2Vec2_model.eval()
 
 
     # Record the start time
