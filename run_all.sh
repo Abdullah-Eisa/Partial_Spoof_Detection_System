@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m "re-structure save_feature_extractor code , clean unnecessary code  "
+git commit -m "modify max_dropout in the model architecture  "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

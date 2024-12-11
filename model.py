@@ -429,7 +429,7 @@ class MyUpdatedSpoofingDetectionModel(nn.Module):
             ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
             num_layers=conformer_layers,  # Example, adjust as needed
             depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
-            dropout=0.5,
+            dropout=max_dropout,
             use_group_norm= False, 
             convolution_first= False
         )
@@ -442,7 +442,7 @@ class MyUpdatedSpoofingDetectionModel(nn.Module):
             nn.Linear(feature_dim, hidden_dim),  # Refined hidden dimension for classification
             nn.GELU(),
             nn.LayerNorm(hidden_dim),
-            nn.Dropout(0.3),  # Dropout for regularization
+            nn.Dropout(max_dropout / 2),  # Dropout for regularization
 
             nn.Linear(hidden_dim, num_classes),  # Final output layer
             nn.Sigmoid(),
