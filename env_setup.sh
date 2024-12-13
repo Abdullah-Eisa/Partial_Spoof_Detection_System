@@ -1,3 +1,4 @@
+
 #!/bin/bash
 
 # ==================== ENV with GPU ==============================
@@ -67,6 +68,16 @@ if [ $retVal -ne 0 ]; then
     #     # Save them locally
     #     tokenizer.save_pretrained("./models/local_wav2vec2_tokenizer")
     #     model.save_pretrained("./models/local_wav2vec2_model")
+        # from transformers import Wav2Vec2Processor, Wav2Vec2ConformerForSequenceClassification
+        # # Load the pre-trained model and processor
+        # # model_name = "facebook/wav2vec2-conformer-rope-large-960h-ft"  # Example model name
+        # model_name = "facebook/wav2vec2-conformer-rel-pos-large-960h-ft"  # Example model name
+        # processor = Wav2Vec2Processor.from_pretrained(model_name)
+        # model = Wav2Vec2ConformerForSequenceClassification.from_pretrained(model_name)
+
+        # # Save them locally
+        # processor.save_pretrained("./models/Wav2Vec2Processor")
+        # model.save_pretrained("./models/Wav2Vec2ConformerForSequenceClassificationModel")
     #     EOF
     # )
 
@@ -78,4 +89,3 @@ if [ $retVal -ne 0 ]; then
 else
     echo "Conda environment ${ENVNAME} has been installed"
 fi
-

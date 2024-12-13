@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m "modify max_dropout in the model architecture  "
+git commit -m "add train_Wav2Vec2Conformer.py , remove unnecessary files "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
