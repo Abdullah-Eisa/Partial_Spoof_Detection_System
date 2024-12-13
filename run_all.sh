@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m "add train_Wav2Vec2Conformer.py , remove unnecessary files "
+git commit -m "Remove unnecessary files from repository"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
