@@ -10,7 +10,6 @@ from torch.nn.utils.rnn import pad_sequence
 import torch.optim as optim
 
 
-from gmlp import GMLPBlock
 from utils import *
 from model import *
 
@@ -115,9 +114,9 @@ def dev_model( PS_Model,dev_directory, labels_dict,feature_extractor,dropout_pro
 
 
     # Print epoch dev progress
-    print(f'Epoch [{epoch + 1}] Complete. Validation Loss: {epoch_loss:.4f},\n'
-               f'Average Validation Segment EER: {segment_eer:.4f}, Average Validation Segment EER Threshold: {segment_eer_threshold:.4f},\n'
-               f'Average Validation Utterance EER: {utterance_eer:.4f}, Average Validation Utterance EER Threshold: {utterance_eer_threshold:.4f}')
+    # print(f'Epoch [{epoch + 1}] Complete. Validation Loss: {epoch_loss:.4f},\n'
+    #            f'Average Validation Segment EER: {segment_eer:.4f}, Average Validation Segment EER Threshold: {segment_eer_threshold:.4f},\n'
+    #            f'Average Validation Utterance EER: {utterance_eer:.4f}, Average Validation Utterance EER Threshold: {utterance_eer_threshold:.4f}')
 
     return create_metrics_dict(utterance_eer,utterance_eer_threshold,segment_eer,segment_eer_threshold,epoch_loss)
     

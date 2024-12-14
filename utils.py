@@ -735,11 +735,31 @@ def save_checkpoint(model, optimizer, epoch, path='checkpoint.pth'):
         'optimizer_state_dict': optimizer.state_dict(),
     }, path)
 
+import os
+import torch
+
 def load_checkpoint(model, optimizer, path='checkpoint.pth'):
+    # Check if the file exists
+    if not os.path.isfile(path):
+        raise FileNotFoundError(f"Checkpoint file not found at {path}")
+
+    # Load the checkpoint
     checkpoint = torch.load(path)
+
+    # Verify the checkpoint contains the necessary keys
+    if 'model_state_dict' not in checkpoint or 'optimizer_state_dict' not in checkpoint or 'epoch' not in checkpoint:
+        raise KeyError(f"Checkpoint file is missing required keys ('model_state_dict', 'optimizer_state_dict', 'epoch')")
+
+    # Check if the model state_dict is not empty
+    if not checkpoint['model_state_dict']:
+        raise ValueError(f"Model state_dict is empty in the checkpoint file at {path}")
+
+    # Load the model and optimizer state dicts
     model.load_state_dict(checkpoint['model_state_dict'])
     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    return model,optimizer,checkpoint['epoch']
+
+    # Return the model, optimizer, and epoch number
+    return model, optimizer, checkpoint['epoch']
 
 
 
@@ -788,43 +808,52 @@ class CustomLoss(nn.Module):
     def __init__(self):
         super(CustomLoss, self).__init__()
 
-    def forward(self, model_output, labels_tensor):
-        # Convert labels to float for BCEWithLogitsLoss
-        labels_tensor = labels_tensor.float()
-
-        # Create mask: 1 for valid entries (not -1), 0 for padding (-1)
-        mask_tensor = (labels_tensor != -1).float()
-
+    def forward(self, model_output, labels_tensor,calculate_utt_loss=False,segment_weight=0.5, utt_weight=0.5):
         # Use BCEWithLogitsLoss with reduction='none' to compute loss per element
         loss_fn = nn.BCEWithLogitsLoss(reduction='none')
-        loss_per_element = loss_fn(model_output, labels_tensor)
+        
+        if calculate_utt_loss:
+            masked_output, masked_labels=get_masked_labels_and_outputs(model_output,labels_tensor,keep_dims=True)
+            utt_loss = loss_fn(masked_output.min(dim=1).values,masked_labels.min(dim=1).values)
 
-        # Apply mask to ignore padding positions
-        masked_loss = loss_per_element * mask_tensor  # Zero out losses for padded positions
-
-        # Calculate the mean of the masked loss for valid positions
-        total_loss = masked_loss.sum()
-        valid_elements_count = mask_tensor.sum()
-
-        if valid_elements_count > 0:
-            return total_loss / valid_elements_count
+            model_output,labels_tensor=get_masked_labels_and_outputs(model_output,labels_tensor)
+            # Convert labels to float for BCEWithLogitsLoss
+            labels_tensor = labels_tensor.float()
+            segment_loss = loss_fn(model_output, labels_tensor)
+            # return 0.5*segment_loss.mean()+0.5*utt_loss.mean()
+            return segment_weight * segment_loss.mean() + utt_weight * utt_loss.mean()
         else:
-            return torch.tensor(0.0, device=model_output.device)  # Return 0 if no valid entries
+            model_output,labels_tensor=get_masked_labels_and_outputs(model_output,labels_tensor)
+            # Convert labels to float for BCEWithLogitsLoss
+            labels_tensor = labels_tensor.float()
+            segment_loss = loss_fn(model_output, labels_tensor)
+            return segment_loss.mean()
 
 
 
 
-def get_masked_labels_and_outputs(model_output,labels_tensor):
-    # Create mask to identify valid labels (not -1)
-    mask_tensor = (labels_tensor != -1)
-    # print(f"mask_tensor:\n {mask_tensor}")
-    # Remove -1 values from labels using the mask
-    masked_labels = labels_tensor[mask_tensor]
+def get_masked_labels_and_outputs(model_output, labels_tensor,keep_dims=False, mask_value=float('inf')):
+    if keep_dims:
+        # Create mask to identify valid labels (not -1)
+        mask_tensor = (labels_tensor != -1)
+        # Replace the -1 values in labels_tensor with a mask_value (e.g., NaN)
+        masked_labels = labels_tensor.clone()  # Avoid modifying the original tensor
+        masked_labels[~mask_tensor] = mask_value
+        # Similarly, apply the mask to the model_output
+        masked_output = model_output.clone()  # Avoid modifying the original tensor
+        masked_output[~mask_tensor] = mask_value  # Replace invalid entries with mask_value
+        return masked_output, masked_labels
 
-    # Remove equivalent positions in the output tensor using the mask
-    masked_output = model_output[mask_tensor]
+    else:
+        # Create mask to identify valid labels (not -1)
+        mask_tensor = (labels_tensor != -1)
+        # print(f"mask_tensor: {mask_tensor}")
+        # Remove -1 values from labels using the mask
+        masked_labels = labels_tensor[mask_tensor]
+        # Remove equivalent positions in the output tensor using the mask
+        masked_output = model_output[mask_tensor]
+        return masked_output, masked_labels
 
-    return masked_output,masked_labels 
 
 
 

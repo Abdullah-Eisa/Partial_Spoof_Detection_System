@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m "Remove unnecessary files from repository"
+git commit -m "add weights initialization to model.py , modify custom_loss to include both segment and utterance loss in utils.py , add gradient clipping & monitor_dev_epoch to train.py"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

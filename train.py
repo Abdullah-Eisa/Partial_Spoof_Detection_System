@@ -28,13 +28,13 @@ from inference import dev_model
 def train_model(train_directory, train_labels_dict, 
                 BATCH_SIZE=32, NUM_EPOCHS=1,LEARNING_RATE=0.0001,
                 model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
-                DEVICE='cpu',save_interval=float('inf'),patience=10,save_feature_extractor=False):
+                DEVICE='cpu',save_interval=float('inf'),patience=10,save_feature_extractor=False,max_grad_norm=1.0,monitor_dev_epoch=50):
 
     # Initialize W&B
     wandb.init(project='partial_spoof_trial_2')
 
-    # Initialize early stopping
-    early_stopping = EarlyStopping(patience=patience, verbose=True)
+    # # Initialize early stopping
+    # early_stopping = EarlyStopping(patience=patience, verbose=True)
 
     if DEVICE == 'cuda':
         torch.cuda.empty_cache()
@@ -87,6 +87,12 @@ def train_model(train_directory, train_labels_dict,
     # Get the data loader
     train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
 
+
+    PS_Model,_,_=load_checkpoint(PS_Model, optimizer, path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs15_batch8_lr0.01_20241214_171142.pth'))
+
+    # Logging gradients with wandb.watch
+    wandb.watch(PS_Model, log_freq=100,log='all')
+
     PS_Model.train()  # Set the model to training mode
 
     files_names=[]
@@ -106,8 +112,12 @@ def train_model(train_directory, train_labels_dict,
         # utterance_pooling_predictions=[]
         segment_predictions=[]
         segment_labels=[]
-
+        # c=0
         for batch in tqdm(train_loader, desc="Train Batches", leave=False):
+            # if c>16:
+            #     break
+            # else:
+            #     c+=1
             waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
 
@@ -123,7 +133,10 @@ def train_model(train_directory, train_labels_dict,
 
             # Pass features to model and get predictions
             outputs = PS_Model(features,lengths,dropout_prob)
-
+            # outputs = PS_Model(features,lengths)
+            # print(f"PS_Model outputs with size: {logits.size()}")
+            # outputs = torch.argmax(logits, dim=-1)
+            # print(f"predicted_class_ids: {outputs}")
 
             # Calculate loss
             loss = criterion(outputs, labels)  
@@ -132,32 +145,26 @@ def train_model(train_directory, train_labels_dict,
 
             # Backward pass and optimization
             loss.backward()
+            # Apply gradient clipping to prevent vanishing/exploding gradients
+            torch.nn.utils.clip_grad_norm_(PS_Model.parameters(), max_grad_norm)
+    
             optimizer.step()
 
 
             with torch.no_grad():  # No need to compute gradients for EER calculation
-
                 # Calculate utterance predictions
                 utterance_predictions.extend(get_uttEER_by_seg(outputs,labels))
-                # utterance_pooling_predictions.extend(utterance_pooling_scores)
-                # print(f"utterance_pooling_predictions shape= {utterance_pooling_predictions.shape()},\n utterance_pooling_predictions= {utterance_pooling_predictions}")
-                # print(f" utterance_pooling_predictions= {utterance_pooling_predictions}")
                 segment_predictions.extend(outputs)
                 segment_labels.extend(labels)
-
                 # Accumulate files names
                 if epoch == 0:
                     batch_file_names = batch['file_name']
                     files_names.extend(batch_file_names)
 
 
-            # Print batch training progress
-            # print(f'Epoch [{epoch+1}/{NUM_EPOCHS}], Batch Loss: {loss.item()}, Batch Segment EER: {segment_eer:.4f}, Batch Segment EER Threshold: {segment_eer_threshold:.4f}')
-
-
 
         # Save checkpoint
-        if NUM_EPOCHS>=save_interval and (epoch + 1) % (NUM_EPOCHS//save_interval) == 0:
+        if NUM_EPOCHS>=save_interval and (epoch + 1) % (save_interval) == 0:
             # Generate a unique filename based on hyperparameters
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             model_filename = f"model_epochs{epoch + 1}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
@@ -169,7 +176,6 @@ def train_model(train_directory, train_labels_dict,
         if epoch ==0: utterance_labels =[PartialSpoof_LA_cm_train_trl_dict[file_name] for file_name in files_names]
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_eer(utterance_predictions,torch.tensor(utterance_labels))
-
         # utterance_pooling_predictions = torch.cat(utterance_pooling_predictions, dim=0)
         # utterance_pooling_eer, utterance_pooling_eer_threshold = compute_eer(utterance_pooling_predictions,torch.tensor(utterance_labels))
 
@@ -181,52 +187,48 @@ def train_model(train_directory, train_labels_dict,
         # Average  loss for the epoch
         epoch_loss /= len(train_loader)
 
-        # Print epoch training progress
-        # print(f'Epoch [{epoch + 1}/{NUM_EPOCHS}] Complete. Average Loss /epoch : {epoch_loss:.4f},\n'
-        #        f'Average Segment EER: {segment_eer:.4f}, Average Segment EER Threshold: {segment_eer_threshold:.4f},\n'
-        #        f'Average Utterance EER: {utterance_eer:.4f}, Average Utterance EER Threshold: {utterance_eer_threshold:.4f}')
 
 
-        training_segment_eer_per_epoch.append(segment_eer)
+        if (epoch+1) >= monitor_dev_epoch :
 
-        BASE_DIR = os.getcwd()
-        # Define development files and labels
-        dev_files_path=os.path.join(BASE_DIR,'database/dev/con_wav')
-        # dev_files_path=os.path.join(BASE_DIR,'database/mini_database/dev')
-        dev_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/dev_seglab_0.64.npy')
-        dev_seglab_64_dict = np.load(dev_seglab_64_path, allow_pickle=True).item()
+            BASE_DIR = os.getcwd()
+            # Define development files and labels
+            dev_files_path=os.path.join(BASE_DIR,'database/dev/con_wav')
+            # dev_files_path=os.path.join(BASE_DIR,'database/mini_database/dev')
+            dev_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/dev_seglab_0.64.npy')
+            dev_seglab_64_dict = np.load(dev_seglab_64_path, allow_pickle=True).item()
 
-        dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict,feature_extractor,dropout_prob, BATCH_SIZE,DEVICE=DEVICE)
-        dev_segment_eer_per_epoch.append(dev_metrics_dict['segment_eer'])
+            dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict,feature_extractor,dropout_prob, BATCH_SIZE,DEVICE=DEVICE)
+            dev_segment_eer_per_epoch.append(dev_metrics_dict['segment_eer'])
 
-        wandb.log({'epoch': epoch+1,'training_loss_epoch': epoch_loss,
-            'training_segment_eer_epoch': segment_eer, 
-            'training_segment_eer_threshold_epoch': segment_eer_threshold,
-            'training_utterance_eer_epoch': utterance_eer,
-            'training_utterance_eer_threshold_epoch': utterance_eer_threshold, 
-            # 'training_utterance_pooling_eer_epoch': utterance_pooling_eer,
-            # 'training_utterance_pooling_eer_threshold_epoch': utterance_pooling_eer_threshold, 
-            'validation_loss_epoch': dev_metrics_dict['epoch_loss'],
-            'validation_segment_eer_epoch': dev_metrics_dict['segment_eer'], 
-            'validation_segment_eer_threshold_epoch': dev_metrics_dict['segment_eer_threshold'],
-            'validation_utterance_eer_epoch': dev_metrics_dict['utterance_eer'],
-            'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold']                      
-            })
-
+            wandb.log({'epoch': epoch+1,'training_loss_epoch': epoch_loss,
+                'training_segment_eer_epoch': segment_eer, 
+                'training_segment_eer_threshold_epoch': segment_eer_threshold,
+                'training_utterance_eer_epoch': utterance_eer,
+                'training_utterance_eer_threshold_epoch': utterance_eer_threshold, 
+                # 'training_utterance_pooling_eer_epoch': utterance_pooling_eer,
+                # 'training_utterance_pooling_eer_threshold_epoch': utterance_pooling_eer_threshold, 
+                'validation_loss_epoch': dev_metrics_dict['epoch_loss'],
+                'validation_segment_eer_epoch': dev_metrics_dict['segment_eer'], 
+                'validation_segment_eer_threshold_epoch': dev_metrics_dict['segment_eer_threshold'],
+                'validation_utterance_eer_epoch': dev_metrics_dict['utterance_eer'],
+                'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold']                      
+                })
+        else:
+            wandb.log({'epoch': epoch+1,'training_loss_epoch': epoch_loss,
+                'training_segment_eer_epoch': segment_eer, 
+                'training_segment_eer_threshold_epoch': segment_eer_threshold,
+                'training_utterance_eer_epoch': utterance_eer,
+                'training_utterance_eer_threshold_epoch': utterance_eer_threshold                  
+                })
 
         # Early stopping check
-        early_stopping(dev_metrics_dict['epoch_loss'], PS_Model)
-        if early_stopping.early_stop:
-            print(f"Early stopping at epoch {epoch+1}")
-            break
+        # early_stopping(dev_metrics_dict['epoch_loss'], PS_Model)
+        # if early_stopping.early_stop:
+        #     print(f"Early stopping at epoch {epoch+1}")
+        #     break
 
         scheduler.step()
-
-    # plot training EER per epoch
-    plot_eer_per_epoch(NUM_EPOCHS, training_segment_eer_per_epoch,os.path.join(os.getcwd(),'outputs'))
-    # plot_train_dev_eer_per_epoch(NUM_EPOCHS, training_segment_eer_per_epoch, dev_segment_eer_per_epoch,os.path.join(os.getcwd(),'outputs'))
-    # # plot Vali EER per epoch
-    # plot_eer_per_epoch(NUM_EPOCHS, training_eer_per_epoch)
 
 
     # Generate a unique filename based on hyperparameters

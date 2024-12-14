@@ -417,19 +417,93 @@ class Conformer(torch.nn.Module):
         return x.transpose(0, 1), lengths
 
 
-class MyUpdatedSpoofingDetectionModel(nn.Module):
-    def __init__(self, feature_dim, num_heads, hidden_dim, num_classes,max_dropout=0.5, depthwise_conv_kernel_size=31,conformer_layers=1):
-        super(MyUpdatedSpoofingDetectionModel, self).__init__()
+# class MyUpdatedSpoofingDetectionModel(nn.Module):
+#     def __init__(self, feature_dim, num_heads, hidden_dim, num_classes,max_dropout=0.5, depthwise_conv_kernel_size=31,conformer_layers=1):
+#         super(MyUpdatedSpoofingDetectionModel, self).__init__()
         
+#         self.max_dropout=max_dropout
+#         # Define the Conformer model from torchaudio
+#         self.conformer = Conformer(
+#             input_dim=feature_dim,
+#             num_heads=num_heads,
+#             ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
+#             num_layers=conformer_layers,  # Example, adjust as needed
+#             depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
+#             dropout=max_dropout,
+#             use_group_norm= False, 
+#             convolution_first= False
+#         )
+        
+#         # Global pooling layer (SelfWeightedPooling)
+#         self.pooling = SelfWeightedPooling(feature_dim, mean_only=True)  # Pool across sequence dimension
+        
+#         # Add a feedforward block for feature refinement before classification
+#         self.fc_refinement = nn.Sequential(
+#             nn.Linear(feature_dim, hidden_dim),  # Refined hidden dimension for classification
+#             nn.GELU(),
+#             nn.LayerNorm(hidden_dim),
+#             nn.Dropout(max_dropout / 2),  # Dropout for regularization
+
+#             nn.Linear(hidden_dim, num_classes),  # Final output layer
+#             nn.Sigmoid(),
+#         )
+        
+#     def forward(self, x, lengths,dropout_prob):
+#         # print(f" x size before conformer = {x.size()}")
+        
+#         # Apply Conformer model
+#         x, _ = self.conformer(x, lengths,dropout_prob)  # The second returned value is the sequence lengths
+#         # print(f" x size after conformer = {x.size()}")
+        
+#         # Apply global pooling across the sequence dimension (SelfWeightedPooling)
+#         x = self.pooling(x)  # Now x is (batch_size, hidden_dim, 1)
+#         # print(f" x size after pooling = {x.size()}")
+        
+#         # Update the dropout probability dynamically
+#         self.fc_refinement[3].p = dropout_prob  # Update the dropout layer's probability
+
+#         # Refine features before classification using the fc_refinement block
+#         segment_score = self.fc_refinement(x)
+#         # print(f" x size after fc_refinement = {segment_score.size()}")
+        
+#         # Return the classification output
+#         return segment_score
+
+#     def adjust_dropout(self, epoch, total_epochs):
+#         # Cosine annealing for dropout probability
+#         return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
+
+
+
+
+
+
+
+
+
+# ===========================================================================================================================
+# ===========================================================================================================================
+# ===========================================================================================================================
+# ===========================================================================================================================
+
+
+import torch
+import torch.nn as nn
+import torchaudio.models as tam
+import math
+class MyUpdatedSpoofingDetectionModel(nn.Module):
+    def __init__(self, feature_dim, num_heads, hidden_dim, num_classes,max_dropout=0.2, depthwise_conv_kernel_size=31,conformer_layers=1):
+        super(MyUpdatedSpoofingDetectionModel, self).__init__()
+
         self.max_dropout=max_dropout
         # Define the Conformer model from torchaudio
-        self.conformer = Conformer(
+        self.conformer = tam.Conformer(
             input_dim=feature_dim,
             num_heads=num_heads,
             ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
             num_layers=conformer_layers,  # Example, adjust as needed
             depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
-            dropout=max_dropout,
+            dropout=0.2,
             use_group_norm= False, 
             convolution_first= False
         )
@@ -442,36 +516,138 @@ class MyUpdatedSpoofingDetectionModel(nn.Module):
             nn.Linear(feature_dim, hidden_dim),  # Refined hidden dimension for classification
             nn.GELU(),
             nn.LayerNorm(hidden_dim),
-            nn.Dropout(max_dropout / 2),  # Dropout for regularization
+            nn.Dropout(0.2),  # Dropout for regularization
 
             nn.Linear(hidden_dim, num_classes),  # Final output layer
             nn.Sigmoid(),
+            # nn.GELU(),
         )
+
+
+        self.apply(self.initialize_weights)
+
+    # Custom initialization for He and Xavier
+    def initialize_weights(self, m, bias_value=0.05):
+        if isinstance(m, nn.Linear):  # For Linear layers
+            # We do not directly check activation here, since it's separate
+            if isinstance(m, nn.Linear):
+                if hasattr(m, 'activation') and isinstance(m.activation, nn.ReLU):
+                    # He (Kaiming) initialization for ReLU/GELU layers
+                    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                elif hasattr(m, 'activation') and isinstance(m.activation, nn.GELU):
+                    # He (Kaiming) initialization for GELU layers
+                    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                elif hasattr(m, 'activation') and isinstance(m.activation, (nn.Tanh, nn.Sigmoid)):
+                    # Xavier (Glorot) initialization for tanh/sigmoid layers
+                    nn.init.xavier_normal_(m.weight)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, bias_value)
+
+        elif isinstance(m, nn.Conv1d):  # For Conv1d layers (typically used in Conformer)
+            if hasattr(m, 'activation') and isinstance(m.activation, nn.ReLU):
+                # He (Kaiming) initialization for Conv1d with ReLU/GELU
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif hasattr(m, 'activation') and isinstance(m.activation, (nn.Tanh, nn.Sigmoid)):
+                # Xavier (Glorot) initialization for Conv1d with tanh/sigmoid
+                nn.init.xavier_normal_(m.weight)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, bias_value)
+    # def initialize_weights(self, m, bias_value=0.05):
+    #     if isinstance(m, nn.Linear):  # For Linear layers
+    #         if isinstance(m.activation, nn.ReLU) or isinstance(m.activation, nn.GELU):
+    #             # He (Kaiming) initialization for ReLU/GELU layers
+    #             init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+    #         elif isinstance(m.activation, nn.Tanh) or isinstance(m.activation, nn.Sigmoid):
+    #             # Xavier (Glorot) initialization for tanh/sigmoid layers
+    #             init.xavier_normal_(m.weight)
+    #         if m.bias is not None:
+    #             init.zeros_(m.bias,bias_value)  # Initialize bias to 0
+
+    #     elif isinstance(m, nn.Conv1d):  # For Conv1d layers (typically used in Conformer)
+    #         if isinstance(m.activation, nn.ReLU) or isinstance(m.activation, nn.GELU):
+    #             # He (Kaiming) initialization for Conv1d with ReLU/GELU
+    #             init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+    #         elif isinstance(m.activation, nn.Tanh) or isinstance(m.activation, nn.Sigmoid):
+    #             # Xavier (Glorot) initialization for Conv1d with tanh/sigmoid
+    #             init.xavier_normal_(m.weight)
+    #         if m.bias is not None:
+    #             init.zeros_(m.bias,bias_value)
+
+
+        # # Apply He initialization for layers with ReLU/GELU activations
+        # self.apply(self.init_he_weights)
         
+    #     # Apply Xavier initialization for linear layers (e.g., attention or feed-forward)
+    #     self.apply(self.init_xavier_weights)
+    #     # custom_bias_init(self)  # Initialize bias with custom value
+
+    # def init_he_weights(self, m, bias_value=0.05):
+    #     if isinstance(m, nn.Linear):
+    #         if isinstance(m, nn.Conv1d) or isinstance(m, nn.Linear):  
+    #             # He initialization for layers with ReLU/GELU activation
+    #             nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+    #         if m.bias is not None:
+    #             # nn.init.zeros_(m.bias)
+    #             nn.init.constant_(m.bias, bias_value)
+                
+    # def init_xavier_weights(self, m, bias_value=0.05):
+    #     if isinstance(m, nn.Linear):
+    #         if isinstance(m, nn.Conv1d):  
+    #             # Xavier initialization for attention layers or tanh activations
+    #             nn.init.xavier_normal_(m.weight)
+    #         if m.bias is not None:
+    #             # nn.init.zeros_(m.bias)
+    #             nn.init.constant_(m.bias, bias_value)
+
+    # # For Linear layer
+    # def init_linear_bias(m, bias_value=0.05):
+    #     if isinstance(m, nn.Linear):
+    #         if m.bias is not None:
+    #             nn.init.constant_(m.bias, bias_value)
+
+    # # For Conv1d layer
+    # def init_conv_bias(m, bias_value=0.05):
+    #     if isinstance(m, nn.Conv1d):
+    #         if m.bias is not None:
+    #             nn.init.constant_(m.bias, bias_value)
+
+    # # Apply custom bias initialization to all layers
+    # def custom_bias_init(model, bias_value=0.05):
+    #     for m in model.modules():
+    #         init_linear_bias(m, bias_value)
+    #         init_conv_bias(m, bias_value)
+            
+
     def forward(self, x, lengths,dropout_prob):
         # print(f" x size before conformer = {x.size()}")
         
         # Apply Conformer model
-        x, _ = self.conformer(x, lengths,dropout_prob)  # The second returned value is the sequence lengths
+        x, _ = self.conformer(x, lengths)  # The second returned value is the sequence lengths
         # print(f" x size after conformer = {x.size()}")
         
         # Apply global pooling across the sequence dimension (SelfWeightedPooling)
         x = self.pooling(x)  # Now x is (batch_size, hidden_dim, 1)
         # print(f" x size after pooling = {x.size()}")
-        
+
         # Update the dropout probability dynamically
         self.fc_refinement[3].p = dropout_prob  # Update the dropout layer's probability
 
         # Refine features before classification using the fc_refinement block
         segment_score = self.fc_refinement(x)
         # print(f" x size after fc_refinement = {segment_score.size()}")
+        # print(f" segment_score fc_refinement = {segment_score}")
         
         # Return the classification output
         return segment_score
-
     def adjust_dropout(self, epoch, total_epochs):
         # Cosine annealing for dropout probability
         return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
+
+
+
+
+
+
 
 
 

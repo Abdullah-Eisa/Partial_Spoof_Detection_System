@@ -30,9 +30,9 @@ def main():
             # 'NUM_EPOCHS': {'values': [5, 7]},
             # 'LEARNING_RATE': {'values': [0.001]},
             # 'BATCH_SIZE': {'values': [16,32]},
-            'NUM_EPOCHS': {'values': [50]},
-            'LEARNING_RATE': {'values': [0.0002]},
-            'BATCH_SIZE': {'values': [32]},
+            'NUM_EPOCHS': {'values': [20]},
+            'LEARNING_RATE': {'values': [0.01]},
+            'BATCH_SIZE': {'values': [8]},
             # 'CLASS0_WEIGHT': {'values': [0.42,0.45,0.48]},
 
         }
