@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m "add train_binary_classifier.py "
+git commit -m "add dev_model & infer_model & inference & save_json_dictionary & create_metrics_dict & convert_to_serializable functions to train_binary_classifier.py , adjust code for shuffling effect of the dataloader in  inference.py & train.py & train_binary_classifier.py , remove some of unnecessary codes/comments"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

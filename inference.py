@@ -93,13 +93,11 @@ def dev_model( PS_Model,dev_directory, labels_dict,feature_extractor,dropout_pro
 
 
                 # Accumulate files names
-                if epoch == 0:
-                    batch_file_names = batch['file_name']
-                    files_names.extend(batch_file_names)
+                files_names.extend(batch['file_name'])
 
 
         # Get Average Utterance EER for the epoch
-        if epoch ==0: utterance_labels =[PartialSpoof_LA_cm_dev_trl_dict[file_name] for file_name in files_names]
+        utterance_labels =[PartialSpoof_LA_cm_dev_trl_dict[file_name] for file_name in files_names]
         # print(f'epoch {epoch} , utterance_labels: {utterance_labels}')
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_eer(utterance_predictions,torch.tensor(utterance_labels))
@@ -201,8 +199,7 @@ def infer_model(model_path,test_directory, test_labels_dict,feature_extractor, B
                 segment_labels.extend(labels)
 
                 # Accumulate files names
-                batch_file_names = batch['file_name']
-                files_names.extend(batch_file_names)
+                files_names.extend(batch['file_name'])
 
 
         # Get Average Utterance EER for the epoch

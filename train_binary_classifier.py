@@ -199,6 +199,52 @@ def get_raw_labeled_audio_data_loaders(directory, labels_dict, batch_size=32, sh
 
 
 
+def create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss):
+    metrics_dict=dict()
+    metrics_dict['utterance_eer']=utterance_eer
+    metrics_dict['utterance_eer_threshold']=utterance_eer_threshold
+    metrics_dict['epoch_loss']=epoch_loss
+    return metrics_dict
+
+
+
+
+
+
+def convert_to_serializable(obj):
+    if isinstance(obj, np.ndarray):
+        # Convert numpy array to a list
+        return obj.tolist()
+    elif isinstance(obj, np.float32) or isinstance(obj, np.float64):
+        # Convert numpy float to a native Python float
+        return float(obj)
+    elif isinstance(obj, np.int32) or isinstance(obj, np.int64):
+        # Convert numpy int to a native Python int
+        return int(obj)
+    elif isinstance(obj, dict):
+        # Recursively convert dictionary values
+        return {k: convert_to_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        # Recursively convert list items
+        return [convert_to_serializable(i) for i in obj]
+    else:
+        # Return the object if it is already serializable
+        return obj
+
+
+def save_json_dictionary(path,my_dict):
+  import json
+
+  try:
+      with open(path, 'w') as json_file:
+          # Convert dictionary to serializable format
+          serializable_dict = convert_to_serializable(my_dict)
+          json.dump(serializable_dict, json_file, indent=4)
+      print(f"Dictionary saved to {path}")
+  except PermissionError:
+      print(f"Error: Permission denied to write to the file {path}.")
+  except IOError as e:
+      print(f"Error: {e}")
 
 # ===========================================================================================================================
 # ===========================================================================================================================
@@ -415,6 +461,169 @@ class BinarySpoofingClassificationModel(nn.Module):
 
 
 
+def dev_model( PS_Model,dev_directory, labels_dict,feature_extractor,dropout_prob, BATCH_SIZE=32,epoch=0,DEVICE='cpu'):
+
+    BASE_DIR = os.getcwd()
+    # PartialSpoof_LA_cm_dev_trl_dict_path = os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json')
+    # PartialSpoof_LA_cm_dev_trl_dict= load_json_dictionary(PartialSpoof_LA_cm_dev_trl_dict_path)
+
+    # Get the data loader
+
+    # dev_loader = get_audio_data_loaders(dev_directory, labels_dict, tokenizer,feature_extractor, batch_size=BATCH_SIZE, shuffle=True)
+    dev_loader = get_raw_labeled_audio_data_loaders(dev_directory, labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
+    
+    # Validation phase
+    PS_Model.eval()  # Set the model to evaluation mode
+
+    # Wrap the model with DataParallel
+    if torch.cuda.device_count() > 1:
+        PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
+        print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
+
+
+
+    # Define loss criterion
+    criterion = nn.BCEWithLogitsLoss().to(DEVICE)
+
+    files_names=[]
+
+    epoch_loss = 0
+    utterance_eer, utterance_eer_threshold=0,0
+    utterance_predictions=[]
+    # c=0
+    with torch.no_grad():
+        for batch in tqdm(dev_loader, desc="Dev Batches", leave=False):
+            # if c>8:
+            #     break
+            # else:
+            #     c+=1
+            # waveforms = batch['waveform'].to(DEVICE)
+            waveforms = batch['waveform'].to(DEVICE)
+            labels = batch['label'].to(DEVICE)
+            labels = labels.unsqueeze(1).float()   # Converts labels from shape [batch_size] to [batch_size, 1]
+
+            # Forward pass through wav2vec2 for feature extraction
+            features = feature_extractor(waveforms)['hidden_states'][-1] 
+             # print(f'type {type(features)}  with size {features.size()} , features= {features}')
+
+            # lengths should be the number of non-padded frames in each sequence
+            lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
+
+            # Pass features to model and get predictions
+            outputs = PS_Model(features,lengths,dropout_prob)
+
+            # Calculate loss
+            loss = criterion(outputs, labels) 
+            epoch_loss += loss.item()
+
+            with torch.no_grad():
+                # Calculate utterance predictions
+                utterance_predictions.extend(outputs)
+                # Accumulate files names
+                files_names.extend(batch['file_name'])
+
+
+        # Get Average Utterance EER for the epoch
+        utterance_labels =[labels_dict[file_name] for file_name in files_names]
+        # print(f'epoch {epoch} , utterance_labels: {utterance_labels}')
+        utterance_predictions = torch.cat(utterance_predictions)
+        utterance_eer, utterance_eer_threshold = compute_eer(utterance_predictions,torch.tensor(utterance_labels))
+
+        # Average loss for the epoch
+        epoch_loss /= len(dev_loader)
+
+
+    # Print epoch dev progress
+    # print(f'Epoch [{epoch + 1}] Complete. Validation Loss: {epoch_loss:.4f},\n'
+    #            f'Average Validation Segment EER: {segment_eer:.4f}, Average Validation Segment EER Threshold: {segment_eer_threshold:.4f},\n'
+    #            f'Average Validation Utterance EER: {utterance_eer:.4f}, Average Validation Utterance EER Threshold: {utterance_eer_threshold:.4f}')
+
+    return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss)
+    
+
+
+
+
+
+def infer_model(model_path,test_directory, test_labels_dict,feature_extractor, BATCH_SIZE=32,DEVICE='cpu'):
+    # Initialize the model
+    hidd_dims ={'wav2vec2':768, 'wav2vec2_large':1024}
+    PS_Model = BinarySpoofingClassificationModel(feature_dim=hidd_dims['wav2vec2'], num_heads=8, hidden_dim=128, num_classes=33,conformer_layers=1).to(DEVICE)  # Move model to the configured device
+    # PS_Model,_,_=load_checkpoint(PS_Model, optimizer, path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs30_batch8_lr0.005_20241216_013405.pth'))
+    checkpoint = torch.load(model_path)
+    PS_Model.load_state_dict(checkpoint['model_state_dict'])
+
+    PS_Model.eval()  # Set the model to evaluation mode
+
+    # Wrap the model with DataParallel
+    if torch.cuda.device_count() > 1:
+        PS_Model = nn.DataParallel(PS_Model).to(DEVICE)
+        print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
+
+
+    # Get the test data loader
+    # test_loader = get_audio_data_loaders(test_directory, test_labels_dict, tokenizer, feature_extractor, batch_size=BATCH_SIZE, shuffle=False)
+    test_loader = get_raw_labeled_audio_data_loaders(test_directory, test_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
+
+    # Get Utterance lables dictionary    
+    BASE_DIR = os.getcwd()
+    # PartialSpoof_LA_cm_eval_trl_dict_path = os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json')
+    # PartialSpoof_LA_cm_eval_trl_dict= load_json_dictionary(PartialSpoof_LA_cm_eval_trl_dict_path)
+
+    # Define loss criterion
+    criterion = nn.BCEWithLogitsLoss().to(DEVICE)
+
+    files_names=[]
+
+    epoch_loss = 0
+    utterance_eer, utterance_eer_threshold=0,0
+    utterance_predictions=[]
+
+    dropout_prob=0
+
+    with torch.no_grad():  # Disable gradient calculation during inference
+        for batch in tqdm(test_loader, desc="Test Batches", leave=False):
+            waveforms = batch['waveform'].to(DEVICE)
+            labels = batch['label'].to(DEVICE)
+            labels = labels.unsqueeze(1).float()   # Converts labels from shape [batch_size] to [batch_size, 1]
+
+            # Forward pass through wav2vec2 for feature extraction
+            features = feature_extractor(waveforms)['hidden_states'][-1] 
+
+            # lengths should be the number of non-padded frames in each sequence
+            lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
+
+            # Pass features to model and get predictions
+            outputs = PS_Model(features,lengths,dropout_prob)
+
+            loss = criterion(outputs, labels) 
+            epoch_loss += loss.item()
+
+
+            with torch.no_grad():
+                # Calculate utterance predictions
+                utterance_predictions.extend(outputs)
+                # Accumulate files names
+                files_names.extend(batch['file_name'])
+
+
+        # Get Average Utterance EER for the epoch
+        # utterance_labels =[PartialSpoof_LA_cm_eval_trl_dict[file_name] for file_name in files_names]
+        utterance_labels =[test_labels_dict[file_name] for file_name in files_names]        
+        # print(f'epoch {epoch} , utterance_labels: {utterance_labels}')
+        utterance_predictions = torch.cat(utterance_predictions)
+        utterance_eer, utterance_eer_threshold = compute_eer(utterance_predictions,torch.tensor(utterance_labels))
+
+        # Average loss for the epoch
+        epoch_loss /= len(test_loader)
+
+
+    # Print epoch dev progress
+    print(f'Testing/Inference Complete. Test Loss: {epoch_loss:.4f},\n'
+               f'Average Test Utterance EER: {utterance_eer:.4f}, Average Test Utterance EER Threshold: {utterance_eer_threshold:.4f}')
+
+    return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss)
+
 
 
 
@@ -423,7 +632,7 @@ class BinarySpoofingClassificationModel(nn.Module):
 def train_model(train_directory, train_labels_dict, 
                 BATCH_SIZE=32, NUM_EPOCHS=1,LEARNING_RATE=0.0001,
                 model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
-                DEVICE='cpu',save_interval=float('inf'),patience=10,save_feature_extractor=False,max_grad_norm=1.0,monitor_dev_epoch=50):
+                DEVICE='cpu',save_interval=float('inf'),patience=10,save_feature_extractor=False,max_grad_norm=1.0,monitor_dev_epoch=0):
 
     # Initialize W&B
     wandb.init(project='partial_spoof_Wav2Vec2_Conformer_binary_classifier')
@@ -484,14 +693,13 @@ def train_model(train_directory, train_labels_dict,
     train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
 
 
-    # PS_Model,_,_=load_checkpoint(PS_Model, optimizer, path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs15_batch8_lr0.01_20241214_171142.pth'))
+    PS_Model,optimizer,_=load_checkpoint(PS_Model, optimizer, path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs30_batch8_lr0.005_20241216_013405.pth'))
 
     # Logging gradients with wandb.watch
     wandb.watch(PS_Model, log_freq=100,log='all')
 
     PS_Model.train()  # Set the model to training mode
 
-    files_names=[]
     training_segment_eer_per_epoch=[]
     dev_segment_eer_per_epoch=[]
 
@@ -503,11 +711,9 @@ def train_model(train_directory, train_labels_dict,
 
         epoch_loss = 0
         utterance_eer, utterance_eer_threshold=0,0
-        # segment_eer, segment_eer_threshold=0,0
         utterance_predictions=[]
-        # utterance_pooling_predictions=[]
-        # segment_predictions=[]
-        # segment_labels=[]
+        files_names=[]
+
         # c=0
         for batch in tqdm(train_loader, desc="Train Batches", leave=False):
             # if c>8:
@@ -558,9 +764,7 @@ def train_model(train_directory, train_labels_dict,
                 # segment_predictions.extend(outputs)
                 # segment_labels.extend(labels)
                 # Accumulate files names
-                if epoch == 0:
-                    batch_file_names = batch['file_name']
-                    files_names.extend(batch_file_names)
+                files_names.extend(batch['file_name'])
 
 
 
@@ -574,7 +778,7 @@ def train_model(train_directory, train_labels_dict,
 
 
         # Get Average Utterance EER for the epoch
-        if epoch ==0: utterance_labels =[train_labels_dict[file_name] for file_name in files_names]
+        utterance_labels =[train_labels_dict[file_name] for file_name in files_names]
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_eer(utterance_predictions,torch.tensor(utterance_labels))
         # utterance_pooling_predictions = torch.cat(utterance_pooling_predictions, dim=0)
@@ -586,30 +790,26 @@ def train_model(train_directory, train_labels_dict,
 
 
         if (epoch+1) >= monitor_dev_epoch :
-            print("dev_model not ready yet ! ")
-            # BASE_DIR = os.getcwd()
-            # # Define development files and labels
-            # dev_files_path=os.path.join(BASE_DIR,'database/dev/con_wav')
-            # # dev_files_path=os.path.join(BASE_DIR,'database/mini_database/dev')
+            # print("dev_model not ready yet ! ")
+            BASE_DIR = os.getcwd()
+            # Define development files and labels
+            dev_files_path=os.path.join(BASE_DIR,'database/dev/con_wav')
             # dev_seglab_64_path=os.path.join(BASE_DIR,'database/segment_labels/dev_seglab_0.64.npy')
             # dev_seglab_64_dict = np.load(dev_seglab_64_path, allow_pickle=True).item()
+            PartialSpoof_LA_cm_dev_trl_dict_path = os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json')
+            dev_seglab_64_dict= load_json_dictionary(PartialSpoof_LA_cm_dev_trl_dict_path)
 
-            # dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict,feature_extractor,dropout_prob, BATCH_SIZE,DEVICE=DEVICE)
-            # dev_segment_eer_per_epoch.append(dev_metrics_dict['segment_eer'])
+            dev_metrics_dict=dev_model( PS_Model,dev_files_path, dev_seglab_64_dict,feature_extractor,dropout_prob, BATCH_SIZE,DEVICE=DEVICE)
 
-            # wandb.log({'epoch': epoch+1,'training_loss_epoch': epoch_loss,
-            #     'training_segment_eer_epoch': segment_eer, 
-            #     'training_segment_eer_threshold_epoch': segment_eer_threshold,
-            #     'training_utterance_eer_epoch': utterance_eer,
-            #     'training_utterance_eer_threshold_epoch': utterance_eer_threshold, 
-            #     # 'training_utterance_pooling_eer_epoch': utterance_pooling_eer,
-            #     # 'training_utterance_pooling_eer_threshold_epoch': utterance_pooling_eer_threshold, 
-            #     'validation_loss_epoch': dev_metrics_dict['epoch_loss'],
-            #     'validation_segment_eer_epoch': dev_metrics_dict['segment_eer'], 
-            #     'validation_segment_eer_threshold_epoch': dev_metrics_dict['segment_eer_threshold'],
-            #     'validation_utterance_eer_epoch': dev_metrics_dict['utterance_eer'],
-            #     'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold']                      
-            #     })
+            wandb.log({'epoch': epoch+1,'training_loss_epoch': epoch_loss,
+                'training_utterance_eer_epoch': utterance_eer,
+                'training_utterance_eer_threshold_epoch': utterance_eer_threshold, 
+                # 'training_utterance_pooling_eer_epoch': utterance_pooling_eer,
+                # 'training_utterance_pooling_eer_threshold_epoch': utterance_pooling_eer_threshold, 
+                'validation_loss_epoch': dev_metrics_dict['epoch_loss'],
+                'validation_utterance_eer_epoch': dev_metrics_dict['utterance_eer'],
+                'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold']                      
+                })
         else:
             wandb.log({'epoch': epoch+1,'training_loss_epoch': epoch_loss,
                 'training_utterance_eer_epoch': utterance_eer,
@@ -643,10 +843,10 @@ def train_model(train_directory, train_labels_dict,
     torch.save(torch.tensor(utterance_labels),os.path.join(os.getcwd(),f'outputs/utterance_labels_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pt'))
 
     # Save last metrics
-    # training_metrics_dict=create_metrics_dict(utterance_eer,utterance_eer_threshold,segment_eer,segment_eer_threshold,epoch_loss)
-    # training_metrics_dict_filename = f"metrics_dict_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.json"
-    # training_metrics_dict_save_path=os.path.join(os.getcwd(),f'outputs/{training_metrics_dict_filename}')
-    # save_json_dictionary(training_metrics_dict_save_path,training_metrics_dict)
+    training_metrics_dict=create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss)
+    training_metrics_dict_filename = f"metrics_dict_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.json"
+    training_metrics_dict_save_path=os.path.join(os.getcwd(),f'outputs/{training_metrics_dict_filename}')
+    save_json_dictionary(training_metrics_dict_save_path,training_metrics_dict)
 
     if DEVICE=='cuda': torch.cuda.empty_cache()
     wandb.finish()
@@ -692,6 +892,43 @@ def train():
 
 
 
+def inference():
+    print("infer_model is working ... ")
+    # Get Device
+    use_cuda= True
+    use_cuda =  use_cuda and torch.cuda.is_available()
+    DEVICE = torch.device("cuda" if use_cuda else "cpu")
+    print(f'device: {DEVICE}')
+
+    # Define your paths and other fixed arguments
+    BASE_DIR = os.getcwd()
+
+    # Define training files and labels
+    eval_files_path=os.path.join(BASE_DIR,'database/eval/con_wav')
+
+    PartialSpoof_LA_cm_eval_trl_dict_path = os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json')
+    test_labels_dict= load_json_dictionary(PartialSpoof_LA_cm_eval_trl_dict_path)
+
+
+    # Load feature extractor
+    ssl_ckpt_path = os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
+    feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
+    feature_extractor.eval()
+
+    model_path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs1_batch16_lr0.0002355064348623125_20241217_000934.pth')
+
+    BATCH_SIZE=16
+    inference_metrics_dict=infer_model(
+        model_path=model_path,
+        test_directory=eval_files_path,
+        test_labels_dict=test_labels_dict,
+        feature_extractor=feature_extractor, 
+        BATCH_SIZE=BATCH_SIZE,
+        DEVICE=DEVICE
+    )
+
+    if DEVICE=='cuda': torch.cuda.empty_cache()
+
 
 
 
@@ -718,16 +955,17 @@ def main():
         'metric': 
         {
             'goal': 'minimize', 
-            'name': 'training_utterance_eer_epoch'
+            'name': 'validation_utterance_eer_epoch'
             },
         'parameters': 
         {
             # 'NUM_EPOCHS': {'values': [5, 7]},
             # 'LEARNING_RATE': {'values': [0.001]},
             # 'BATCH_SIZE': {'values': [16,32]},
-            'NUM_EPOCHS': {'values': [30]},
-            'LEARNING_RATE': {'values': [0.005]},
-            'BATCH_SIZE': {'values': [8]},
+            'NUM_EPOCHS': {'values': [1]},
+            # 'LEARNING_RATE': {'values': [0.005]},
+            'LEARNING_RATE': {'values': [0.0002355064348623125]},
+            'BATCH_SIZE': {'values': [16]},
             # 'CLASS0_WEIGHT': {'values': [0.42,0.45,0.48]},
 
         }
@@ -744,7 +982,8 @@ if __name__ == "__main__":
     # Record the start time
     start_time = datetime.now()
 
-    main()
+    # main()
+    inference()
 
     # Record the end time
     end_time = datetime.now()

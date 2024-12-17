@@ -157,9 +157,7 @@ def train_model(train_directory, train_labels_dict,
                 segment_predictions.extend(outputs)
                 segment_labels.extend(labels)
                 # Accumulate files names
-                if epoch == 0:
-                    batch_file_names = batch['file_name']
-                    files_names.extend(batch_file_names)
+                files_names.extend(batch['file_name'])
 
 
 
@@ -173,7 +171,7 @@ def train_model(train_directory, train_labels_dict,
 
 
         # Get Average Utterance EER for the epoch
-        if epoch ==0: utterance_labels =[PartialSpoof_LA_cm_train_trl_dict[file_name] for file_name in files_names]
+        utterance_labels =[PartialSpoof_LA_cm_train_trl_dict[file_name] for file_name in files_names]
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_eer(utterance_predictions,torch.tensor(utterance_labels))
         # utterance_pooling_predictions = torch.cat(utterance_pooling_predictions, dim=0)
