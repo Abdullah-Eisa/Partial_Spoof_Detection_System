@@ -497,7 +497,6 @@ def dev_model( PS_Model,dev_directory, labels_dict,feature_extractor,dropout_pro
             #     break
             # else:
             #     c+=1
-            # waveforms = batch['waveform'].to(DEVICE)
             waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
             labels = labels.unsqueeze(1).float()   # Converts labels from shape [batch_size] to [batch_size, 1]
@@ -693,7 +692,8 @@ def train_model(train_directory, train_labels_dict,
     train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
 
 
-    PS_Model,optimizer,_=load_checkpoint(PS_Model, optimizer, path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs30_batch8_lr0.005_20241216_013405.pth'))
+    PS_Model,optimizer,_=load_checkpoint(PS_Model, optimizer, path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs1_batch16_lr0.0002355064348623125_20241217_000934.pth'))
+    # PS_Model,optimizer,_=load_checkpoint(PS_Model, optimizer, path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs1_batch8_lr0.00021195579137608128_20241218_154600.pth'))
 
     # Logging gradients with wandb.watch
     wandb.watch(PS_Model, log_freq=100,log='all')
@@ -962,10 +962,10 @@ def main():
             # 'NUM_EPOCHS': {'values': [5, 7]},
             # 'LEARNING_RATE': {'values': [0.001]},
             # 'BATCH_SIZE': {'values': [16,32]},
-            'NUM_EPOCHS': {'values': [1]},
+            'NUM_EPOCHS': {'values': [69]},
             # 'LEARNING_RATE': {'values': [0.005]},
-            'LEARNING_RATE': {'values': [0.0002355064348623125]},
-            'BATCH_SIZE': {'values': [16]},
+            'LEARNING_RATE': {'values': [0.00021195579137608126]},
+            'BATCH_SIZE': {'values': [8]},
             # 'CLASS0_WEIGHT': {'values': [0.42,0.45,0.48]},
 
         }
@@ -982,8 +982,8 @@ if __name__ == "__main__":
     # Record the start time
     start_time = datetime.now()
 
-    # main()
-    inference()
+    main()
+    # inference()
 
     # Record the end time
     end_time = datetime.now()
