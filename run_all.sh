@@ -12,9 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " comment/remove empty cuda cash from train_binary_classifier.py , run experimnent with binary classification model without max pooling after feature extractor , 
-test env_setup.sh with this command conda install pytorch==2.2.0 torchaudio==2.2.0 pytorch-cuda=11.8 -c pytorch -c nvidia 
-"
+git commit -m " comment/remove any multiprocessing in train_binary_classifier.py , add new env setup commands in  env_setup.sh , add new env libraries versions in cloud_instance_new_pip_requirements.txt , add non working env in environment_cpu.yml"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

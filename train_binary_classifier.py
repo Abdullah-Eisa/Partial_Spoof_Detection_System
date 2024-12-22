@@ -153,9 +153,9 @@ import torch.multiprocessing as mp
 def get_raw_labeled_audio_data_loaders(directory, labels_dict, batch_size=32, shuffle=True, num_workers=0, prefetch_factor=None):
     
     # If multiprocessing is used, set start method to 'spawn' (for avoiding pickling issues)
-    if num_workers > 0:
-        # mp.set_start_method('spawn', force=True)
-        mp.set_start_method('fork', force=True)
+    # if num_workers > 0:
+    #     # mp.set_start_method('spawn', force=True)
+    #     mp.set_start_method('fork', force=True)
     
     # Create the dataset instance
     dataset = RawLabeledAudioDataset(directory, labels_dict)
@@ -460,7 +460,8 @@ def dev_model( PS_Model,dev_directory, labels_dict,feature_extractor,dropout_pro
     # Get the data loader
 
     # dev_loader = get_audio_data_loaders(dev_directory, labels_dict, tokenizer,feature_extractor, batch_size=BATCH_SIZE, shuffle=True)
-    dev_loader = get_raw_labeled_audio_data_loaders(dev_directory, labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
+    # dev_loader = get_raw_labeled_audio_data_loaders(dev_directory, labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
+    dev_loader = get_raw_labeled_audio_data_loaders(dev_directory, labels_dict,batch_size=BATCH_SIZE, shuffle=True)
     
     # Validation phase
     PS_Model.eval()  # Set the model to evaluation mode
@@ -681,7 +682,8 @@ def train_model(train_directory, train_labels_dict,
     gamma=0.9
     LR_SCHEDULER = lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
     # Get the data loader
-    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
+    # train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True, num_workers=8, prefetch_factor=2)
+    train_loader = get_raw_labeled_audio_data_loaders(train_directory, train_labels_dict,batch_size=BATCH_SIZE, shuffle=True)
 
 
     # PS_Model,optimizer,_=load_checkpoint(PS_Model, optimizer, path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs1_batch16_lr0.0002355064348623125_20241217_000934.pth'))

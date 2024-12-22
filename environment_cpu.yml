@@ -1,0 +1,51 @@
+# name: ps_cpu_only
+# channels:
+#   - pytorch
+#   - conda-forge
+#   - defaults
+# dependencies:
+#   - python=3.9
+#   - pip
+#   - numpy
+#   - pip:
+#     - torch==2.5.1+cpu
+#     - torchaudio==2.5.1+cpu
+#     - s3prl
+#     - librosa
+#     - matplotlib
+#     - scikit-learn
+#     - tqdm
+#     - transformers
+#     - wandb
+#     - protobuf
+#     - scikit-learn
+#     - scipy
+#     - tqdm
+#     - pip
+#     - wheel
+#     - setuptools
+name: ps_cpu_only
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.9
+  - pip
+  - numpy
+  - pip:
+    - torch==2.5.1
+    - torchaudio==2.5.1
+    - s3prl
+    - librosa
+    - matplotlib
+    - scikit-learn
+    - tqdm
+    - transformers
+    - wandb
+    - protobuf
+    - scipy
+    - tqdm
+    - pip
+    - wheel
+    - setuptools
