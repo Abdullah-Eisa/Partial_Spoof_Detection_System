@@ -752,7 +752,7 @@ def train_model(train_directory, train_labels_dict,
                 files_names.extend(batch['file_name'])
 
 
-        if DEVICE=='cuda': torch.cuda.empty_cache()
+        # if DEVICE=='cuda': torch.cuda.empty_cache()
 
         # Save checkpoint
         if NUM_EPOCHS>=save_interval and (epoch + 1) % (save_interval) == 0:

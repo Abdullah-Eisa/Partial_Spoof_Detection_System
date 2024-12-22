@@ -11,7 +11,7 @@
 # Install dependency for ps_scratch environment
 
 # Name of the conda environment
-ENVNAME=ps2
+ENVNAME=ps
 # REQUIREMENT_FILE=ps_scratch_requirements.txt
 
 eval "$(conda shell.bash hook)"
@@ -37,8 +37,8 @@ if [ $retVal -ne 0 ]; then
     # conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=11.8 -c pytorch -c nvidia
     # CUDA 12.1
     # conda install pytorch==2.2.0 torchvision==0.17.0 torchaudio==2.2.0 pytorch-cuda=12.1 -c pytorch -c nvidia      # tested ,  works 
-    conda install pytorch==2.2.0 torchaudio==2.2.0 pytorch-cuda=12.1 -c pytorch -c nvidia         # slow & There appear to be 1 leaked semaphore objects to clean up at shutdown , may try pytorch==2.5.1 torchaudio==2.5.1
-    # conda install pytorch==2.2.0 torchaudio==2.2.0 pytorch-cuda=11.8 -c pytorch -c nvidia         # tested ,  works
+    # conda install pytorch==2.2.0 torchaudio==2.2.0 pytorch-cuda=12.1 -c pytorch -c nvidia         # slow & There appear to be 1 leaked semaphore objects to clean up at shutdown , may try pytorch==2.5.1 torchaudio==2.5.1
+    conda install pytorch==2.2.0 torchaudio==2.2.0 pytorch-cuda=11.8 -c pytorch -c nvidia         # tested ,  works
     # conda install pytorch==2.5.1 torchaudio==2.5.1 pytorch-cuda=12.1 -c pytorch -c nvidia         # tested , do not work , pytorch libraries are not installed
     # conda install pytorch==2.5.1 torchaudio==2.5.1 pytorch-cuda=11.8 -c pytorch -c nvidia         # tested , do not work , pytorch libraries are not installed
     # Latest PyTorch requires Python 3.9 or later.
