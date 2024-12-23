@@ -189,7 +189,7 @@
 # Install dependency for ps_scratch environment
 
 # Name of the conda environment
-ENVNAME=ps4
+ENVNAME=ps
 
 eval "$(conda shell.bash hook)"
 
@@ -225,8 +225,10 @@ if [ $retVal -ne 0 ]; then
     # fi
 
     # install some foundational libraries
-    pip install torch==2.2.0+cu118
-    pip install torchaudio==2.2.0+cu118
+    # pip install torch==2.2.0+cu118
+    # pip install torchaudio==2.2.0+cu118
+    pip install torch==2.5.1+cu124
+    pip install torchaudio==2.5.1+cu124
     pip install s3prl
     pip install os
     pip install librosa
