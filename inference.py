@@ -9,7 +9,35 @@ import torch.optim as optim
 
 
 from utils import *
+from utils import load_json_dictionary
 from model import *
+from preprocess import initialize_data_loader ,initialize_loss_function
+
+
+import os
+import torch
+import wandb
+import torch.optim as optim
+import torch.nn as nn
+from torch.optim import lr_scheduler
+from datetime import datetime
+from tqdm import tqdm
+
+import torch
+import torch.nn as nn
+import torchaudio.models as tam
+import math
+
+import torchaudio
+from torch.utils.data import Dataset, DataLoader , ConcatDataset
+# from transformers import Wav2Vec2Processor, 
+import torch.nn.functional as F
+import numpy as np
+from sklearn.metrics import roc_curve
+
+from torch.nn.utils.rnn import pad_sequence
+
+import torch.multiprocessing as mp
 
 
 # ===========================================================================================================================
@@ -85,7 +113,11 @@ def inference_helper(model, feature_extractor,criterion,
 
 
 
-def inference(DEVICE='cpu'):
+def inference(eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
+    eval_labels_path = os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),
+    ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt'),
+    BATCH_SIZE=16, num_workers=0, prefetch_factor=None, DEVICE='cpu'):
+
     print("infer_model is working ... ")
     # Get Device
     use_cuda= True
@@ -97,25 +129,22 @@ def inference(DEVICE='cpu'):
     BASE_DIR = os.getcwd()
 
     # Define training files and labels
-    eval_data_path=os.path.join(BASE_DIR,'database/eval/con_wav')
-    eval_labels_path = os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json')
+    # eval_data_path=os.path.join(BASE_DIR,'database/eval/con_wav')
+    # eval_labels_path = os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json')
     eval_labels_dict= load_json_dictionary(eval_labels_path)
-    BATCH_SIZE=16
-    num_workers=8 
-    prefetch_factor=2
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
     eval_data_loader = initialize_data_loader(eval_data_path, eval_labels_path,BATCH_SIZE,False, num_workers, prefetch_factor,pin_memory)
 
 
     # Load feature extractor
     # ssl_ckpt_path = os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
-    ssl_ckpt_name='w2v_large_lv_fsh_swbd_cv_20241223_152156.pt'
-    ssl_ckpt_path = os.path.join(os.getcwd(), f'models/back_end_models/{ssl_ckpt_name}')
+    # ssl_ckpt_name='w2v_large_lv_fsh_swbd_cv_20241223_152156.pt'
+    # ssl_ckpt_path = os.path.join(os.getcwd(), f'models/back_end_models/{ssl_ckpt_name}')
     feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
     feature_extractor.eval()
 
     # Initialize Binary Spoofing Classification Model
-    PS_Model_name='model_epochs30_batch8_lr0.005_20241223_152156.pth'
+    PS_Model_name='model_epochs60_batch8_lr0.005_20241226_214707.pth'
     model_path=os.path.join(os.getcwd(),f'models/back_end_models/{PS_Model_name}')
     PS_Model = BinarySpoofingClassificationModel(feature_dim=768,
                                                 num_heads=8,
@@ -220,3 +249,28 @@ def dev_one_epoch(model, feature_extractor,criterion,
 
 if __name__ == "__main__":
     print("SA, inference.py file !")
+    use_cuda= True
+    use_cuda =  use_cuda and torch.cuda.is_available()
+    DEVICE = torch.device("cuda" if use_cuda else "cpu")
+    print(f'device: {DEVICE}')
+    # Record the start time
+    start_time = datetime.now()
+
+    # inference()
+    inference(eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
+        eval_labels_path = os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),
+        ssl_ckpt_path=os.path.join(os.getcwd(), 'models/back_end_models/w2v_large_lv_fsh_swbd_cv_20241226_214707.pt'),
+        BATCH_SIZE=16, num_workers=0, prefetch_factor=None, DEVICE=DEVICE)
+    # Record the end time
+    end_time = datetime.now()
+    total_time = end_time - start_time
+    print(f"Total time: {total_time}")
+
+    # Extract hours, minutes, and seconds
+    total_seconds = total_time.total_seconds()
+    hours = int(total_seconds // 3600)
+    minutes = int((total_seconds % 3600) // 60)
+    seconds = int(total_seconds % 60)
+
+    # Print training time in hours, minutes, and seconds
+    print(f"Total time: {hours} hours, {minutes} minutes, {seconds} seconds")

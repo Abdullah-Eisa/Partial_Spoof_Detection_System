@@ -13,7 +13,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " re-structuring the whole project , delete the following files from remote repositry cloud_instance_new_pip_requirements.txt & environment.yml & environment_cpu.yml train_Wav2Vec2Conformer.py & train_binary_classifier.py & train_no_wandb.py"
+git commit -m " adjusting dependencies after re-structuring the whole project "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

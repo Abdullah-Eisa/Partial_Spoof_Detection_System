@@ -12,8 +12,6 @@ import torch.nn as nn
 import torchaudio.models as tam
 import math
 
-import os
-import torch
 import torchaudio
 from torch.utils.data import Dataset, DataLoader , ConcatDataset
 # from transformers import Wav2Vec2Processor, 
@@ -21,10 +19,8 @@ import torch.nn.functional as F
 import numpy as np
 from sklearn.metrics import roc_curve
 
-import torch
 from torch.nn.utils.rnn import pad_sequence
 
-# from torch.utils.data import DataLoader
 import torch.multiprocessing as mp
 
 # ===========================================================================================================================
