@@ -8,11 +8,12 @@ git checkout -b cloud_instance_0
 # Initialize the Git repository
 git init
 
+# git rm --cached train_no_wandb.py                         # when removing a file locally and want to delete it on the remote repositry
 # Add all files to the staging area
 git add *
 
 # Commit your changes
-git commit -m " re-structuring the whole project "
+git commit -m " re-structuring the whole project , delete the following files from remote repositry cloud_instance_new_pip_requirements.txt & environment.yml & environment_cpu.yml train_Wav2Vec2Conformer.py & train_binary_classifier.py & train_no_wandb.py"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
