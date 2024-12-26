@@ -5,6 +5,8 @@ import random
 from datetime import datetime
 
 from train import train
+from inference.py import inference()
+
 
 def main():
     """ main(): the default wrapper for training and inference process
@@ -16,7 +18,7 @@ def main():
     wandb.login(key=wandb_api_key,relogin=True,force=True)
 
     # wandb.init(project='partial_spoof_demo')
-
+    project_name='partial_spoof_Wav2Vec2_Conformer_binary_classifier'
 
     sweep_config = {
         'method': 'bayes',
@@ -30,15 +32,17 @@ def main():
             # 'NUM_EPOCHS': {'values': [5, 7]},
             # 'LEARNING_RATE': {'values': [0.001]},
             # 'BATCH_SIZE': {'values': [16,32]},
-            'NUM_EPOCHS': {'values': [20]},
-            'LEARNING_RATE': {'values': [0.01]},
+            'NUM_EPOCHS': {'values': [60]},
+            'LEARNING_RATE': {'values': [0.005]},
+            # 'LEARNING_RATE': {'values': [0.00021195579137608126]},
+            # 'LEARNING_RATE': {'values': [2.3550643486231242e-05]},
             'BATCH_SIZE': {'values': [8]},
             # 'CLASS0_WEIGHT': {'values': [0.42,0.45,0.48]},
 
         }
     }
 
-    sweep_id = wandb.sweep(sweep=sweep_config,project='partial_spoof_trial_2')
+    sweep_id = wandb.sweep(sweep=sweep_config,project=project_name)
     # sweep_id = wandb.sweep(sweep=sweep_config)
     wandb.agent(sweep_id, function=train, count=1)
 
@@ -50,21 +54,21 @@ if __name__ == "__main__":
     start_time = datetime.now()
 
     main()
+    # inference()
 
     # Record the end time
     end_time = datetime.now()
-    total_training_time = end_time - start_time
-    print(f"Total training time: {total_training_time}")
+    total_time = end_time - start_time
+    print(f"Total time: {total_time}")
 
     # Extract hours, minutes, and seconds
-    total_seconds = total_training_time.total_seconds()
+    total_seconds = total_time.total_seconds()
     hours = int(total_seconds // 3600)
     minutes = int((total_seconds % 3600) // 60)
     seconds = int(total_seconds % 60)
 
     # Print training time in hours, minutes, and seconds
-    print(f"Total training time: {hours} hours, {minutes} minutes, {seconds} seconds")
-
+    print(f"Total time: {hours} hours, {minutes} minutes, {seconds} seconds")
 
 
 

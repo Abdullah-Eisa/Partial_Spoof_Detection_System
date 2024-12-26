@@ -12,7 +12,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " re-structuring train_binary_classifier.py , modify env_setup.sh with new torch and torchaudio installation method and add screen installation , modify cloud_instance_new_pip_requirements.txt with new env versions "
+git commit -m " re-structuring the whole project "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

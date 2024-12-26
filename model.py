@@ -5,500 +5,169 @@ import torch.nn as nn
 import math
 from utils import *
 
-
-# =================================== conformer with relative positional embedding ==============================
-
-class RelativePosition(nn.Module):
-
-    def __init__(self, num_units, max_relative_position):
-        super().__init__()
-        self.num_units = num_units
-        self.max_relative_position = max_relative_position
-        self.embeddings_table = nn.Parameter(torch.Tensor(max_relative_position * 2 + 1, num_units))
-        nn.init.xavier_uniform_(self.embeddings_table)
-
-    def forward(self, length_q, length_k):
-        range_vec_q = torch.arange(length_q)
-        range_vec_k = torch.arange(length_k)
-        distance_mat = range_vec_k[None, :] - range_vec_q[:, None]
-        distance_mat_clipped = torch.clamp(distance_mat, -self.max_relative_position, self.max_relative_position)
-        final_mat = distance_mat_clipped + self.max_relative_position
-        # if torch.cuda.is_available():
-        final_mat = torch.LongTensor(final_mat).cuda()
-        embeddings = self.embeddings_table[final_mat].cuda()
-        # else:
-        #     final_mat = torch.LongTensor(final_mat)
-        #     embeddings = self.embeddings_table[final_mat]
-
-        return embeddings
-
-class RelativeMultiHeadAttentionLayer(nn.Module):
-    def __init__(self, hid_dim, n_heads, dropout, device):
-        super().__init__()
-        
-        assert hid_dim % n_heads == 0
-        
-        self.hid_dim = hid_dim
-        self.n_heads = n_heads
-        self.head_dim = hid_dim // n_heads
-        self.max_relative_position = 2
-
-        self.relative_position_k = RelativePosition(self.head_dim, self.max_relative_position)
-        self.relative_position_v = RelativePosition(self.head_dim, self.max_relative_position)
-
-        self.fc_q = nn.Linear(hid_dim, hid_dim)
-        self.fc_k = nn.Linear(hid_dim, hid_dim)
-        self.fc_v = nn.Linear(hid_dim, hid_dim)
-        
-        self.fc_o = nn.Linear(hid_dim, hid_dim)
-        
-        self.dropout = nn.Dropout(dropout)
-        
-        self.scale = torch.sqrt(torch.FloatTensor([self.head_dim])).to(device)
-        
-    def forward(self, query, key, value, dropout_prob,mask = None):
-        #query = [batch size, query len, hid dim]
-        #key = [batch size, key len, hid dim]
-        #value = [batch size, value len, hid dim]
-        batch_size = query.shape[0]
-        len_k = key.shape[1]
-        len_q = query.shape[1]
-        len_v = value.shape[1]
-
-        query = self.fc_q(query)
-        key = self.fc_k(key)
-        value = self.fc_v(value)
-
-        r_q1 = query.view(batch_size, -1, self.n_heads, self.head_dim).permute(0, 2, 1, 3)
-        r_k1 = key.view(batch_size, -1, self.n_heads, self.head_dim).permute(0, 2, 1, 3)
-        attn1 = torch.matmul(r_q1, r_k1.permute(0, 1, 3, 2)) 
-
-        r_q2 = query.permute(1, 0, 2).contiguous().view(len_q, batch_size*self.n_heads, self.head_dim)
-        r_k2 = self.relative_position_k(len_q, len_k)
-        attn2 = torch.matmul(r_q2, r_k2.transpose(1, 2)).transpose(0, 1)
-        attn2 = attn2.contiguous().view(batch_size, self.n_heads, len_q, len_k)
-        attn = (attn1 + attn2) / self.scale
-
-        if mask is not None:
-            attn = attn.masked_fill(mask == 0, -1e10)
-        self.dropout.p=dropout_prob
-        attn = self.dropout(torch.softmax(attn, dim = -1))
-
-        #attn = [batch size, n heads, query len, key len]
-        r_v1 = value.view(batch_size, -1, self.n_heads, self.head_dim).permute(0, 2, 1, 3)
-        weight1 = torch.matmul(attn, r_v1)
-        r_v2 = self.relative_position_v(len_q, len_v)
-        weight2 = attn.permute(2, 0, 1, 3).contiguous().view(len_q, batch_size*self.n_heads, len_k)
-        weight2 = torch.matmul(weight2, r_v2)
-        weight2 = weight2.transpose(0, 1).contiguous().view(batch_size, self.n_heads, len_q, self.head_dim)
-
-        x = weight1 + weight2
-        
-        #x = [batch size, n heads, query len, head dim]
-        
-        x = x.permute(0, 2, 1, 3).contiguous()
-        
-        #x = [batch size, query len, n heads, head dim]
-        
-        x = x.view(batch_size, -1, self.hid_dim)
-        
-        #x = [batch size, query len, hid dim]
-        
-        x = self.fc_o(x)
-        
-        #x = [batch size, query len, hid dim]
-        
-        return x
-
-
-from typing import Optional, Tuple
-
 import torch
+import torch.nn as torch_nn
+import torchaudio
+import torch.nn.functional as torch_nn_func
+
+# ============================================================================================
+# SAP = SelfWeightedPooling
+
+import torch.nn.init as torch_init
 
 
-__all__ = ["Conformer"]
-
-
-def _lengths_to_padding_mask(lengths: torch.Tensor) -> torch.Tensor:
-    batch_size = lengths.shape[0]
-    max_length = int(torch.max(lengths).item())
-    padding_mask = torch.arange(max_length, device=lengths.device, dtype=lengths.dtype).expand(
-        batch_size, max_length
-    ) >= lengths.unsqueeze(1)
-    return padding_mask
-
-
-class _ConvolutionModule(torch.nn.Module):
-    r"""Conformer convolution module.
-
-    Args:
-        input_dim (int): input dimension.
-        num_channels (int): number of depthwise convolution layer input channels.
-        depthwise_kernel_size (int): kernel size of depthwise convolution layer.
-        dropout (float, optional): dropout probability. (Default: 0.0)
-        bias (bool, optional): indicates whether to add bias term to each convolution layer. (Default: ``False``)
-        use_group_norm (bool, optional): use GroupNorm rather than BatchNorm. (Default: ``False``)
+class SelfWeightedPooling(torch_nn.Module):
+    """ SelfWeightedPooling module
+    Inspired by
+    https://github.com/joaomonteirof/e2e_antispoofing/blob/master/model.py
+    To avoid confusion, I will call it self weighted pooling
+    
+    l_selfpool = SelfWeightedPooling(5, 1, False)
+    with torch.no_grad():
+        input_data = torch.rand([3, 10, 5])
+        output_data = l_selfpool(input_data)
     """
-
-    def __init__(
-        self,
-        input_dim: int,
-        num_channels: int,
-        depthwise_kernel_size: int,
-        dropout: float = 0.0,
-        bias: bool = False,
-        use_group_norm: bool = False,
-    ) -> None:
-        super().__init__()
-        if (depthwise_kernel_size - 1) % 2 != 0:
-            raise ValueError("depthwise_kernel_size must be odd to achieve 'SAME' padding.")
-        self.layer_norm = torch.nn.LayerNorm(input_dim)
-        self.sequential = torch.nn.Sequential(
-            torch.nn.Conv1d(
-                input_dim,
-                2 * num_channels,
-                1,
-                stride=1,
-                padding=0,
-                bias=bias,
-            ),
-            torch.nn.GLU(dim=1),
-            torch.nn.Conv1d(
-                num_channels,
-                num_channels,
-                depthwise_kernel_size,
-                stride=1,
-                padding=(depthwise_kernel_size - 1) // 2,
-                groups=num_channels,
-                bias=bias,
-            ),
-            torch.nn.GroupNorm(num_groups=1, num_channels=num_channels)
-            if use_group_norm
-            else torch.nn.BatchNorm1d(num_channels),
-            torch.nn.SiLU(),
-            torch.nn.Conv1d(
-                num_channels,
-                input_dim,
-                kernel_size=1,
-                stride=1,
-                padding=0,
-                bias=bias,
-            ),
-            torch.nn.Dropout(dropout),
-        )
-
-    def forward(self, input: torch.Tensor,dropout_prob) -> torch.Tensor:
-        r"""
-        Args:
-            input (torch.Tensor): with shape `(B, T, D)`.
-
-        Returns:
-            torch.Tensor: output, with shape `(B, T, D)`.
+    def __init__(self, feature_dim, num_head=1, mean_only=False):
+        """ SelfWeightedPooling(feature_dim, num_head=1, mean_only=False)
+        Attention-based pooling
+        
+        input (batchsize, length, feature_dim) ->
+        output 
+           (batchsize, feature_dim * num_head), when mean_only=True
+           (batchsize, feature_dim * num_head * 2), when mean_only=False
+        
+        args
+        ----
+          feature_dim: dimension of input tensor
+          num_head: number of heads of attention
+          mean_only: whether compute mean or mean with std
+                     False: output will be (batchsize, feature_dim*2)
+                     True: output will be (batchsize, feature_dim)
         """
-        x = self.layer_norm(input)
-        x = x.transpose(1, 2)
-        self.sequential[-1].p=dropout_prob
-        x = self.sequential(x)
-        return x.transpose(1, 2)
+        super(SelfWeightedPooling, self).__init__()
 
+        self.feature_dim = feature_dim
+        self.mean_only = mean_only
+        self.noise_std = 1e-5
+        self.num_head = num_head
 
-class _FeedForwardModule(torch.nn.Module):
-    r"""Positionwise feed forward layer.
+        # transformation matrix (num_head, feature_dim)
+        self.mm_weights = torch_nn.Parameter(
+            torch.Tensor(num_head, feature_dim), requires_grad=True)
+        torch_init.kaiming_uniform_(self.mm_weights)
+        return
+    
+    def _forward(self, inputs):
+        """ output, attention = forward(inputs)
+        inputs
+        ------
+          inputs: tensor, shape (batchsize, length, feature_dim)
+        
+        output
+        ------
+          output: tensor
+           (batchsize, feature_dim * num_head), when mean_only=True
+           (batchsize, feature_dim * num_head * 2), when mean_only=False
+          attention: tensor, shape (batchsize, length, num_head)
+        """        
+        # batch size
+        batch_size = inputs.size(0)
+        # feature dimension
+        feat_dim = inputs.size(2)
+        
+        # input is (batch, legth, feature_dim)
+        # change mm_weights to (batchsize, feature_dim, num_head)
+        # weights will be in shape (batchsize, length, num_head)
+        weights = torch.bmm(inputs, 
+                            self.mm_weights.permute(1, 0).contiguous()\
+                            .unsqueeze(0).repeat(batch_size, 1, 1))
+        
+        # attention (batchsize, length, num_head)
+        attentions = torch_nn_func.softmax(torch.tanh(weights),dim=1)        
+        
+        # apply attention weight to input vectors
+        if self.num_head == 1:
+            # We can use the mode below to compute self.num_head too
+            # But there is numerical difference.
+            #  original implementation in github
+            
+            # elmentwise multiplication
+            # weighted input vector: (batchsize, length, feature_dim)
+            weighted = torch.mul(inputs, attentions.expand_as(inputs))
+        else:
+            # weights_mat = (batch * length, feat_dim, num_head)
+            #    inputs.view(-1, feat_dim, 1), zl, error
+            #    RuntimeError: view size is not compatible with input tensor's size and stride 
+            #    (at least one dimension spans across two contiguous subspaces). Use .reshape(...) instead.
+            weighted = torch.bmm(
+                inputs.reshape(-1, feat_dim, 1), 
+                attentions.view(-1, 1, self.num_head))
+            
+            # weights_mat = (batch, length, feat_dim * num_head)
+            weighted = weighted.view(batch_size, -1, feat_dim * self.num_head)
+            
+        # pooling
+        if self.mean_only:
+            # only output the mean vector
+            representations = weighted.sum(1)
+        else:
+            # output the mean and std vector
+            noise = self.noise_std * torch.randn(
+                weighted.size(), dtype=weighted.dtype, device=weighted.device)
 
-    Args:
-        input_dim (int): input dimension.
-        hidden_dim (int): hidden dimension.
-        dropout (float, optional): dropout probability. (Default: 0.0)
-    """
-
-    def __init__(self, input_dim: int, hidden_dim: int, dropout: float = 0.0) -> None:
-        super().__init__()
-        self.sequential = torch.nn.Sequential(
-            torch.nn.LayerNorm(input_dim),
-            torch.nn.Linear(input_dim, hidden_dim, bias=True),
-            torch.nn.SiLU(),
-            torch.nn.Dropout(dropout),
-            torch.nn.Linear(hidden_dim, input_dim, bias=True),
-            torch.nn.Dropout(dropout),
-        )
-
-    def forward(self, input: torch.Tensor,dropout_prob) -> torch.Tensor:
-        r"""
-        Args:
-            input (torch.Tensor): with shape `(*, D)`.
-
-        Returns:
-            torch.Tensor: output, with shape `(*, D)`.
+            avg_repr, std_repr = weighted.sum(1), (weighted+noise).std(1)
+            # concatenate mean and std
+            representations = torch.cat((avg_repr,std_repr),1)
+        # done
+        return representations, attentions
+    
+    def forward(self, inputs):
+        """ output = forward(inputs)
+        inputs
+        ------
+          inputs: tensor, shape (batchsize, length, feature_dim)
+        
+        output
+        ------
+          output: tensor
+           (batchsize, feature_dim * num_head), when mean_only=True
+           (batchsize, feature_dim * num_head * 2), when mean_only=False
         """
-        self.sequential[3].p=dropout_prob
-        self.sequential[5].p=dropout_prob
-        return self.sequential(input)
+        output, _ = self._forward(inputs)
+        return output
+
+    def debug(self, inputs):
+        return self._forward(inputs)
 
 
-class ConformerLayer(torch.nn.Module):
-    r"""Conformer layer that constitutes Conformer.
 
-    Args:
-        input_dim (int): input dimension.
-        ffn_dim (int): hidden layer dimension of feedforward network.
-        num_attention_heads (int): number of attention heads.
-        depthwise_conv_kernel_size (int): kernel size of depthwise convolution layer.
-        dropout (float, optional): dropout probability. (Default: 0.0)
-        use_group_norm (bool, optional): use ``GroupNorm`` rather than ``BatchNorm1d``
-            in the convolution module. (Default: ``False``)
-        convolution_first (bool, optional): apply the convolution module ahead of
-            the attention module. (Default: ``False``)
-    """
-
-    def __init__(
-        self,
-        input_dim: int,
-        ffn_dim: int,
-        num_attention_heads: int,
-        depthwise_conv_kernel_size: int,
-        dropout: float = 0.0,
-        use_group_norm: bool = False,
-        convolution_first: bool = False,
-        device: torch.device =torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    ) -> None:
-        super().__init__()
-
-        self.ffn1 = _FeedForwardModule(input_dim, ffn_dim, dropout=dropout)
-
-        self.self_attn_layer_norm = torch.nn.LayerNorm(input_dim)
-        # self.self_attn = torch.nn.MultiheadAttention(input_dim, num_attention_heads, dropout=dropout)
-        # self.self_attn = RelPartialLearnableMultiHeadAttn( num_attention_heads,input_dim,64, dropout=dropout)
-        self.self_attn = RelativeMultiHeadAttentionLayer(input_dim, num_attention_heads, dropout, device)
-
-        self.self_attn_dropout = torch.nn.Dropout(dropout)
-
-        self.conv_module = _ConvolutionModule(
-            input_dim=input_dim,
-            num_channels=input_dim,
-            depthwise_kernel_size=depthwise_conv_kernel_size,
-            dropout=dropout,
-            bias=True,
-            use_group_norm=use_group_norm,
-        )
-
-        self.ffn2 = _FeedForwardModule(input_dim, ffn_dim, dropout=dropout)
-        self.final_layer_norm = torch.nn.LayerNorm(input_dim)
-        self.convolution_first = convolution_first
-
-    def _apply_convolution(self, input: torch.Tensor,dropout_prob) -> torch.Tensor:
-        residual = input
-        input = input.transpose(0, 1)
-        input = self.conv_module(input,dropout_prob)
-        input = input.transpose(0, 1)
-        input = residual + input
-        return input
-
-    def forward(self, input: torch.Tensor, key_padding_mask: Optional[torch.Tensor],dropout_prob) -> torch.Tensor:
-        r"""
-        Args:
-            input (torch.Tensor): input, with shape `(T, B, D)`.
-            key_padding_mask (torch.Tensor or None): key padding mask to use in self attention layer.
-
-        Returns:
-            torch.Tensor: output, with shape `(T, B, D)`.
-        """
-        # self_attn_dropout = torch.nn.Dropout(dropout_prob)
-
-        residual = input
-        x = self.ffn1(input,dropout_prob)
-        x = x * 0.5 + residual
-
-        if self.convolution_first:
-            x = self._apply_convolution(x,dropout_prob)
-
-        residual = x
-        x = self.self_attn_layer_norm(x)
-        x = self.self_attn(
-            query=x,
-            key=x,
-            value=x,
-            dropout_prob=dropout_prob,
-        ) # code from https://github.com/evelinehong/Transformer_Relative_Position_PyTorch/blob/master/relative_position.py
-        # x, _ = self.self_attn(x) # code from transformer xl
-        self.self_attn_dropout.p=dropout_prob
-        x = self.self_attn_dropout(x)
-        # x = self_attn_dropout(x)
-        x = x + residual
-
-        if not self.convolution_first:
-            x = self._apply_convolution(x,dropout_prob)
-
-        residual = x
-        x = self.ffn2(x,dropout_prob)
-        x = x * 0.5 + residual
-
-        x = self.final_layer_norm(x)
-        return x
-
-
-class Conformer(torch.nn.Module):
-    r"""Conformer architecture introduced in
-    *Conformer: Convolution-augmented Transformer for Speech Recognition*
-    :cite:`gulati2020conformer`.
-
-    Args:
-        input_dim (int): input dimension.
-        num_heads (int): number of attention heads in each Conformer layer.
-        ffn_dim (int): hidden layer dimension of feedforward networks.
-        num_layers (int): number of Conformer layers to instantiate.
-        depthwise_conv_kernel_size (int): kernel size of each Conformer layer's depthwise convolution layer.
-        dropout (float, optional): dropout probability. (Default: 0.0)
-        use_group_norm (bool, optional): use ``GroupNorm`` rather than ``BatchNorm1d``
-            in the convolution module. (Default: ``False``)
-        convolution_first (bool, optional): apply the convolution module ahead of
-            the attention module. (Default: ``False``)
-
-    Examples:
-        >>> conformer = Conformer(
-        >>>     input_dim=80,
-        >>>     num_heads=4,
-        >>>     ffn_dim=128,
-        >>>     num_layers=4,
-        >>>     depthwise_conv_kernel_size=31,
-        >>> )
-        >>> lengths = torch.randint(1, 400, (10,))  # (batch,)
-        >>> input = torch.rand(10, int(lengths.max()), input_dim)  # (batch, num_frames, input_dim)
-        >>> output = conformer(input, lengths)
-    """
-
-    def __init__(
-        self,
-        input_dim: int,
-        num_heads: int,
-        ffn_dim: int,
-        num_layers: int,
-        depthwise_conv_kernel_size: int,
-        dropout: float = 0.0,
-        use_group_norm: bool = False,
-        convolution_first: bool = False,
-    ):
-        super().__init__()
-
-        self.conformer_layers = torch.nn.ModuleList(
-            [
-                ConformerLayer(
-                    input_dim,
-                    ffn_dim,
-                    num_heads,
-                    depthwise_conv_kernel_size,
-                    dropout=dropout,
-                    use_group_norm=use_group_norm,
-                    convolution_first=convolution_first,
-                )
-                for _ in range(num_layers)
-            ]
-        )
-
-    def forward(self, input: torch.Tensor, lengths: torch.Tensor,dropout_prob) -> Tuple[torch.Tensor, torch.Tensor]:
-        r"""
-        Args:
-            input (torch.Tensor): with shape `(B, T, input_dim)`.
-            lengths (torch.Tensor): with shape `(B,)` and i-th element representing
-                number of valid frames for i-th batch element in ``input``.
-
-        Returns:
-            (torch.Tensor, torch.Tensor)
-                torch.Tensor
-                    output frames, with shape `(B, T, input_dim)`
-                torch.Tensor
-                    output lengths, with shape `(B,)` and i-th element representing
-                    number of valid frames for i-th batch element in output frames.
-        """
-        encoder_padding_mask = _lengths_to_padding_mask(lengths)
-
-        x = input.transpose(0, 1)
-        for layer in self.conformer_layers:
-            x = layer(x, encoder_padding_mask,dropout_prob)
-        return x.transpose(0, 1), lengths
-
-
-# class MyUpdatedSpoofingDetectionModel(nn.Module):
-#     def __init__(self, feature_dim, num_heads, hidden_dim, num_classes,max_dropout=0.5, depthwise_conv_kernel_size=31,conformer_layers=1):
-#         super(MyUpdatedSpoofingDetectionModel, self).__init__()
-        
-#         self.max_dropout=max_dropout
-#         # Define the Conformer model from torchaudio
-#         self.conformer = Conformer(
-#             input_dim=feature_dim,
-#             num_heads=num_heads,
-#             ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
-#             num_layers=conformer_layers,  # Example, adjust as needed
-#             depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
-#             dropout=max_dropout,
-#             use_group_norm= False, 
-#             convolution_first= False
-#         )
-        
-#         # Global pooling layer (SelfWeightedPooling)
-#         self.pooling = SelfWeightedPooling(feature_dim, mean_only=True)  # Pool across sequence dimension
-        
-#         # Add a feedforward block for feature refinement before classification
-#         self.fc_refinement = nn.Sequential(
-#             nn.Linear(feature_dim, hidden_dim),  # Refined hidden dimension for classification
-#             nn.GELU(),
-#             nn.LayerNorm(hidden_dim),
-#             nn.Dropout(max_dropout / 2),  # Dropout for regularization
-
-#             nn.Linear(hidden_dim, num_classes),  # Final output layer
-#             nn.Sigmoid(),
-#         )
-        
-#     def forward(self, x, lengths,dropout_prob):
-#         # print(f" x size before conformer = {x.size()}")
-        
-#         # Apply Conformer model
-#         x, _ = self.conformer(x, lengths,dropout_prob)  # The second returned value is the sequence lengths
-#         # print(f" x size after conformer = {x.size()}")
-        
-#         # Apply global pooling across the sequence dimension (SelfWeightedPooling)
-#         x = self.pooling(x)  # Now x is (batch_size, hidden_dim, 1)
-#         # print(f" x size after pooling = {x.size()}")
-        
-#         # Update the dropout probability dynamically
-#         self.fc_refinement[3].p = dropout_prob  # Update the dropout layer's probability
-
-#         # Refine features before classification using the fc_refinement block
-#         segment_score = self.fc_refinement(x)
-#         # print(f" x size after fc_refinement = {segment_score.size()}")
-        
-#         # Return the classification output
-#         return segment_score
-
-#     def adjust_dropout(self, epoch, total_epochs):
-#         # Cosine annealing for dropout probability
-#         return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
+# ============================================================================================
+# ============================================================================================
+# ============================================================================================
+# ============================================================================================
 
 
 
 
+# binary classification model  max pooling after feature extractor
+class BinarySpoofingClassificationModel(nn.Module):
+    def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3):
+        super(BinarySpoofingClassificationModel, self).__init__()
 
-
-
-
-
-# ===========================================================================================================================
-# ===========================================================================================================================
-# ===========================================================================================================================
-# ===========================================================================================================================
-
-
-import torch
-import torch.nn as nn
-import torchaudio.models as tam
-import math
-class MyUpdatedSpoofingDetectionModel(nn.Module):
-    def __init__(self, feature_dim, num_heads, hidden_dim, num_classes,max_dropout=0.2, depthwise_conv_kernel_size=31,conformer_layers=1):
-        super(MyUpdatedSpoofingDetectionModel, self).__init__()
-
+        self.max_pooling_factor = max_pooling_factor
+        self.feature_dim = feature_dim
         self.max_dropout=max_dropout
+
+        if self.max_pooling_factor is not None:
+            self.max_pooling = nn.MaxPool1d(kernel_size=self.max_pooling_factor, stride=self.max_pooling_factor)
+            self.feature_dim=feature_dim//self.max_pooling_factor
+        else:
+            self.max_pooling = None
+        
+        print(f"self.feature_dim= {self.feature_dim} , self.max_pooling= {self.max_pooling}")
         # Define the Conformer model from torchaudio
         self.conformer = tam.Conformer(
-            input_dim=feature_dim,
+            input_dim=self.feature_dim,
             num_heads=num_heads,
             ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
             num_layers=conformer_layers,  # Example, adjust as needed
@@ -509,17 +178,27 @@ class MyUpdatedSpoofingDetectionModel(nn.Module):
         )
         
         # Global pooling layer (SelfWeightedPooling)
-        self.pooling = SelfWeightedPooling(feature_dim, mean_only=True)  # Pool across sequence dimension
+        self.pooling = SelfWeightedPooling(self.feature_dim , mean_only=True)  # Pool across sequence dimension
         
         # Add a feedforward block for feature refinement before classification
         self.fc_refinement = nn.Sequential(
-            nn.Linear(feature_dim, hidden_dim),  # Refined hidden dimension for classification
+            nn.Linear(self.feature_dim, hidden_dim),  # Refined hidden dimension for classification
             nn.GELU(),
             nn.LayerNorm(hidden_dim),
             nn.Dropout(0.2),  # Dropout for regularization
 
-            nn.Linear(hidden_dim, num_classes),  # Final output layer
-            nn.Sigmoid(),
+            nn.Linear(hidden_dim, hidden_dim//2),  # Refined hidden dimension for classification
+            nn.GELU(),
+            nn.LayerNorm(hidden_dim//2),
+            nn.Dropout(0.2),  # Dropout for regularization
+
+            nn.Linear(hidden_dim//2, hidden_dim//4),  # Refined hidden dimension for classification
+            nn.GELU(),
+            nn.LayerNorm(hidden_dim//4),
+            nn.Dropout(0.2),  # Dropout for regularization
+
+            nn.Linear(hidden_dim//4, 1),  # Final output layer
+            # nn.Sigmoid(),
             # nn.GELU(),
         )
 
@@ -527,7 +206,7 @@ class MyUpdatedSpoofingDetectionModel(nn.Module):
         self.apply(self.initialize_weights)
 
     # Custom initialization for He and Xavier
-    def initialize_weights(self, m, bias_value=0.05):
+    def initialize_weights(self, m, bias_value=0.005):
         if isinstance(m, nn.Linear):  # For Linear layers
             # We do not directly check activation here, since it's separate
             if isinstance(m, nn.Linear):
@@ -552,75 +231,13 @@ class MyUpdatedSpoofingDetectionModel(nn.Module):
                 nn.init.xavier_normal_(m.weight)
             if m.bias is not None:
                 nn.init.constant_(m.bias, bias_value)
-    # def initialize_weights(self, m, bias_value=0.05):
-    #     if isinstance(m, nn.Linear):  # For Linear layers
-    #         if isinstance(m.activation, nn.ReLU) or isinstance(m.activation, nn.GELU):
-    #             # He (Kaiming) initialization for ReLU/GELU layers
-    #             init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-    #         elif isinstance(m.activation, nn.Tanh) or isinstance(m.activation, nn.Sigmoid):
-    #             # Xavier (Glorot) initialization for tanh/sigmoid layers
-    #             init.xavier_normal_(m.weight)
-    #         if m.bias is not None:
-    #             init.zeros_(m.bias,bias_value)  # Initialize bias to 0
 
-    #     elif isinstance(m, nn.Conv1d):  # For Conv1d layers (typically used in Conformer)
-    #         if isinstance(m.activation, nn.ReLU) or isinstance(m.activation, nn.GELU):
-    #             # He (Kaiming) initialization for Conv1d with ReLU/GELU
-    #             init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-    #         elif isinstance(m.activation, nn.Tanh) or isinstance(m.activation, nn.Sigmoid):
-    #             # Xavier (Glorot) initialization for Conv1d with tanh/sigmoid
-    #             init.xavier_normal_(m.weight)
-    #         if m.bias is not None:
-    #             init.zeros_(m.bias,bias_value)
-
-
-        # # Apply He initialization for layers with ReLU/GELU activations
-        # self.apply(self.init_he_weights)
-        
-    #     # Apply Xavier initialization for linear layers (e.g., attention or feed-forward)
-    #     self.apply(self.init_xavier_weights)
-    #     # custom_bias_init(self)  # Initialize bias with custom value
-
-    # def init_he_weights(self, m, bias_value=0.05):
-    #     if isinstance(m, nn.Linear):
-    #         if isinstance(m, nn.Conv1d) or isinstance(m, nn.Linear):  
-    #             # He initialization for layers with ReLU/GELU activation
-    #             nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-    #         if m.bias is not None:
-    #             # nn.init.zeros_(m.bias)
-    #             nn.init.constant_(m.bias, bias_value)
-                
-    # def init_xavier_weights(self, m, bias_value=0.05):
-    #     if isinstance(m, nn.Linear):
-    #         if isinstance(m, nn.Conv1d):  
-    #             # Xavier initialization for attention layers or tanh activations
-    #             nn.init.xavier_normal_(m.weight)
-    #         if m.bias is not None:
-    #             # nn.init.zeros_(m.bias)
-    #             nn.init.constant_(m.bias, bias_value)
-
-    # # For Linear layer
-    # def init_linear_bias(m, bias_value=0.05):
-    #     if isinstance(m, nn.Linear):
-    #         if m.bias is not None:
-    #             nn.init.constant_(m.bias, bias_value)
-
-    # # For Conv1d layer
-    # def init_conv_bias(m, bias_value=0.05):
-    #     if isinstance(m, nn.Conv1d):
-    #         if m.bias is not None:
-    #             nn.init.constant_(m.bias, bias_value)
-
-    # # Apply custom bias initialization to all layers
-    # def custom_bias_init(model, bias_value=0.05):
-    #     for m in model.modules():
-    #         init_linear_bias(m, bias_value)
-    #         init_conv_bias(m, bias_value)
-            
 
     def forward(self, x, lengths,dropout_prob):
         # print(f" x size before conformer = {x.size()}")
-        
+        if self.max_pooling is not None:
+            x = self.max_pooling(x)  # Apply max pooling
+
         # Apply Conformer model
         x, _ = self.conformer(x, lengths)  # The second returned value is the sequence lengths
         # print(f" x size after conformer = {x.size()}")
@@ -631,23 +248,63 @@ class MyUpdatedSpoofingDetectionModel(nn.Module):
 
         # Update the dropout probability dynamically
         self.fc_refinement[3].p = dropout_prob  # Update the dropout layer's probability
+        self.fc_refinement[7].p = dropout_prob  # Update the dropout layer's probability
+        self.fc_refinement[11].p = dropout_prob  # Update the dropout layer's probability
 
         # Refine features before classification using the fc_refinement block
-        segment_score = self.fc_refinement(x)
-        # print(f" x size after fc_refinement = {segment_score.size()}")
-        # print(f" segment_score fc_refinement = {segment_score}")
-        
-        # Return the classification output
-        return segment_score
+        utt_score = self.fc_refinement(x)
+        return utt_score # Return the classification output
     def adjust_dropout(self, epoch, total_epochs):
         # Cosine annealing for dropout probability
         return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
 
 
 
+# ===========================================================================================================================
+# ===========================================================================================================================
+# ===========================================================================================================================
+# ===========================================================================================================================
+# ===========================================================================================================================
+
+
+def initialize_models(ssl_ckpt_path, save_feature_extractor=False,
+                      feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3, 
+                      LEARNING_RATE=0.0001,DEVICE='cpu'):
+    """Initialize the model, feature extractor, and optimizer"""
+    # Initialize feature extractor
+    if os.path.exists(ssl_ckpt_path):
+        feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
+    else:
+        ssl_ckpt_path = os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
+        feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
+
+    # Initialize Binary Spoofing Classification Model
+    PS_Model = BinarySpoofingClassificationModel(feature_dim, num_heads, hidden_dim, max_dropout, depthwise_conv_kernel_size, conformer_layers, max_pooling_factor).to(DEVICE)
+
+    # Freeze feature extractor if necessary
+    if save_feature_extractor:
+        for name, param in feature_extractor.named_parameters():
+            if 'final_proj' not in name:
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
+    
+    # Optimizer setup
+    optimizer = optim.AdamW(
+        [{'params': feature_extractor.parameters(), 'lr': LEARNING_RATE / 10},
+         {'params': PS_Model.parameters()}], 
+        lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8) if save_feature_extractor else optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+
+    return PS_Model, feature_extractor, optimizer
 
 
 
+def forward_pass(model, features, lengths, dropout_prob):
+    """Forward pass through the model"""
+    return model(features, lengths, dropout_prob)
 
-
-
+def backward_and_optimize(model, loss, optimizer, max_grad_norm):
+    """Backward pass and optimizer step"""
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+    optimizer.step()
