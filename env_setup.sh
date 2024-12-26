@@ -227,8 +227,10 @@ if [ $retVal -ne 0 ]; then
     # install some foundational libraries
     # pip install torch==2.2.0+cu118
     # pip install torchaudio==2.2.0+cu118
-    pip install torch==2.5.1+cu124
-    pip install torchaudio==2.5.1+cu124
+    # pip install torch==2.5.1+cu124
+    # pip install torchaudio==2.5.1+cu124
+    pip install torch
+    pip install torchaudio
     pip install s3prl
     pip install os
     pip install librosa
@@ -252,3 +254,6 @@ if [ $retVal -ne 0 ]; then
 else
     echo "Conda environment ${ENVNAME} is already installed"
 fi
+
+sudo apt update
+sudo apt install screen
