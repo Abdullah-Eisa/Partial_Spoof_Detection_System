@@ -1,43 +1,10 @@
 from __future__ import absolute_import
 from __future__ import print_function
-
 import os
-import sys
-from datetime import datetime
-
 import numpy as np
-import matplotlib.pyplot as plt
-
-import torch
-import torch.nn as torch_nn
-import torchaudio
-import torch.nn.functional as torch_nn_func
-
-
-import os
 import torch
 import wandb
-import torch.optim as optim
-import torch.nn as nn
-from torch.optim import lr_scheduler
-from datetime import datetime
-from tqdm import tqdm
-
-import torch
-import torch.nn as nn
-import torchaudio.models as tam
-import math
-
-import torchaudio
-from torch.utils.data import Dataset, DataLoader , ConcatDataset
-# from transformers import Wav2Vec2Processor, 
-import torch.nn.functional as F
-import numpy as np
 from sklearn.metrics import roc_curve
-
-from torch.nn.utils.rnn import pad_sequence
-
-import torch.multiprocessing as mp
 
 
 def create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss):
@@ -186,7 +153,7 @@ def compute_metrics(outputs, labels):
     return utterance_eer, utterance_eer_threshold
 
 
-def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, dev_metrics_dict=None):
+def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,feature_extractor_lr,backend_model_lr,dropout_prob, dev_metrics_dict=None):
     """Log metrics to W&B"""
     if dev_metrics_dict:
         wandb.log({
@@ -197,6 +164,9 @@ def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_thresho
             'validation_loss_epoch': dev_metrics_dict['epoch_loss'],
             'validation_utterance_eer_epoch': dev_metrics_dict['utterance_eer'],
             'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold'],
+            'feature_extractor_lr': feature_extractor_lr,
+            'backend_model_lr': backend_model_lr,
+            'dropout_prob': dropout_prob,
         })
     else:
         wandb.log({
@@ -204,4 +174,7 @@ def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_thresho
             'training_loss_epoch': epoch_loss,
             'training_utterance_eer_epoch': utterance_eer,
             'training_utterance_eer_threshold_epoch': utterance_eer_threshold,
+            'feature_extractor_lr': feature_extractor_lr,
+            'backend_model_lr': backend_model_lr,
+            'dropout_prob': dropout_prob,
         })

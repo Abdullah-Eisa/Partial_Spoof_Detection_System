@@ -1,27 +1,17 @@
 import os
 import torch
 import wandb
-import torch.optim as optim
-import torch.nn as nn
 from torch.optim import lr_scheduler
 from datetime import datetime
 from tqdm import tqdm
 
-import torch
-import torch.nn as nn
-import torchaudio.models as tam
-import math
+import matplotlib.pyplot as plt
 
-import torchaudio
-from torch.utils.data import Dataset, DataLoader , ConcatDataset
-# from transformers import Wav2Vec2Processor, 
-import torch.nn.functional as F
-import numpy as np
-from sklearn.metrics import roc_curve
-
-from torch.nn.utils.rnn import pad_sequence
-
-import torch.multiprocessing as mp
+# from utils import initialize_wandb, initialize_models, initialize_loss_function, initialize_data_loader, save_checkpoint, compute_metrics, log_metrics_to_wandb
+from utils import *
+from preprocess import *
+from model import *
+from inference import dev_one_epoch
 
 # ===========================================================================================================================
 def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion, max_grad_norm, dropout_prob=0, DEVICE='cpu'):
@@ -121,9 +111,9 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
             dev_data_loader=initialize_data_loader(dev_data_path, dev_labels_path,BATCH_SIZE,False,num_workers, prefetch_factor,pin_memory)
             dev_labels_dict= load_json_dictionary(dev_labels_path)
             print(f"train_loader: {len(train_loader)} , dev_data_loader: {len(dev_data_loader)}")
-            dev_metrics_dict = dev_one_epoch(PS_Model, feature_extractor,criterion,dev_data_loader, dev_labels_dict,dropout_prob,DEVICE)
+            dev_metrics_dict = dev_one_epoch(PS_Model, feature_extractor,criterion,dev_data_loader, dev_labels_dict,0,DEVICE)
             
-            log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, dev_metrics_dict)               # Log metrics to W&B
+            log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],optimizer.param_groups[1]['lr'],dropout_prob, dev_metrics_dict)               # Log metrics to W&B
 
             # Early stopping check
             # early_stopping(dev_metrics_dict['epoch_loss'], PS_Model)
@@ -132,7 +122,7 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
             #     break
 
         else:
-            log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, dev_metrics_dict= None)         # Log metrics to W&B
+            log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],optimizer.param_groups[1]['lr'],dropout_prob, dev_metrics_dict= None)         # Log metrics to W&B
 
         LR_SCHEDULER.step()
 
@@ -183,16 +173,13 @@ def train():
 
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
 
-    # Define your paths and other fixed arguments
-    BASE_DIR = os.getcwd()
-
     # Define training files and labels
-    train_data_path=os.path.join(BASE_DIR,'database/train/con_wav')
-    # train_data_path=os.path.join(BASE_DIR,'database/mini_database/train')
-    train_labels_path=os.path.join(BASE_DIR,'database/utterance_labels/PartialSpoof_LA_cm_train_trl.json')
-    dev_data_path=os.path.join(BASE_DIR, 'database/dev/con_wav')
-    # dev_data_path=os.path.join(BASE_DIR, 'database/mini_database/dev')
-    dev_labels_path=os.path.join(BASE_DIR, 'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json') 
+    train_data_path=os.path.join(os.getcwd(),'database/train/con_wav')
+    # train_data_path=os.path.join(os.getcwd(),'database/mini_database/train')
+    train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_train_trl.json')
+    dev_data_path=os.path.join(os.getcwd(), 'database/dev/con_wav')
+    # dev_data_path=os.path.join(os.getcwd(), 'database/mini_database/dev')
+    dev_labels_path=os.path.join(os.getcwd(), 'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json') 
     ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
     
     # Call train_model with parameters from W&B sweep

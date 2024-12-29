@@ -1,39 +1,13 @@
 import torch
 import torch.nn.functional as F
 import torch.nn as nn
-
 import math
 from utils import *
-
-import torch
 import torch.nn as torch_nn
-import torchaudio
 import torch.nn.functional as torch_nn_func
-
 import os
-import torch
-import wandb
 import torch.optim as optim
-import torch.nn as nn
-from torch.optim import lr_scheduler
-from datetime import datetime
-from tqdm import tqdm
-
-import torch
-import torch.nn as nn
 import torchaudio.models as tam
-import math
-
-import torchaudio
-from torch.utils.data import Dataset, DataLoader , ConcatDataset
-# from transformers import Wav2Vec2Processor, 
-import torch.nn.functional as F
-import numpy as np
-from sklearn.metrics import roc_curve
-
-from torch.nn.utils.rnn import pad_sequence
-
-import torch.multiprocessing as mp
 
 # ============================================================================================
 # SAP = SelfWeightedPooling
@@ -333,3 +307,14 @@ def backward_and_optimize(model, loss, optimizer, max_grad_norm):
     loss.backward()
     torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
     optimizer.step()
+
+
+
+
+def initialize_loss_function():
+    """Initialize the loss function (BCE with logits)"""
+    return nn.BCEWithLogitsLoss()
+
+def adjust_dropout_prob(model, epoch, NUM_EPOCHS):
+    """Adjust dropout rate dynamically during training"""
+    return model.adjust_dropout(epoch, NUM_EPOCHS)
