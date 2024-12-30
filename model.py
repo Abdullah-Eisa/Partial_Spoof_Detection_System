@@ -290,7 +290,7 @@ def initialize_models(ssl_ckpt_path, save_feature_extractor=False,
     
     # Optimizer setup
     optimizer = optim.AdamW(
-        [{'params': feature_extractor.parameters(), 'lr': LEARNING_RATE / 10},
+        [{'params': feature_extractor.parameters(), 'lr': 0.0001},
          {'params': PS_Model.parameters()}], 
         lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8) if save_feature_extractor else optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
 

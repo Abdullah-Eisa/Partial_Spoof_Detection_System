@@ -13,7 +13,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " re-structuring the whole project v2.1 , logging drop out prob and lr in wandb"
+git commit -m " run experiment with lambda lr scheduler"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

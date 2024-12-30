@@ -82,7 +82,14 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
     train_loader = initialize_data_loader(train_data_path, train_labels_path,BATCH_SIZE, True, num_workers, prefetch_factor,pin_memory,apply_transform)
     train_labels_dict= load_json_dictionary(train_labels_path)
 
-    LR_SCHEDULER = lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
+    # LR_SCHEDULER = lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
+    def lr_lambda(epoch):
+        if epoch < 20:
+            return 1 - (epoch / 20)  # Decrease linearly from 1 to 0 over 30 epochs
+        else:
+            return 1 + (epoch - 20) / 10  # Increase linearly after epoch 30
+
+    LR_SCHEDULER = lr_scheduler.LambdaLR(optimizer, lr_lambda)
     wandb.watch(PS_Model, log_freq=100,log='all')
     # Set model to train
     PS_Model.train()
@@ -193,7 +200,7 @@ def train():
                feature_dim=768, 
                num_heads=8, 
                hidden_dim=128, 
-               max_dropout=0.2,
+               max_dropout=0.4,
                depthwise_conv_kernel_size=31, 
                conformer_layers=1, 
                max_pooling_factor=3,
