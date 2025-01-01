@@ -2,6 +2,9 @@
 # ==================== ENV with GPU ==============================
 # git clone -b <branch> <remote_repo>
 # git clone -b cloud_instance_0  https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
+# ========================
+# git fetch origin
+# git reset --hard origin/<branch_name>
 # conda create -n ${ENVNAME} python=3.9 pip --yes
 # conda activate ${ENVNAME}
 # conda env create -f environment.yml

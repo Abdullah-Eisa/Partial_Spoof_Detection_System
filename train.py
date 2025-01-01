@@ -82,14 +82,8 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
     train_loader = initialize_data_loader(train_data_path, train_labels_path,BATCH_SIZE, True, num_workers, prefetch_factor,pin_memory,apply_transform)
     train_labels_dict= load_json_dictionary(train_labels_path)
 
-    # LR_SCHEDULER = lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
-    def lr_lambda(epoch):
-        if epoch < 20:
-            return 1 - (epoch / 20)  # Decrease linearly from 1 to 0 over 30 epochs
-        else:
-            return 1 + (epoch - 20) / 10  # Increase linearly after epoch 30
+    LR_SCHEDULER = initialize_lr_scheduler(optimizer)
 
-    LR_SCHEDULER = lr_scheduler.LambdaLR(optimizer, lr_lambda)
     wandb.watch(PS_Model, log_freq=100,log='all')
     # Set model to train
     PS_Model.train()
@@ -122,6 +116,7 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
             
             log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],optimizer.param_groups[1]['lr'],dropout_prob, dev_metrics_dict)               # Log metrics to W&B
 
+            LR_SCHEDULER.step(dev_metrics_dict['validation_utterance_eer_epoch'])
             # Early stopping check
             # early_stopping(dev_metrics_dict['epoch_loss'], PS_Model)
             # if early_stopping.early_stop:
@@ -130,8 +125,7 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
 
         else:
             log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],optimizer.param_groups[1]['lr'],dropout_prob, dev_metrics_dict= None)         # Log metrics to W&B
-
-        LR_SCHEDULER.step()
+            LR_SCHEDULER.step()
 
 
     # Generate a unique filename based on hyperparameters

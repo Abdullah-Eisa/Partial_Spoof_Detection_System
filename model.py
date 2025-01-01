@@ -182,18 +182,18 @@ class BinarySpoofingClassificationModel(nn.Module):
         # Add a feedforward block for feature refinement before classification
         self.fc_refinement = nn.Sequential(
             nn.Linear(self.feature_dim, hidden_dim),  # Refined hidden dimension for classification
-            nn.GELU(),
             nn.LayerNorm(hidden_dim),
+            nn.GELU(),
             nn.Dropout(0.2),  # Dropout for regularization
 
             nn.Linear(hidden_dim, hidden_dim//2),  # Refined hidden dimension for classification
-            nn.GELU(),
             nn.LayerNorm(hidden_dim//2),
+            nn.GELU(),
             nn.Dropout(0.2),  # Dropout for regularization
 
             nn.Linear(hidden_dim//2, hidden_dim//4),  # Refined hidden dimension for classification
-            nn.GELU(),
             nn.LayerNorm(hidden_dim//4),
+            nn.GELU(),
             nn.Dropout(0.2),  # Dropout for regularization
 
             nn.Linear(hidden_dim//4, 1),  # Final output layer
@@ -318,3 +318,24 @@ def initialize_loss_function():
 def adjust_dropout_prob(model, epoch, NUM_EPOCHS):
     """Adjust dropout rate dynamically during training"""
     return model.adjust_dropout(epoch, NUM_EPOCHS)
+
+
+
+def initialize_lr_scheduler(optimizer):
+    """Initialize the learning rate scheduler"""
+    # LR_SCHEDULER = lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
+
+    # def lr_lambda(epoch):
+    #     if epoch < 20:
+    #         return 1 - (epoch / 20)  # Decrease linearly from 1 to 0 over 30 epochs
+    #     else:
+    #         return 1 + (epoch - 20) / 10  # Increase linearly after epoch 30
+
+    # LR_SCHEDULER = lr_scheduler.LambdaLR(optimizer, lr_lambda)
+
+    factor = 4/5
+    patience = 5   # Number of epochs with no improvement after which learning rate will be reduced
+    threshold=0.005
+    min_lr = 0.0001
+
+    return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=factor, patience=patience, threshold=threshold, min_lr=min_lr)

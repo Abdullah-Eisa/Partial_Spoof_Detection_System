@@ -13,7 +13,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " run experiment with lambda lr scheduler"
+git commit -m " implement and add initialize_lr_scheduler to model.py and train.py respectively , add some commented git commands to env_setup.sh"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
