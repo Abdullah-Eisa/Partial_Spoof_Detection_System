@@ -13,7 +13,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " initial handling of log_metrics_to_wandb when save_feature_extractor=False"
+git commit -m " iconic-sweep-1 experiment configuration "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
