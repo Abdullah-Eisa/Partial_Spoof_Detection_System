@@ -114,9 +114,12 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
             print(f"train_loader: {len(train_loader)} , dev_data_loader: {len(dev_data_loader)}")
             dev_metrics_dict = dev_one_epoch(PS_Model, feature_extractor,criterion,dev_data_loader, dev_labels_dict,0,DEVICE)
             
-            log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],optimizer.param_groups[1]['lr'],dropout_prob, dev_metrics_dict)               # Log metrics to W&B
+            if save_feature_extractor:
+                log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],optimizer.param_groups[1]['lr'],dropout_prob, dev_metrics_dict)               # Log metrics to W&B
+            else:
+                log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],0,dropout_prob, dev_metrics_dict)               # Log metrics to W&B
 
-            LR_SCHEDULER.step(dev_metrics_dict['validation_utterance_eer_epoch'])
+            LR_SCHEDULER.step(dev_metrics_dict['utterance_eer'])
             # Early stopping check
             # early_stopping(dev_metrics_dict['epoch_loss'], PS_Model)
             # if early_stopping.early_stop:
@@ -190,11 +193,11 @@ def train():
                dev_labels_path=dev_labels_path, 
                ssl_ckpt_path=ssl_ckpt_path,
                apply_transform=False,
-               save_feature_extractor=True,
+               save_feature_extractor=False,
                feature_dim=768, 
                num_heads=8, 
                hidden_dim=128, 
-               max_dropout=0.4,
+               max_dropout=0.5,
                depthwise_conv_kernel_size=31, 
                conformer_layers=1, 
                max_pooling_factor=3,

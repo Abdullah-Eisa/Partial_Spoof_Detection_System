@@ -13,7 +13,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " implement and add initialize_lr_scheduler to model.py and train.py respectively , add some commented git commands to env_setup.sh"
+git commit -m " initial handling of log_metrics_to_wandb when save_feature_extractor=False"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

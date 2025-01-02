@@ -31,7 +31,7 @@ def main():
             # 'NUM_EPOCHS': {'values': [5, 7]},
             # 'LEARNING_RATE': {'values': [0.001]},
             # 'BATCH_SIZE': {'values': [16,32]},
-            'NUM_EPOCHS': {'values': [1]},
+            'NUM_EPOCHS': {'values': [60]},
             'LEARNING_RATE': {'values': [0.002]},
             # 'LEARNING_RATE': {'values': [0.00021195579137608126]},
             # 'LEARNING_RATE': {'values': [2.3550643486231242e-05]},
