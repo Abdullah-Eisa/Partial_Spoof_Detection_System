@@ -197,7 +197,7 @@ def train():
                feature_dim=768, 
                num_heads=8, 
                hidden_dim=128, 
-               max_dropout=0.5,
+               max_dropout=0.4,
                depthwise_conv_kernel_size=31, 
                conformer_layers=1, 
                max_pooling_factor=3,
