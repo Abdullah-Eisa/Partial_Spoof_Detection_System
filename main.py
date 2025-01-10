@@ -31,11 +31,11 @@ def main():
             # 'NUM_EPOCHS': {'values': [5, 7]},
             # 'LEARNING_RATE': {'values': [0.001]},
             # 'BATCH_SIZE': {'values': [16,32]},
-            'NUM_EPOCHS': {'values': [1]},
+            'NUM_EPOCHS': {'values': [30]},
             'LEARNING_RATE': {'values': [2e-4]},
             # 'LEARNING_RATE': {'values': [0.00021195579137608126]},
             # 'LEARNING_RATE': {'values': [2.3550643486231242e-05]},
-            'BATCH_SIZE': {'values': [8]},
+            'BATCH_SIZE': {'values': [6]},
             # 'CLASS0_WEIGHT': {'values': [0.42,0.45,0.48]},
 
         }
