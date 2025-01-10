@@ -148,13 +148,13 @@ def dev_one_epoch(model, dev_data_loader, dev_labels_dict,criterion,DEVICE='cpu'
             # Pass features to model and get predictions
             # outputs = PS_Model(features,lengths,dropout_prob)
             outputs = forward_pass(model,fbank)
-            # print(f"outputs: {outputs}")
+            # print(f"dev outputs: {outputs}")
 
             # Calculate loss
             loss = criterion(outputs, labels) 
-            # if torch.isnan(loss).any(): 
-            #     print(f"NaN detected in validation loop loss") 
-            #     continue
+            if torch.isnan(loss).any(): 
+                print(f"NaN detected in validation loop loss") 
+                continue
             epoch_loss += loss.item()
 
             with torch.no_grad():
@@ -168,6 +168,12 @@ def dev_one_epoch(model, dev_data_loader, dev_labels_dict,criterion,DEVICE='cpu'
         utterance_labels =torch.tensor([dev_labels_dict[file_name] for file_name in files_names])
         # print(f'epoch {epoch} , utterance_labels: {utterance_labels}')
         utterance_predictions = torch.cat(utterance_predictions)
+
+        # Save segment_predictions, segment_labels, utterance_predictions, utterance_labels
+        # timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        # torch.save(utterance_predictions,os.path.join(os.getcwd(),f'outputs/dev_utterance_predictions_{timestamp}.pt'))
+        # torch.save(torch.tensor(utterance_labels),os.path.join(os.getcwd(),f'outputs/dev_utterance_labels_{timestamp}.pt'))
+
         utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions,utterance_labels)
 
         # Average loss for the epoch
