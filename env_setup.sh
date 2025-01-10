@@ -52,6 +52,7 @@ if [ $retVal -ne 0 ]; then
     # pip install torchaudio==2.2.0+cu118
     # pip install torch==2.5.1+cu124
     # pip install torchaudio==2.5.1+cu124
+    pip install timm == 0.4.5
     pip install torch
     pip install torchaudio
     pip install s3prl
