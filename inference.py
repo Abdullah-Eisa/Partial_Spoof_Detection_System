@@ -75,7 +75,7 @@ def inference_helper(model,test_data_loader, test_labels_dict,criterion,DEVICE='
 
 
 
-def inference(input_fdim,input_tdim, imagenet_pretrain, audioset_pretrain, model_size,eval_audio_conf
+def inference(input_fdim,input_tdim, imagenet_pretrain, audioset_pretrain, model_size,eval_audio_conf,
     eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
     eval_labels_path = os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),
     AST_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'),

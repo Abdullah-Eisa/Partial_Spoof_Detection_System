@@ -77,7 +77,7 @@ def train_model(train_data_path, train_labels_path,train_audio_conf,dev_data_pat
 
     LR_SCHEDULER = initialize_lr_scheduler(optimizer,milestones, gamma)
 
-    wandb.watch(AST_model, log_freq=100,log='all')           # Log model gradients and parameters            ????????????????????????????????????????????
+    # wandb.watch(AST_model, log_freq=100,log='all')           # Log model gradients and parameters            ????????????????????????????????????????????
     # Set model to train
     AST_model.train()
 
@@ -161,36 +161,37 @@ def train():
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
 
     # Define training files and labels
-    train_data_path=os.path.join(os.getcwd(),'database/train/con_wav')
-    # train_data_path=os.path.join(os.getcwd(),'database/mini_database/train')
+    # train_data_path=os.path.join(os.getcwd(),'database/train/con_wav')
+    train_data_path=os.path.join(os.getcwd(),'database/mini_database/train')
     train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_train_trl.json')
-    dev_data_path=os.path.join(os.getcwd(), 'database/dev/con_wav')
-    # dev_data_path=os.path.join(os.getcwd(), 'database/mini_database/dev')
+
+    # dev_data_path=os.path.join(os.getcwd(), 'database/dev/con_wav')
+    dev_data_path=os.path.join(os.getcwd(), 'database/mini_database/dev')
     dev_labels_path=os.path.join(os.getcwd(), 'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json') 
     
     train_audio_conf = {
         'num_mel_bins': 128,
         'freqm': 48,  # frequency masking parameter
         'timem': 192,  # time masking parameter
+        'target_length': 1024,  # Target length for spectrogram
         # 'mixup': 0,  # mix-up rate
         # 'dataset': 'Audioset',  # Dataset type
         # 'mean': 0.5,  # Mean value for normalization
         # 'std': 0.25,  # Standard deviation for normalization
         # 'skip_norm': False,  # Do not skip normalization
         # 'noise': True,  # Apply noise augmentation
-        'target_length': 1024,  # Target length for spectrogram
     }
     dev_audio_conf = {
         'num_mel_bins': 128,
         'freqm': 0,  # frequency masking parameter
         'timem': 0,  # time masking parameter
+        'target_length': 1024,  # Target length for spectrogram
         # 'mixup': 0,  # mix-up rate
         # 'dataset': 'Audioset',  # Dataset type
         # 'mean': 0.5,  # Mean value for normalization
         # 'std': 0.25,  # Standard deviation for normalization
         # 'skip_norm': False,  # Do not skip normalization
         # 'noise': True,  # Apply noise augmentation
-        'target_length': 1024,  # Target length for spectrogram
     }
     # Call train_model with parameters from W&B sweep
     train_model(train_data_path=train_data_path, 
@@ -201,7 +202,7 @@ def train():
                dev_audio_conf= dev_audio_conf,
                input_fdim=128,
                input_tdim=1024,
-               imagenet_pretrain=True, 
+               imagenet_pretrain=False, 
                audioset_pretrain=False, 
                model_size='base384',
                LEARNING_RATE=config.LEARNING_RATE,

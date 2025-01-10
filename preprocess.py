@@ -156,3 +156,117 @@ def initialize_data_loader(data_path, labels_path,audio_conf,BATCH_SIZE=32, shuf
     
 
 
+
+
+if __name__ == "__main__":
+
+    # Define the audio configuration
+    audio_conf = {
+        'num_mel_bins': 128,
+        'freqm': 48,  # frequency masking parameter
+        'timem': 192,  # time masking parameter
+        # 'mixup': 0,  # mix-up rate
+        # 'dataset': 'Audioset',  # Dataset type
+        # 'mean': 0.5,  # Mean value for normalization
+        # 'std': 0.25,  # Standard deviation for normalization
+        # 'skip_norm': False,  # Do not skip normalization
+        # 'noise': True,  # Apply noise augmentation
+        'target_length': 1024,  # Target length for spectrogram
+    }
+
+    # Create an instance of the dataset
+    # label_csv = "path_to_label_csv.csv"
+    # dataset_json_file = "path_to_dataset_json_file.json"
+    # Define training files and labels
+
+    # train_data_path=os.path.join(os.getcwd(),'database/train/con_wav')
+    # train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_train_trl.json')
+
+    # Sample with the largest fbank size:
+    # File name: CON_T_0010513
+    # fbank size: torch.Size([2100, 128])
+    # Label: 0
+    # Total elements: torch.Size([2100, 128])
+
+    # train_data_path=os.path.join(os.getcwd(),'database/dev/con_wav')
+    # train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json')
+
+    # Sample with the largest fbank size:
+    # File name: CON_D_0016975
+    # fbank size: torch.Size([1532, 128])
+    # Label: 0
+    # Total elements: torch.Size([1532, 128])
+
+    train_data_path=os.path.join(os.getcwd(),'database/eval/con_wav')
+    train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json')
+    # Sample with the largest fbank size:
+    # File name: CON_E_0051069
+    # fbank size: torch.Size([1818, 128])
+    # Label: 0
+    # Total elements: torch.Size([1818, 128])
+
+    from utils import load_json_dictionary
+    labels_dict= load_json_dictionary(train_labels_path)
+
+    dataset = AudiosetDataset(train_data_path,labels_dict, audio_conf)
+
+    sample = dataset[0]  # Correct usage, passing an integer index
+    print(f"fbank size= {sample['fbank'].size()}, label= {sample['label']}")
+
+    fbank_sizes = []
+
+    max_size=sample['fbank'].size()
+    for i in range(len(dataset)):
+        sample = dataset[i]
+        fbank_size = sample['fbank'].size()  # Get the size of the fbank tensor
+        # fbank_size_num_elements = torch.numel(sample['fbank'])  # Get the total number of elements in the fbank tensor
+        fbank_sizes.append(fbank_size)  # Store the size
+
+        if fbank_size[0] > max_size[0]:
+            max_size = fbank_size
+            max_fbank_sample = sample
+
+    # After the loop, print the sample with the largest fbank size
+    if max_fbank_sample is not None:
+        print(f"Sample with the largest fbank size:")
+        print(f"File name: {max_fbank_sample['file_name']}")
+        print(f"fbank size: {max_fbank_sample['fbank'].size()}")
+        print(f"Label: {max_fbank_sample['label']}")
+        print(f"Total elements: {max_size}")
+
+
+
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    # Extract the time frames and frequency bins for all fbank tensors
+    time_frames = [size[0] for size in fbank_sizes]
+    frequency_bins = [size[1] for size in fbank_sizes]
+
+    # Plot the distribution of time frames and frequency bins
+    plt.figure(figsize=(12, 6))
+
+    # Plot distribution of time frames
+    plt.subplot(1, 2, 1)
+    sns.histplot(time_frames, bins=30, kde=True, color='blue', edgecolor='black')
+    plt.title('Distribution of Time Frames')
+    plt.xlabel('Time Frames')
+    plt.ylabel('Frequency')
+
+    # Plot distribution of frequency bins
+    plt.subplot(1, 2, 2)
+    sns.histplot(frequency_bins, bins=30, kde=True, color='green', edgecolor='black')
+    plt.title('Distribution of Frequency Bins')
+    plt.xlabel('Frequency Bins')
+    plt.ylabel('Frequency')
+
+    plt.tight_layout()
+    plt.show()
+
+    # Optional: Visualize as a scatter plot (time frames vs frequency bins)
+    plt.figure(figsize=(8, 6))
+    plt.scatter(time_frames, frequency_bins, alpha=0.5, color='purple')
+    plt.title('Time Frames vs Frequency Bins')
+    plt.xlabel('Time Frames')
+    plt.ylabel('Frequency Bins')
+    plt.show()
