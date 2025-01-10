@@ -228,11 +228,20 @@ def forward_pass(model, input):
     """Forward pass through the model"""
     return model(input)
 
-def backward_and_optimize(model, loss, optimizer, max_grad_norm):
+def backward_and_optimize(model, loss, optimizer, max_grad_norm,scaler):
     """Backward pass and optimizer step"""
-    loss.backward()
+    # loss.backward()
+    # torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
+    # optimizer.step()
+
+    # optimiztion if amp is used
+    optimizer.zero_grad()
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
     torch.nn.utils.clip_grad_norm_(model.parameters(), max_grad_norm)
-    optimizer.step()
+
+
 
 
 

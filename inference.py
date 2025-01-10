@@ -155,13 +155,12 @@ def dev_one_epoch(model, dev_data_loader, dev_labels_dict,criterion,DEVICE='cpu'
             if torch.isnan(loss).any(): 
                 print(f"NaN detected in validation loop loss") 
                 continue
+
             epoch_loss += loss.item()
 
             with torch.no_grad():
-                # Calculate utterance predictions
-                utterance_predictions.extend(outputs)
-                # Accumulate files names
-                files_names.extend(batch['file_name'])
+                utterance_predictions.extend(outputs)                # Calculate utterance predictions
+                files_names.extend(batch['file_name'])                # Accumulate files names
 
 
         # Get Average Utterance EER for the epoch

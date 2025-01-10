@@ -10,11 +10,11 @@ from preprocess import *
 from model import *
 from inference import dev_one_epoch
 
-import os
+from torch.cuda.amp import autocast,GradScaler
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
 # ===========================================================================================================================
-def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, DEVICE='cpu'):
+def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, scaler, DEVICE='cpu'):
     """Train for one epoch"""
     model.train()
     epoch_loss = 0
@@ -30,23 +30,24 @@ def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, DE
         fbank = batch['fbank'].to(DEVICE)
         labels = batch['label'].to(DEVICE).unsqueeze(1).float()
 
-        optimizer.zero_grad()
+        # optimizer.zero_grad()
 
-        # Forward pass
-        outputs = forward_pass(model,fbank)
-        # print(f"training outputs: {outputs}")
-        # Loss computation
-        loss = criterion(outputs, labels)
-        if torch.isnan(loss).any():
-            print(f"NaN detected in loss during training")
-            continue
+        with autocast():
+            # Forward pass
+            outputs = forward_pass(model,fbank)
+            # print(f"training outputs: {outputs}")
+            # Loss computation
+            loss = criterion(outputs, labels)
+            if torch.isnan(loss).any():
+                print(f"NaN detected in loss during training")
+                continue
 
         epoch_loss += loss.item()
 
         # Backward and optimization
-        backward_and_optimize(model, loss, optimizer, max_grad_norm)
+        backward_and_optimize(model, loss, optimizer, max_grad_norm,scaler)
 
-        # Collect predictions for evaluation
+        # with torch.no_grad():                           # Collect predictions for evaluation
         utterance_predictions.extend(outputs)
         files_names.extend(batch['file_name'])
 
@@ -86,11 +87,13 @@ def train_model(train_data_path, train_labels_path,train_audio_conf,dev_data_pat
     # Set model to train
     AST_model.train()
 
+    scaler = GradScaler()
+
     for epoch in tqdm(range(NUM_EPOCHS), desc="Epochs"):
 
         # Training step for the current epoch
         epoch_loss, utterance_predictions, files_names = train_one_epoch(
-            AST_model, train_loader, optimizer, criterion,max_grad_norm, DEVICE)
+            AST_model, train_loader, optimizer, criterion,max_grad_norm,scaler, DEVICE)
 
         # Save checkpoint
         if (epoch + 1) % save_interval == 0:
@@ -172,12 +175,12 @@ def train():
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
 
     # Define training files and labels
-    train_data_path=os.path.join(os.getcwd(),'database/train/con_wav')
-    # train_data_path=os.path.join(os.getcwd(),'database/mini_database/train')
+    # train_data_path=os.path.join(os.getcwd(),'database/train/con_wav')
+    train_data_path=os.path.join(os.getcwd(),'database/mini_database/train')
     train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_train_trl.json')
 
-    dev_data_path=os.path.join(os.getcwd(), 'database/dev/con_wav')
-    # dev_data_path=os.path.join(os.getcwd(), 'database/mini_database/dev')
+    # dev_data_path=os.path.join(os.getcwd(), 'database/dev/con_wav')
+    dev_data_path=os.path.join(os.getcwd(), 'database/mini_database/dev')
     dev_labels_path=os.path.join(os.getcwd(), 'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json') 
     
     train_audio_conf = {
@@ -213,7 +216,7 @@ def train():
                dev_audio_conf= dev_audio_conf,
                input_fdim=128,
                input_tdim=1024,
-               imagenet_pretrain=True, 
+               imagenet_pretrain=False, 
                audioset_pretrain=False, 
                model_size='base384',
                LEARNING_RATE=config.LEARNING_RATE,
