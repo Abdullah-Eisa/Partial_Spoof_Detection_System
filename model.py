@@ -204,7 +204,7 @@ class ASTModel(nn.Module):
 # ===========================================================================================================================
 
 
-def initialize_models(input_fdim=128,input_tdim=1024, 
+def initialize_model(input_fdim=128,input_tdim=1024, 
                       imagenet_pretrain=False, audioset_pretrain=False, 
                       model_size='base384',
                       LEARNING_RATE=0.0001,DEVICE='cpu'):
@@ -216,7 +216,7 @@ def initialize_models(input_fdim=128,input_tdim=1024,
                          input_fdim=input_fdim, input_tdim=input_tdim, 
                          imagenet_pretrain=imagenet_pretrain, 
                          audioset_pretrain=audioset_pretrain, 
-                         model_size=model_size, verbose=True).to(DEVICE)
+                         model_size=model_size, verbose=False).to(DEVICE)
 
     optimizer=optim.AdamW(AST_model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
 
@@ -240,10 +240,6 @@ def backward_and_optimize(model, loss, optimizer, max_grad_norm):
 def initialize_loss_function():
     """Initialize the loss function (BCE with logits)"""
     return nn.BCEWithLogitsLoss()
-
-# def adjust_dropout_prob(model, epoch, NUM_EPOCHS):
-#     """Adjust dropout rate dynamically during training"""
-#     return model.adjust_dropout(epoch, NUM_EPOCHS)
 
 
 

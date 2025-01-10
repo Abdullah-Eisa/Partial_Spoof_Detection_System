@@ -18,38 +18,6 @@ import torchaudio
 from torch.utils.data import Dataset
 
 
-class PitchShiftTransform:
-    def __init__(self, sample_rate, pitch_shift_prob=0.5, pitch_shift_steps=(-3, 3)):
-        """
-        Args:
-            sample_rate (int): The sample rate of the audio data.
-            pitch_shift_prob (float): Probability of applying pitch shift augmentation.
-            pitch_shift_steps (tuple): Range of pitch shift steps in semitones (e.g., (-4, 4)).
-        """
-        self.sample_rate = sample_rate
-        self.pitch_shift_prob = pitch_shift_prob
-        self.pitch_shift_steps = pitch_shift_steps
-
-    def __call__(self, waveform):
-        """
-        Apply pitch shift with the given probability.
-        
-        Args:
-            waveform (Tensor): The input audio waveform tensor.
-        
-        Returns:
-            Tensor: The pitch-shifted waveform if the probability condition is met, otherwise original waveform.
-        """
-        # if random.random() < self.pitch_shift_prob:
-        if self.pitch_shift_prob > 0:
-            n_steps = random.randint(*self.pitch_shift_steps)
-            pitch_shift = T.PitchShift(self.sample_rate, n_steps)
-            # waveform=waveform.detach()
-            waveform = pitch_shift(waveform)
-            # print(f"applied pitch_shifted with {n_steps} steps")
-        return waveform
-
-
 # ============================================================================================
 # ============================================================================================
 # ============================================================================================
@@ -122,8 +90,8 @@ class AudiosetDataset(Dataset):
         """
         Retrieve a sample from the dataset.
         """
-        if isinstance(idx, tuple):  # Ensure idx is an integer, not a tuple
-            raise TypeError(f"Expected integer index, got tuple: {idx}")
+        # if isinstance(idx, tuple):  # Ensure idx is an integer, not a tuple
+        #     raise TypeError(f"Expected integer index, got tuple: {idx}")
 
         file_name = self.file_list[idx]
         file_path = os.path.join(self.directory, file_name)

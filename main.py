@@ -35,7 +35,7 @@ def main():
             'LEARNING_RATE': {'values': [2e-4]},
             # 'LEARNING_RATE': {'values': [0.00021195579137608126]},
             # 'LEARNING_RATE': {'values': [2.3550643486231242e-05]},
-            'BATCH_SIZE': {'values': [8]},
+            'BATCH_SIZE': {'values': [1]},
             # 'CLASS0_WEIGHT': {'values': [0.42,0.45,0.48]},
 
         }

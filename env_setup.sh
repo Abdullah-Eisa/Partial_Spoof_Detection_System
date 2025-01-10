@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==================== ENV with GPU ==============================
 # git clone -b <branch> <remote_repo>
-# git clone -b cloud_instance_0  https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
+# git clone -b ast_train  https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 # ========================
 # git fetch origin
 # git reset --hard origin/<branch_name>
@@ -52,7 +52,7 @@ if [ $retVal -ne 0 ]; then
     # pip install torchaudio==2.2.0+cu118
     # pip install torch==2.5.1+cu124
     # pip install torchaudio==2.5.1+cu124
-    pip install timm == 0.4.5
+    pip install timm==0.4.5
     pip install torch
     pip install torchaudio
     pip install s3prl
@@ -68,7 +68,7 @@ if [ $retVal -ne 0 ]; then
     pip install tqdm
     pip install transformers
     pip install wandb
-    
+    pip install wget
     # make empty folders if not available
     python -c "import os; os.makedirs('database', exist_ok=True)"
     python -c "import os; os.makedirs('models', exist_ok=True)"

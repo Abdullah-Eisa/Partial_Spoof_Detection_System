@@ -4,15 +4,11 @@ import wandb
 from torch.optim import lr_scheduler
 from datetime import datetime
 from tqdm import tqdm
-
 import matplotlib.pyplot as plt
-
-# from utils import initialize_wandb, initialize_models, initialize_loss_function, initialize_data_loader, save_checkpoint, compute_metrics, log_metrics_to_wandb
 from utils import *
 from preprocess import *
 from model import *
 from inference import dev_one_epoch
-
 # ===========================================================================================================================
 def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, DEVICE='cpu'):
     """Train for one epoch"""
@@ -21,12 +17,12 @@ def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, DE
     # utterance_eer, utterance_eer_threshold = 0, 0
     utterance_predictions = []
     files_names = []
-    c=0
+    # c=0
     for batch in tqdm(train_loader, desc="Train Batches", leave=False):
-        if c>2:
-            break
-        else:
-            c+=1
+        # if c>2:
+        #     break
+        # else:
+        #     c+=1
         fbank = batch['fbank'].to(DEVICE)
         labels = batch['label'].to(DEVICE).unsqueeze(1).float()
 
@@ -34,12 +30,12 @@ def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, DE
 
         # Forward pass
         outputs = forward_pass(model,fbank)
-        print(f"outputs: {outputs}")
+        # print(f"outputs: {outputs}")
         # Loss computation
         loss = criterion(outputs, labels)
-        if torch.isnan(loss).any():
-            print(f"NaN detected in loss during training")
-            continue
+        # if torch.isnan(loss).any():
+        #     print(f"NaN detected in loss during training")
+        #     continue
 
         epoch_loss += loss.item()
 
@@ -69,7 +65,7 @@ def train_model(train_data_path, train_labels_path,train_audio_conf,dev_data_pat
     # # Initialize early stopping
     # early_stopping = EarlyStopping(patience=patience, verbose=True)
 
-    AST_model, optimizer= initialize_models(input_fdim,input_tdim, 
+    AST_model, optimizer= initialize_model(input_fdim,input_tdim, 
                             imagenet_pretrain, audioset_pretrain, 
                             model_size,LEARNING_RATE,DEVICE)
 
@@ -81,7 +77,7 @@ def train_model(train_data_path, train_labels_path,train_audio_conf,dev_data_pat
 
     LR_SCHEDULER = initialize_lr_scheduler(optimizer,milestones, gamma)
 
-    # wandb.watch(AST_model, log_freq=100,log='all')           # Log model gradients and parameters            ????????????????????????????????????????????
+    wandb.watch(AST_model, log_freq=100,log='all')           # Log model gradients and parameters            ????????????????????????????????????????????
     # Set model to train
     AST_model.train()
 
@@ -94,7 +90,7 @@ def train_model(train_data_path, train_labels_path,train_audio_conf,dev_data_pat
         # Save checkpoint
         if (epoch + 1) % save_interval == 0:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            model_filename = f"model_epochs{epoch + 1}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
+            model_filename = f"AST_model_epochs{epoch + 1}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
             save_checkpoint(AST_model, optimizer, epoch + 1, os.path.join(model_save_path, model_filename))
 
         # Compute and log metrics
@@ -107,14 +103,13 @@ def train_model(train_data_path, train_labels_path,train_audio_conf,dev_data_pat
             dev_data_loader=initialize_data_loader(dev_data_path, dev_labels_path,dev_audio_conf,BATCH_SIZE,False,num_workers, prefetch_factor,pin_memory)
             dev_labels_dict= load_json_dictionary(dev_labels_path)
             # print(f"train_loader: {len(train_loader)} , dev_data_loader: {len(dev_data_loader)}")
-            dev_metrics_dict = dev_one_epoch(AST_model,dev_data_loader, dev_labels_dict,criterion,0,DEVICE)
+            dev_metrics_dict = dev_one_epoch(AST_model,dev_data_loader, dev_labels_dict,criterion,DEVICE)
             
             # if save_feature_extractor:
             #     log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],optimizer.param_groups[1]['lr'],dropout_prob, dev_metrics_dict)               # Log metrics to W&B
             # else:
-            log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],0,0, dev_metrics_dict)               # Log metrics to W&B
+            log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'], dev_metrics_dict)               # Log metrics to W&B
 
-            LR_SCHEDULER.step(dev_metrics_dict['utterance_eer'])
             # Early stopping check
             # early_stopping(dev_metrics_dict['epoch_loss'], PS_Model)
             # if early_stopping.early_stop:
@@ -122,13 +117,14 @@ def train_model(train_data_path, train_labels_path,train_audio_conf,dev_data_pat
             #     break
 
         else:
-            log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],optimizer.param_groups[1]['lr'],0, dev_metrics_dict= None)         # Log metrics to W&B
-            LR_SCHEDULER.step()
+            log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'], dev_metrics_dict= None)         # Log metrics to W&B
+        
+        LR_SCHEDULER.step()
 
 
     # Generate a unique filename based on hyperparameters
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    model_filename = f"model_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
+    model_filename = f"AST_model_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
 
     # Save the trained model
     model_save_path=os.path.join(model_save_path,model_filename)
@@ -205,7 +201,7 @@ def train():
                dev_audio_conf= dev_audio_conf,
                input_fdim=128,
                input_tdim=1024,
-               imagenet_pretrain=False, 
+               imagenet_pretrain=True, 
                audioset_pretrain=False, 
                model_size='base384',
                LEARNING_RATE=config.LEARNING_RATE,
@@ -220,7 +216,7 @@ def train():
                patience=10,
                max_grad_norm=1.0,
                milestones=[10,15,20,25,30],
-               gamma=0.9,
+               gamma=0.5,
                DEVICE=DEVICE)
     
 

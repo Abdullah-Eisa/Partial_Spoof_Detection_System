@@ -43,9 +43,9 @@ def inference_helper(model,test_data_loader, test_labels_dict,criterion,DEVICE='
 
             # Calculate loss
             loss = criterion(outputs, labels) 
-            if torch.isnan(loss).any(): 
-                print(f"NaN detected in test loop loss") 
-                continue
+            # if torch.isnan(loss).any(): 
+            #     print(f"NaN detected in test loop loss") 
+            #     continue
             epoch_loss += loss.item()
 
             with torch.no_grad():
@@ -75,7 +75,7 @@ def inference_helper(model,test_data_loader, test_labels_dict,criterion,DEVICE='
 
 
 
-def inference(input_fdim,input_tdim, imagenet_pretrain, audioset_pretrain, model_size,
+def inference(input_fdim,input_tdim, imagenet_pretrain, audioset_pretrain, model_size,eval_audio_conf
     eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
     eval_labels_path = os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),
     AST_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'),
@@ -89,7 +89,7 @@ def inference(input_fdim,input_tdim, imagenet_pretrain, audioset_pretrain, model
     # Define training files and labels
     eval_labels_dict= load_json_dictionary(eval_labels_path)
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
-    eval_data_loader = initialize_data_loader(eval_data_path, eval_labels_path,BATCH_SIZE,False, num_workers, prefetch_factor,pin_memory)
+    eval_data_loader = initialize_data_loader(eval_data_path, eval_labels_path,eval_audio_conf,BATCH_SIZE,False, num_workers, prefetch_factor,pin_memory)
 
     # Initialize Binary Spoofing Classification Model
     AST_model = ASTModel(input_fdim=input_fdim, input_tdim=input_tdim, 
@@ -117,7 +117,7 @@ def inference(input_fdim,input_tdim, imagenet_pretrain, audioset_pretrain, model
 
 
 # ===========================================================================================================================
-def dev_one_epoch(model, dev_data_loader, dev_labels_dict,criterion,dropout_prob=0,DEVICE='cpu'):
+def dev_one_epoch(model, dev_data_loader, dev_labels_dict,criterion,DEVICE='cpu'):
     """Evaluate the model on the development set"""
 
     # Validation phase
@@ -134,13 +134,13 @@ def dev_one_epoch(model, dev_data_loader, dev_labels_dict,criterion,dropout_prob
     epoch_loss = 0
     utterance_eer, utterance_eer_threshold=0,0
     utterance_predictions=[]
-    c=0
+    # c=0
     with torch.no_grad():
         for batch in tqdm(dev_data_loader, desc="Dev Batches", leave=False):
-            if c>2:
-                break
-            else:
-                c+=1
+            # if c>2:
+            #     break
+            # else:
+            #     c+=1
             fbank = batch['fbank'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
             labels = labels.unsqueeze(1).float()   # Converts labels from shape [batch_size] to [batch_size, 1]
@@ -148,13 +148,13 @@ def dev_one_epoch(model, dev_data_loader, dev_labels_dict,criterion,dropout_prob
             # Pass features to model and get predictions
             # outputs = PS_Model(features,lengths,dropout_prob)
             outputs = forward_pass(model,fbank)
-            print(f"outputs: {outputs}")
+            # print(f"outputs: {outputs}")
 
             # Calculate loss
             loss = criterion(outputs, labels) 
-            if torch.isnan(loss).any(): 
-                print(f"NaN detected in validation loop loss") 
-                continue
+            # if torch.isnan(loss).any(): 
+            #     print(f"NaN detected in validation loop loss") 
+            #     continue
             epoch_loss += loss.item()
 
             with torch.no_grad():

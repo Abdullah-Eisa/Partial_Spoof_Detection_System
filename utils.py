@@ -153,7 +153,7 @@ def compute_metrics(outputs, labels):
     return utterance_eer, utterance_eer_threshold
 
 
-def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,feature_extractor_lr,backend_model_lr,dropout_prob, dev_metrics_dict=None):
+def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,backend_model_lr, dev_metrics_dict=None):
     """Log metrics to W&B"""
     if dev_metrics_dict:
         wandb.log({
@@ -164,9 +164,9 @@ def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_thresho
             'validation_loss_epoch': dev_metrics_dict['epoch_loss'],
             'validation_utterance_eer_epoch': dev_metrics_dict['utterance_eer'],
             'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold'],
-            'feature_extractor_lr': feature_extractor_lr,
+            # 'feature_extractor_lr': feature_extractor_lr,
             'backend_model_lr': backend_model_lr,
-            'dropout_prob': dropout_prob,
+            # 'dropout_prob': dropout_prob,
         })
     else:
         wandb.log({
@@ -174,7 +174,7 @@ def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_thresho
             'training_loss_epoch': epoch_loss,
             'training_utterance_eer_epoch': utterance_eer,
             'training_utterance_eer_threshold_epoch': utterance_eer_threshold,
-            'feature_extractor_lr': feature_extractor_lr,
+            # 'feature_extractor_lr': feature_extractor_lr,
             'backend_model_lr': backend_model_lr,
-            'dropout_prob': dropout_prob,
+            # 'dropout_prob': dropout_prob,
         })
