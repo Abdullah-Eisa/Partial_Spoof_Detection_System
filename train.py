@@ -32,7 +32,8 @@ def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, sc
 
         # optimizer.zero_grad()
 
-        with autocast():
+        # with autocast():
+        with torch.amp.autocast(device_type='cuda'):
             # Forward pass
             outputs = forward_pass(model,fbank)
             # print(f"training outputs: {outputs}")
@@ -83,7 +84,7 @@ def train_model(train_data_path, train_labels_path,train_audio_conf,dev_data_pat
 
     LR_SCHEDULER = initialize_lr_scheduler(optimizer,milestones, gamma)
 
-    # wandb.watch(AST_model, log_freq=100,log='all')           # Log model gradients and parameters   ????????????????????????????????????????????
+    wandb.watch(AST_model, log_freq=100,log='all')           # Log model gradients and parameters   ????????????????????????????????????????????
     # Set model to train
     AST_model.train()
 
@@ -175,12 +176,12 @@ def train():
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
 
     # Define training files and labels
-    # train_data_path=os.path.join(os.getcwd(),'database/train/con_wav')
-    train_data_path=os.path.join(os.getcwd(),'database/mini_database/train')
+    train_data_path=os.path.join(os.getcwd(),'database/train/con_wav')
+    # train_data_path=os.path.join(os.getcwd(),'database/mini_database/train')
     train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_train_trl.json')
 
-    # dev_data_path=os.path.join(os.getcwd(), 'database/dev/con_wav')
-    dev_data_path=os.path.join(os.getcwd(), 'database/mini_database/dev')
+    dev_data_path=os.path.join(os.getcwd(), 'database/dev/con_wav')
+    # dev_data_path=os.path.join(os.getcwd(), 'database/mini_database/dev')
     dev_labels_path=os.path.join(os.getcwd(), 'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json') 
     
     train_audio_conf = {
@@ -216,7 +217,7 @@ def train():
                dev_audio_conf= dev_audio_conf,
                input_fdim=128,
                input_tdim=1024,
-               imagenet_pretrain=False, 
+               imagenet_pretrain=True, 
                audioset_pretrain=False, 
                model_size='base384',
                LEARNING_RATE=config.LEARNING_RATE,

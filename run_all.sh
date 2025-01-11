@@ -13,7 +13,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " project adjustment v0.5 for ast_train branch "
+git commit -m " cosmic-sweep-1 configuration setup "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
