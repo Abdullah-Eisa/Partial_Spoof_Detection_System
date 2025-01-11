@@ -26,7 +26,6 @@ def inference_helper(model,test_data_loader, test_labels_dict,criterion,DEVICE='
 
     epoch_loss = 0
     utterance_predictions=[]
-    dropout_prob=0
     # c=0
     with torch.no_grad():
         for batch in tqdm(test_data_loader, desc="Test Batches", leave=False):
@@ -38,14 +37,28 @@ def inference_helper(model,test_data_loader, test_labels_dict,criterion,DEVICE='
             labels = batch['label'].to(DEVICE)
             labels = labels.unsqueeze(1).float()   # Converts labels from shape [batch_size] to [batch_size, 1]
 
+            # Print the values and sizes of fbank and labels
+            print(f"fbank values: {fbank}")
+            print(f"fbank shape: {fbank.shape}")
+            print(f"labels values: {labels}")
+            print(f"labels shape: {labels.shape}")
+            if torch.isnan(fbank).any(): 
+                print(f"NaN detected in test loop fbank") 
             # Pass features to model and get predictions
             outputs = forward_pass(model,fbank)
+            # Print the values and shape of the outputs
+            print(f"outputs values: {outputs}")
+            print(f"outputs shape: {outputs.shape}")
 
             # Calculate loss
             loss = criterion(outputs, labels) 
-            # if torch.isnan(loss).any(): 
-            #     print(f"NaN detected in test loop loss") 
-            #     continue
+            # Print the loss value and its shape
+            print(f"loss value: {loss.item()}")
+            print(f"loss shape: {loss.shape}")
+
+            if torch.isnan(loss).any(): 
+                print(f"NaN detected in test loop loss") 
+                continue
             epoch_loss += loss.item()
 
             with torch.no_grad():
@@ -59,6 +72,12 @@ def inference_helper(model,test_data_loader, test_labels_dict,criterion,DEVICE='
         utterance_labels =torch.tensor([test_labels_dict[file_name] for file_name in files_names])
         # print(f'epoch {epoch} , utterance_labels: {utterance_labels}')
         utterance_predictions = torch.cat(utterance_predictions)
+
+        # Save segment_predictions, segment_labels, utterance_predictions, utterance_labels
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        torch.save(utterance_predictions,os.path.join(os.getcwd(),f'outputs/eval_utterance_predictions_{timestamp}.pt'))
+        torch.save(torch.tensor(utterance_labels),os.path.join(os.getcwd(),f'outputs/eval_utterance_labels_{timestamp}.pt'))
+
         utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions,utterance_labels)
 
         # Average loss for the epoch
@@ -68,6 +87,7 @@ def inference_helper(model,test_data_loader, test_labels_dict,criterion,DEVICE='
     # Print epoch testing results
     print(f'Testing/Inference Complete. Test Loss: {epoch_loss:.4f},\n'
                f'Average Test Utterance EER: {utterance_eer:.4f}, Average Test Utterance EER Threshold: {utterance_eer_threshold:.4f}')
+    print(f'utterance_predictions.size()= {utterance_predictions.size()}')
 
     return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss)
 

@@ -130,7 +130,7 @@ class AudiosetDataset(Dataset):
 
 
 
-def initialize_data_loader(data_path, labels_path,audio_conf,BATCH_SIZE=32, shuffle=True, num_workers=0, prefetch_factor=None,pin_memory=False):
+def initialize_data_loader(data_path, labels_path, audio_conf, BATCH_SIZE=32, shuffle=False, num_workers=0, prefetch_factor=None,pin_memory=False):
     """Initialize and return the training data loader"""
     labels_dict= load_json_dictionary(labels_path)
 

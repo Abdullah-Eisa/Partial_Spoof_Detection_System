@@ -35,7 +35,7 @@ def main():
             'LEARNING_RATE': {'values': [2e-4]},
             # 'LEARNING_RATE': {'values': [0.00021195579137608126]},
             # 'LEARNING_RATE': {'values': [2.3550643486231242e-05]},
-            'BATCH_SIZE': {'values': [4]},
+            'BATCH_SIZE': {'values': [2]},
             # 'CLASS0_WEIGHT': {'values': [0.42,0.45,0.48]},
 
         }
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     # Record the start time
     start_time = datetime.now()
 
-    # main()
+    main()
 
     #========================= test inference ================
     # inference(PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'))
@@ -62,11 +62,11 @@ if __name__ == "__main__":
     'timem': 0,  # time masking parameter
     'target_length': 1024,  # Target length for spectrogram
     }
-    inference(input_fdim=128,input_tdim=1024, imagenet_pretrain=False, audioset_pretrain=False, model_size='base384',eval_audio_conf=eval_audio_conf,
-        eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
-        eval_labels_path = os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),
-        AST_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/AST_model_epochs30_batch4_lr0.0002_20250111_100116.pth'),
-        BATCH_SIZE=16, num_workers=0, prefetch_factor=None, DEVICE='cuda')
+    # inference(input_fdim=128,input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False, model_size='base384',eval_audio_conf=eval_audio_conf,
+    #     eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
+    #     eval_labels_path = os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),
+    #     AST_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/AST_model_epochs30_batch4_lr0.0002_20250111_100116.pth'),
+    #     BATCH_SIZE=16, num_workers=0, prefetch_factor=None, DEVICE='cuda')
     
     # Record the end time
     end_time = datetime.now()

@@ -18,7 +18,7 @@ def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, sc
     """Train for one epoch"""
     model.train()
     epoch_loss = 0
-    # utterance_eer, utterance_eer_threshold = 0, 0
+    utterance_eer, utterance_eer_threshold = 0, 0
     utterance_predictions = []
     files_names = []
     # c=0
@@ -29,7 +29,12 @@ def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, sc
         #     c+=1
         fbank = batch['fbank'].to(DEVICE)
         labels = batch['label'].to(DEVICE).unsqueeze(1).float()
-
+        print(f"fbank values: {fbank}")
+        print(f"fbank shape: {fbank.shape}")
+        print(f"labels values: {labels}")
+        print(f"labels shape: {labels.shape}")
+        if torch.isnan(fbank).any(): 
+            print(f"NaN detected in test loop fbank") 
         # optimizer.zero_grad()
 
         # with autocast():
@@ -37,8 +42,13 @@ def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, sc
             # Forward pass
             outputs = forward_pass(model,fbank)
             # print(f"training outputs: {outputs}")
+            print(f"outputs values: {outputs}")
+            print(f"outputs shape: {outputs.shape}")
             # Loss computation
             loss = criterion(outputs, labels)
+            print(f"loss value: {loss.item()}")
+            print(f"loss shape: {loss.shape}")
+
             if torch.isnan(loss).any():
                 print(f"NaN detected in loss during training")
                 continue
@@ -52,6 +62,7 @@ def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, sc
         utterance_predictions.extend(outputs)
         files_names.extend(batch['file_name'])
 
+    print(f'utterance_predictions.size()= {utterance_predictions.size()}')
     # Average epoch loss
     epoch_loss /= len(train_loader)
     return epoch_loss, utterance_predictions, files_names
