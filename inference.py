@@ -101,6 +101,7 @@ def inference(input_fdim,input_tdim, imagenet_pretrain, audioset_pretrain, model
 
     # PS_Model,_,_=load_checkpoint(PS_Model, optimizer, path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs30_batch8_lr0.005_20241216_013405.pth'))
     checkpoint = torch.load(AST_Model_path)
+    # checkpoint = torch.load(AST_Model_path,map_location=torch.device('cpu'))
     AST_model.load_state_dict(checkpoint['model_state_dict'])
     AST_model.eval()  # Set the model to evaluation mode
 
