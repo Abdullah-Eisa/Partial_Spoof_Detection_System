@@ -83,6 +83,8 @@ class AudiosetDataset(Dataset):
         elif p < 0:
             fbank = fbank[0:target_length, :]
 
+        if torch.isnan(fbank).any(): 
+            print(f"NAN detected in fbank from _wav2fbank, file_path: {file_path}")
 
         return fbank
 
@@ -109,8 +111,14 @@ class AudiosetDataset(Dataset):
             fbank = torch.transpose(fbank, 0, 1)  # Adjust for the new torchaudio version
             if self.audio_conf.get('freqm') > 0:
                 fbank = freqm(fbank)
+                if torch.isnan(fbank).any(): 
+                    print(f"NAN detected in fbank from __getitem__ after freqm, file_name: {file_name}")
+
             if self.audio_conf.get('timem') > 0:
                 fbank = timem(fbank)
+                if torch.isnan(fbank).any(): 
+                    print(f"NAN detected in fbank from __getitem__ after timem, file_name: {file_name}")
+
             fbank = torch.transpose(fbank, 0, 1)  # Revert transpose
 
         # Normalize the fbank if required
