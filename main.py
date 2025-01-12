@@ -31,7 +31,7 @@ def main():
             # 'NUM_EPOCHS': {'values': [5, 7]},
             # 'LEARNING_RATE': {'values': [0.001]},
             # 'BATCH_SIZE': {'values': [16,32]},
-            'NUM_EPOCHS': {'values': [1]},
+            'NUM_EPOCHS': {'values': [28]},
             'LEARNING_RATE': {'values': [2e-4]},
             # 'LEARNING_RATE': {'values': [0.00021195579137608126]},
             # 'LEARNING_RATE': {'values': [2.3550643486231242e-05]},
@@ -56,12 +56,12 @@ if __name__ == "__main__":
 
     #========================= test inference ================
     # inference(PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'))
-    eval_audio_conf = {
-    'num_mel_bins': 128,
-    'freqm': 0,  # frequency masking parameter
-    'timem': 0,  # time masking parameter
-    'target_length': 1024,  # Target length for spectrogram
-    }
+    # eval_audio_conf = {
+    # 'num_mel_bins': 128,
+    # 'freqm': 0,  # frequency masking parameter
+    # 'timem': 0,  # time masking parameter
+    # 'target_length': 1024,  # Target length for spectrogram
+    # }
     # inference(input_fdim=128,input_tdim=1024, imagenet_pretrain=True, audioset_pretrain=False, model_size='base384',eval_audio_conf=eval_audio_conf,
     #     eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
     #     eval_labels_path = os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),

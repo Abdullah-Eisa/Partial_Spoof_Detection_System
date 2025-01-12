@@ -21,9 +21,10 @@ def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, sc
     utterance_eer, utterance_eer_threshold = 0, 0
     utterance_predictions = []
     files_names = []
-    c=0
+    # c=0
+    nan_count=0
     for batch in tqdm(train_loader, desc="Train Batches", leave=False):
-        # if c>2:
+        # if c>6:
         #     break
         # else:
         #     c+=1
@@ -51,10 +52,11 @@ def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, sc
 
             if torch.isnan(loss).any():
                 print(f"NaN detected in loss during training")
-                c+=1
+                # c+=1
+                nan_count+=torch.isnan(loss).sum().item()
                 print(f"loss value: {loss.item()}")
                 print(f"batch['file_name']: {batch['file_name']}")
-                print(f"c: {c}")
+                print(f"in train_one_epoch batch, nan_count: {nan_count}")
                 continue
 
         epoch_loss += loss.item()
@@ -66,11 +68,12 @@ def train_one_epoch(model, train_loader, optimizer, criterion, max_grad_norm, sc
         utterance_predictions.extend(outputs)
         files_names.extend(batch['file_name'])
 
-    print(f'utterance_predictions.size()= {utterance_predictions.size()}')
-    print(f'Total loss NAN count: {c}')
+    # print(f'utterance_predictions.size()= {utterance_predictions.size()}')
+    print("===================================================")
+    print(f'In Training loop, Total loss NAN count: {nan_count}')
     # Average epoch loss
     epoch_loss /= len(train_loader)
-    return epoch_loss, utterance_predictions, files_names
+    return epoch_loss, utterance_predictions, files_names ,nan_count
 
 # ===========================================================================================================================
 def train_model(train_data_path, train_labels_path,train_audio_conf,dev_data_path, dev_labels_path,dev_audio_conf,
@@ -100,18 +103,23 @@ def train_model(train_data_path, train_labels_path,train_audio_conf,dev_data_pat
 
     LR_SCHEDULER = initialize_lr_scheduler(optimizer,milestones, gamma)
 
+    checkpoint = torch.load(os.path.join(os.getcwd(),'models/back_end_models/AST_model_epochs2_batch4_lr0.0002_20250112_135807.pth'))
+    # checkpoint = torch.load(AST_Model_path,map_location=torch.device('cpu'))
+    AST_model.load_state_dict(checkpoint['model_state_dict'])
+
     wandb.watch(AST_model, log_freq=100,log='all')           # Log model gradients and parameters   ????????????????????????????????????????????
     # Set model to train
     AST_model.train()
 
     scaler = GradScaler()
-
+    total_train_nan_counter=0
+    total_dev_nan_counter=0
     for epoch in tqdm(range(NUM_EPOCHS), desc="Epochs"):
 
         # Training step for the current epoch
-        epoch_loss, utterance_predictions, files_names = train_one_epoch(
+        epoch_loss, utterance_predictions, files_names,train_nan_counter = train_one_epoch(
             AST_model, train_loader, optimizer, criterion,max_grad_norm,scaler, DEVICE)
-
+        total_train_nan_counter+=train_nan_counter
         # Save checkpoint
         if (epoch + 1) % save_interval == 0:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -129,8 +137,8 @@ def train_model(train_data_path, train_labels_path,train_audio_conf,dev_data_pat
             dev_data_loader=initialize_data_loader(dev_data_path, dev_labels_path,dev_audio_conf,BATCH_SIZE,False,num_workers, prefetch_factor,pin_memory)
             dev_labels_dict= load_json_dictionary(dev_labels_path)
             # print(f"train_loader: {len(train_loader)} , dev_data_loader: {len(dev_data_loader)}")
-            dev_metrics_dict = dev_one_epoch(AST_model,dev_data_loader, dev_labels_dict,criterion,DEVICE)
-            
+            dev_metrics_dict, dev_nan_counter = dev_one_epoch(AST_model,dev_data_loader, dev_labels_dict,criterion,DEVICE)
+            total_dev_nan_counter+=dev_nan_counter
             # if save_feature_extractor:
             #     log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],optimizer.param_groups[1]['lr'],dropout_prob, dev_metrics_dict)               # Log metrics to W&B
             # else:
@@ -167,7 +175,8 @@ def train_model(train_data_path, train_labels_path,train_audio_conf,dev_data_pat
     # training_metrics_dict_filename = f"metrics_dict_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.json"
     # training_metrics_dict_save_path=os.path.join(os.getcwd(),f'outputs/{training_metrics_dict_filename}')
     # save_json_dictionary(training_metrics_dict_save_path,training_metrics_dict)
-
+    print("============================================================================================")
+    print(f"total_train_nan_counter= {total_train_nan_counter} , total_dev_nan_counter= {total_dev_nan_counter}")
     if DEVICE=='cuda': torch.cuda.empty_cache()
     wandb.finish()
     print("Training complete!")

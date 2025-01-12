@@ -156,9 +156,10 @@ def dev_one_epoch(model, dev_data_loader, dev_labels_dict,criterion,DEVICE='cpu'
     utterance_eer, utterance_eer_threshold=0,0
     utterance_predictions=[]
     # c=0
+    nan_count=0
     with torch.no_grad():
         for batch in tqdm(dev_data_loader, desc="Dev Batches", leave=False):
-            # if c>2:
+            # if c>6:
             #     break
             # else:
             #     c+=1
@@ -173,8 +174,13 @@ def dev_one_epoch(model, dev_data_loader, dev_labels_dict,criterion,DEVICE='cpu'
 
             # Calculate loss
             loss = criterion(outputs, labels) 
-            if torch.isnan(loss).any(): 
-                print(f"NaN detected in validation loop loss") 
+            if torch.isnan(loss).any():
+                print(f"NaN detected in loss during development loop")
+                # c+=1
+                nan_count+=torch.isnan(loss).sum().item()
+                print(f"loss value: {loss.item()}")
+                print(f"batch['file_name']: {batch['file_name']}")
+                print(f"in dev_one_epoch batch, nan_count: {nan_count}")
                 continue
 
             epoch_loss += loss.item()
@@ -193,7 +199,9 @@ def dev_one_epoch(model, dev_data_loader, dev_labels_dict,criterion,DEVICE='cpu'
         # timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
         # torch.save(utterance_predictions,os.path.join(os.getcwd(),f'outputs/dev_utterance_predictions_{timestamp}.pt'))
         # torch.save(torch.tensor(utterance_labels),os.path.join(os.getcwd(),f'outputs/dev_utterance_labels_{timestamp}.pt'))
-
+        # print(f'utterance_predictions.size()= {utterance_predictions.size()}')
+        print("===================================================")
+        print(f'In Dev loop, Total loss NAN count: {nan_count}')
         utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions,utterance_labels)
 
         # Average loss for the epoch
@@ -205,7 +213,7 @@ def dev_one_epoch(model, dev_data_loader, dev_labels_dict,criterion,DEVICE='cpu'
     #            f'Average Validation Segment EER: {segment_eer:.4f}, Average Validation Segment EER Threshold: {segment_eer_threshold:.4f},\n'
     #            f'Average Validation Utterance EER: {utterance_eer:.4f}, Average Validation Utterance EER Threshold: {utterance_eer_threshold:.4f}')
 
-    return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss)
+    return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss),nan_count
 
 
 

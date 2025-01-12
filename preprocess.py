@@ -148,7 +148,7 @@ def initialize_data_loader(data_path, labels_path, audio_conf, BATCH_SIZE=32, sh
             mp.set_start_method('spawn', force=True)
         else:  # Unix-based (Linux, macOS, etc.)
             mp.set_start_method('fork', force=True)
-    
+    print(f"shuffle= {shuffle}")
     # Create the dataset instance
     combined_dataset = AudiosetDataset(data_path, labels_dict,audio_conf)
     
