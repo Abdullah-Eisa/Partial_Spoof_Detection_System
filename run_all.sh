@@ -13,7 +13,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " return total number of NaN in during training and development loop , use prints to investigate NaN error in fbank , model output and loss after cosmic-sweep-1 configuration setup "
+git commit -m " hearty-sweep-1 configuration setup for AST model training"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
