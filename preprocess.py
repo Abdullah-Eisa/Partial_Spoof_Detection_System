@@ -7,10 +7,10 @@ import random
 import torchaudio.transforms as T
 from torch.utils.data import Dataset
 import torch.nn as nn
-
 from torch.utils.data import Dataset, DataLoader , ConcatDataset
 from torch.nn.utils.rnn import pad_sequence
 import torch.multiprocessing as mp
+import librosa
 
 class PitchShiftTransform:
     def __init__(self, sample_rate, pitch_shift_prob=0.5, pitch_shift_steps=(-3, 3)):
@@ -48,55 +48,60 @@ class PitchShiftTransform:
 # ============================================================================================
 # ============================================================================================
 
-class RawLabeledAudioDataset(Dataset):
-    def __init__(self, directory,labels_dict, transform=None,normalize=True):
-        """
-        Args:
-            directory (str): Path to the directory containing the audio files.
-            labels_dict (dict): Dictionary of labels for each audio file.
-            save_dir (str): Path to the directory where the extracted features will be saved.
-            tokenizer (callable): A tokenizer for preprocessing the audio data.
-            feature_extractor (callable): Feature extractor model (e.g., from HuggingFace).
-            transform (callable, optional): Optional transform to apply to the waveform.
-            normalize (bool, optional): Whether to normalize the waveform. Default is True.
-        """
-        self.directory = directory
-        self.labels_dict = labels_dict
-        # self.save_dir = save_dir
-        # self.tokenizer = tokenizer
-        # self.feature_extractor = feature_extractor
+
+class ASVspoof2019(Dataset):
+    def __init__(self, data_path,labels_path, transform=None,normalize=True, label_map = {"spoof": 1, "bonafide": 0}):
+        super(ASVspoof2019, self).__init__()
+
+        self.data_path = data_path
+        self.labels_path = labels_path
         self.transform = transform
         self.normalize = normalize
-        self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')]
+        self.label_map = label_map
 
-        # Ensure the save directory exists
-        # os.makedirs(save_dir, exist_ok=True)
+        self.all_files = librosa.util.find_files(self.data_path)
+        self.all_labels= self._get_labels()
+
 
     def __len__(self):
-        return len(self.file_list)
+        return len(self.all_files)
+
+    def _get_label(self, file_name):
+        # return self.label_map[file_name.split("_")[1]]
+        return self.label_map[file_name]
+    
+    def _get_labels(self):
+        labels_path= self.labels_path 
+            
+        # labels_dict = {}
+        labels_dict = dict()
+        # file_list=[]
+        with open(labels_path, 'r') as f:
+            file_lines = f.readlines()
+
+        for line in file_lines:
+            _, key,_,_,label = line.strip().split(' ')
+            labels_dict[key] = self._get_label(label)
+        
+        return labels_dict
 
 
-    def normalize_waveform(self, waveform):
+    def _normalize_waveform(self, waveform):
         """
         Normalize the waveform by scaling it to [-1, 1] or applying Z-score normalization.
-        
-        Args:
-            waveform (Tensor): The input waveform tensor.
-        
-        Returns:
-            Tensor: The normalized waveform.
+        Args: waveform (Tensor): The input waveform tensor.
+        Returns: Tensor: The normalized waveform.
         """
         # Method 1: Normalize to [-1, 1]
         waveform = waveform / waveform.abs().max()
-
         # Method 2: Z-score normalization (mean=0, std=1)
         # waveform = (waveform - waveform.mean()) / waveform.std()
-
         return waveform
     
     def __getitem__(self, idx):
-        file_name = self.file_list[idx]
-        file_path = os.path.join(self.directory, file_name)
+        file_path = self.all_files[idx]
+        base_name = os.path.basename(file_path)
+        file_name = base_name.split(".")[0]
 
         try:
             # waveform, sample_rate = torchaudio.load(file_path, normalize=True)
@@ -107,20 +112,22 @@ class RawLabeledAudioDataset(Dataset):
         
         # Normalize waveform if needed
         if self.normalize:
-            waveform = self.normalize_waveform(waveform)
+            waveform = self._normalize_waveform(waveform)
 
         # Apply any other transformations if provided
         if self.transform:
             waveform = self.transform(waveform)
 
-        # Return raw waveform and sample rate
-        file_name = file_name.split('.')[0]
-        # label = self.labels_dict.get(file_name).astype(int)
-        label = self.labels_dict.get(file_name)
+        # label = self.labels_dict.get(file_name)
+        label = self.all_labels.get(file_name,0)
         # label = torch.tensor(label, dtype=torch.int8)
         label = torch.tensor(label)
 
         return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
+    
+    # def collate_fn(self, samples):
+    #     return default_collate(samples)
+    
     
 
 
@@ -144,7 +151,6 @@ def custom_collate_fn(batch):
 
 def initialize_data_loader(data_path, labels_path,BATCH_SIZE=32, shuffle=True, num_workers=0, prefetch_factor=None,pin_memory=False,apply_transform=False):
     """Initialize and return the training data loader"""
-    labels_dict= load_json_dictionary(labels_path)
 
         # If multiprocessing is used, set start method to 'spawn' (for avoiding pickling issues)
     if num_workers > 0:
@@ -154,16 +160,16 @@ def initialize_data_loader(data_path, labels_path,BATCH_SIZE=32, shuffle=True, n
             mp.set_start_method('fork', force=True)
     
     # Create the dataset instance
-    combined_dataset = RawLabeledAudioDataset(data_path, labels_dict)
+    combined_dataset = ASVspoof2019(data_path, labels_path)
     
     if apply_transform:
         # Apply pitch shift transform
         pitch_shift_transform = PitchShiftTransform(sample_rate=16000, pitch_shift_prob=1.0, pitch_shift_steps=(-2, 2))
 
         # # Initialize the dataset with the transform
-        augmented_dataset = RawLabeledAudioDataset(
+        augmented_dataset = ASVspoof2019(
             directory=data_path,
-            labels_dict=labels_dict,
+            labels_dict=labels_path,
             transform=pitch_shift_transform  # Apply pitch shift as part of the dataset transform
         )
 
@@ -182,4 +188,24 @@ def initialize_data_loader(data_path, labels_path,BATCH_SIZE=32, shuffle=True, n
     )
     
 
+
+if __name__ == "__main__":
+
+    train_data_path=os.path.join(os.getcwd(),'database/train/con_wav')
+    # train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_train_trl.json')
+    train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/ASVspoof2019.LA.cm.train.trl.txt')
+
+    # train_data_path=os.path.join(os.getcwd(),'database/dev/con_wav')
+    # train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json')
+
+    # train_data_path=os.path.join(os.getcwd(),'database/eval/con_wav')
+    # train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json')
+
+    dataset = ASVspoof2019(train_data_path,train_labels_path)
+    print(f"len(dataset): {len(dataset)}")
+    for i in range(len(dataset)):
+        sample = dataset[i]
+        print(f"sample: {sample['waveform'].shape}, {sample['label']}")
+        if i==50:
+            break
 

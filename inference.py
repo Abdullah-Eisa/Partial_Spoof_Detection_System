@@ -29,6 +29,7 @@ def inference_helper(model, feature_extractor,criterion,
     utterance_predictions=[]
     dropout_prob=0
     # c=0
+    nan_count=0
     with torch.no_grad():
         for batch in tqdm(test_data_loader, desc="Test Batches", leave=False):
             # if c>8:
@@ -52,7 +53,12 @@ def inference_helper(model, feature_extractor,criterion,
             loss = criterion(outputs, labels) 
             if torch.isnan(loss).any(): 
                 print(f"NaN detected in test loop loss") 
+                nan_count+=torch.isnan(loss).sum().item()
+                print(f"loss value: {loss.item()}")
+                print(f"batch['file_name']: {batch['file_name']}")
+                print(f"in train_one_epoch batch, nan_count: {nan_count}")
                 continue
+
             epoch_loss += loss.item()
 
             with torch.no_grad():
@@ -75,6 +81,8 @@ def inference_helper(model, feature_extractor,criterion,
     # Print epoch testing results
     print(f'Testing/Inference Complete. Test Loss: {epoch_loss:.4f},\n'
                f'Average Test Utterance EER: {utterance_eer:.4f}, Average Test Utterance EER Threshold: {utterance_eer_threshold:.4f}')
+    print("===================================================")
+    print(f'In Test loop, Total loss NAN count: {nan_count}')
 
     return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss)
 
@@ -158,6 +166,7 @@ def dev_one_epoch(model, feature_extractor,criterion,
     utterance_eer, utterance_eer_threshold=0,0
     utterance_predictions=[]
     # c=0
+    nan_count=0
     with torch.no_grad():
         for batch in tqdm(dev_data_loader, desc="Dev Batches", leave=False):
             # if c>8:
@@ -182,8 +191,14 @@ def dev_one_epoch(model, feature_extractor,criterion,
             # Calculate loss
             loss = criterion(outputs, labels) 
             if torch.isnan(loss).any(): 
-                print(f"NaN detected in validation loop loss") 
+                print(f"NaN detected in loss during development loop")
+                # c+=1
+                nan_count+=torch.isnan(loss).sum().item()
+                print(f"loss value: {loss.item()}")
+                print(f"batch['file_name']: {batch['file_name']}")
+                print(f"in dev_one_epoch batch, nan_count: {nan_count}")
                 continue
+
             epoch_loss += loss.item()
 
             with torch.no_grad():
@@ -207,7 +222,9 @@ def dev_one_epoch(model, feature_extractor,criterion,
     # print(f'Epoch [{epoch + 1}] Complete. Validation Loss: {epoch_loss:.4f},\n'
     #            f'Average Validation Segment EER: {segment_eer:.4f}, Average Validation Segment EER Threshold: {segment_eer_threshold:.4f},\n'
     #            f'Average Validation Utterance EER: {utterance_eer:.4f}, Average Validation Utterance EER Threshold: {utterance_eer_threshold:.4f}')
-
+    print("===================================================")
+    print(f'In Dev loop, Total loss NAN count: {nan_count}')
+    
     return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss)
 
 

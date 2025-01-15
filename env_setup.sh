@@ -70,6 +70,7 @@ if [ $retVal -ne 0 ]; then
     
     # make empty folders if not available
     python -c "import os; os.makedirs('database', exist_ok=True)"
+    python -c "import os; os.makedirs('database/ASVspoof2019', exist_ok=True)"
     python -c "import os; os.makedirs('models', exist_ok=True)"
     python -c "import os; os.makedirs('models/back_end_models', exist_ok=True)"
     python -c "import os; os.makedirs('outputs', exist_ok=True)"

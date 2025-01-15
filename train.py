@@ -21,7 +21,7 @@ def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion
     # utterance_eer, utterance_eer_threshold = 0, 0
     utterance_predictions = []
     files_names = []
-
+    nan_count=0
     for batch in tqdm(train_loader, desc="Train Batches", leave=False):
         waveforms = batch['waveform'].to(DEVICE)
         labels = batch['label'].to(DEVICE).unsqueeze(1).float()
@@ -39,6 +39,11 @@ def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion
         loss = criterion(outputs, labels)
         if torch.isnan(loss).any():
             print(f"NaN detected in loss during training")
+            # c+=1
+            nan_count+=torch.isnan(loss).sum().item()
+            print(f"loss value: {loss.item()}")
+            print(f"batch['file_name']: {batch['file_name']}")
+            print(f"in train_one_epoch batch, nan_count: {nan_count}")
             continue
 
         epoch_loss += loss.item()
@@ -50,6 +55,8 @@ def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion
         utterance_predictions.extend(outputs)
         files_names.extend(batch['file_name'])
 
+    print("===================================================")
+    print(f'In Training loop, Total loss NAN count: {nan_count}')
     # Average epoch loss
     epoch_loss /= len(train_loader)
     return epoch_loss, utterance_predictions, files_names
