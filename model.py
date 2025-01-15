@@ -267,118 +267,6 @@ class RotaryPositionalEmbeddings(nn.Module):
 # ============================================================================================
 
 
-
-
-# binary classification model  max pooling after feature extractor
-# class BinarySpoofingClassificationModel(nn.Module):
-#     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3):
-#         super(BinarySpoofingClassificationModel, self).__init__()
-
-#         self.max_pooling_factor = max_pooling_factor
-#         self.feature_dim = feature_dim
-#         self.max_dropout=max_dropout
-
-#         if self.max_pooling_factor is not None:
-#             self.max_pooling = nn.MaxPool1d(kernel_size=self.max_pooling_factor, stride=self.max_pooling_factor)
-#             self.feature_dim=feature_dim//self.max_pooling_factor
-#         else:
-#             self.max_pooling = None
-        
-#         print(f"self.feature_dim= {self.feature_dim} , self.max_pooling= {self.max_pooling}")
-#         # Define the Conformer model from torchaudio
-#         self.conformer = tam.Conformer(
-#             input_dim=self.feature_dim,
-#             num_heads=num_heads,
-#             ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
-#             num_layers=conformer_layers,  # Example, adjust as needed
-#             depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
-#             dropout=0.2,
-#             use_group_norm= False, 
-#             convolution_first= False
-#         )
-        
-#         # Global pooling layer (SelfWeightedPooling)
-#         self.pooling = SelfWeightedPooling(self.feature_dim , mean_only=True)  # Pool across sequence dimension
-        
-#         # Add a feedforward block for feature refinement before classification
-#         self.fc_refinement = nn.Sequential(
-#             nn.Linear(self.feature_dim, hidden_dim),  # Refined hidden dimension for classification
-#             nn.LayerNorm(hidden_dim),
-#             nn.GELU(),
-#             nn.Dropout(0.2),  # Dropout for regularization
-
-#             nn.Linear(hidden_dim, hidden_dim//2),  # Refined hidden dimension for classification
-#             nn.LayerNorm(hidden_dim//2),
-#             nn.GELU(),
-#             nn.Dropout(0.2),  # Dropout for regularization
-
-#             nn.Linear(hidden_dim//2, hidden_dim//4),  # Refined hidden dimension for classification
-#             nn.LayerNorm(hidden_dim//4),
-#             nn.GELU(),
-#             nn.Dropout(0.2),  # Dropout for regularization
-
-#             nn.Linear(hidden_dim//4, 1),  # Final output layer
-#             # nn.Sigmoid(),
-#             # nn.GELU(),
-#         )
-
-
-#         self.apply(self.initialize_weights)
-
-#     # Custom initialization for He and Xavier
-#     def initialize_weights(self, m, bias_value=0.05):
-#         if isinstance(m, nn.Linear):  # For Linear layers
-#             # We do not directly check activation here, since it's separate
-#             if isinstance(m, nn.Linear):
-#                 if hasattr(m, 'activation') and isinstance(m.activation, nn.ReLU):
-#                     # He (Kaiming) initialization for ReLU/GELU layers
-#                     nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-#                 elif hasattr(m, 'activation') and isinstance(m.activation, nn.GELU):
-#                     # He (Kaiming) initialization for GELU layers
-#                     nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-#                 elif hasattr(m, 'activation') and isinstance(m.activation, (nn.Tanh, nn.Sigmoid)):
-#                     # Xavier (Glorot) initialization for tanh/sigmoid layers
-#                     nn.init.xavier_normal_(m.weight)
-#             if m.bias is not None:
-#                 nn.init.constant_(m.bias, bias_value)
-
-#         elif isinstance(m, nn.Conv1d):  # For Conv1d layers (typically used in Conformer)
-#             if hasattr(m, 'activation') and isinstance(m.activation, nn.ReLU):
-#                 # He (Kaiming) initialization for Conv1d with ReLU/GELU
-#                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-#             elif hasattr(m, 'activation') and isinstance(m.activation, (nn.Tanh, nn.Sigmoid)):
-#                 # Xavier (Glorot) initialization for Conv1d with tanh/sigmoid
-#                 nn.init.xavier_normal_(m.weight)
-#             if m.bias is not None:
-#                 nn.init.constant_(m.bias, bias_value)
-
-
-#     def forward(self, x, lengths,dropout_prob):
-#         # print(f" x size before conformer = {x.size()}")
-#         if self.max_pooling is not None:
-#             x = self.max_pooling(x)  # Apply max pooling
-
-#         # Apply Conformer model
-#         x, _ = self.conformer(x, lengths)  # The second returned value is the sequence lengths
-#         # print(f" x size after conformer = {x.size()}")
-        
-#         # Apply global pooling across the sequence dimension (SelfWeightedPooling)
-#         x = self.pooling(x)  # Now x is (batch_size, hidden_dim, 1)
-#         # print(f" x size after pooling = {x.size()}")
-
-#         # Update the dropout probability dynamically
-#         self.fc_refinement[3].p = dropout_prob  # Update the dropout layer's probability
-#         self.fc_refinement[7].p = dropout_prob  # Update the dropout layer's probability
-#         self.fc_refinement[11].p = dropout_prob  # Update the dropout layer's probability
-
-#         # Refine features before classification using the fc_refinement block
-#         utt_score = self.fc_refinement(x)
-#         return utt_score # Return the classification output
-#     def adjust_dropout(self, epoch, total_epochs):
-#         # Cosine annealing for dropout probability
-#         return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
-
-
 class BinarySpoofingClassificationModel(nn.Module):
     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3):
         super(BinarySpoofingClassificationModel, self).__init__()
@@ -505,6 +393,7 @@ class BinarySpoofingClassificationModel(nn.Module):
         # Refine features before classification using the fc_refinement block
         utt_score = self.fc_refinement(x)
         return utt_score # Return the classification output
+
     def adjust_dropout(self, epoch, total_epochs):
         # Cosine annealing for dropout probability
         return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
@@ -541,7 +430,7 @@ def initialize_models(ssl_ckpt_path, save_feature_extractor=False,
     
     # Optimizer setup
     optimizer = optim.AdamW(
-        [{'params': feature_extractor.parameters(), 'lr': 0.0001},
+        [{'params': feature_extractor.parameters(), 'lr': 0.00005},
          {'params': PS_Model.parameters()}], 
         lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8) if save_feature_extractor else optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
 
@@ -574,17 +463,7 @@ def adjust_dropout_prob(model, epoch, NUM_EPOCHS):
 
 def initialize_lr_scheduler(optimizer):
     """Initialize the learning rate scheduler"""
-    # LR_SCHEDULER = lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
-
-    # def lr_lambda(epoch):
-    #     if epoch < 20:
-    #         return 1 - (epoch / 20)  # Decrease linearly from 1 to 0 over 30 epochs
-    #     else:
-    #         return 1 + (epoch - 20) / 10  # Increase linearly after epoch 30
-
-    # LR_SCHEDULER = lr_scheduler.LambdaLR(optimizer, lr_lambda)
-
-    factor = 2/3
+    factor = 1/2
     patience = 5   # Number of epochs with no improvement after which learning rate will be reduced
     threshold=0.005
     min_lr = 0.000005

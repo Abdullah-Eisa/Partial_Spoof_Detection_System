@@ -13,7 +13,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " Initial commit v0.1 for ASVspoof_train branch "
+git commit -m " Initial commit v0.2 for ASVspoof_train branch "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

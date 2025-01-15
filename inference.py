@@ -10,8 +10,10 @@ from preprocess import *
 from model import *
 
 # ===========================================================================================================================
+# def inference_helper(model, feature_extractor,criterion,
+#                   test_data_loader, test_labels_dict,DEVICE='cpu'):
 def inference_helper(model, feature_extractor,criterion,
-                  test_data_loader, test_labels_dict,DEVICE='cpu'):
+                  test_data_loader, DEVICE='cpu'):
     """Evaluate the model on the test set"""
 
     # testing phase
@@ -62,15 +64,15 @@ def inference_helper(model, feature_extractor,criterion,
             epoch_loss += loss.item()
 
             with torch.no_grad():
-                # Calculate utterance predictions
                 utterance_predictions.extend(outputs)
-                # Accumulate files names
+                utterance_labels.extend(labels)
                 files_names.extend(batch['file_name'])
 
 
         # Get Average Utterance EER for the epoch
-        utterance_labels =torch.tensor([test_labels_dict[file_name] for file_name in files_names])
+        # utterance_labels =torch.tensor([test_labels_dict[file_name] for file_name in files_names])
         # print(f'epoch {epoch} , utterance_labels: {utterance_labels}')
+        utterance_labels = torch.cat(utterance_labels)
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions,utterance_labels)
 
@@ -90,8 +92,8 @@ def inference_helper(model, feature_extractor,criterion,
 
 
 
-def inference(eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
-    eval_labels_path = os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),
+def inference(eval_data_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac'),
+    eval_labels_path = os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trn.txt'),
     ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt'),
     PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'),
     feature_dim=768,num_heads=8,hidden_dim=128,max_dropout=0,depthwise_conv_kernel_size=31,
@@ -110,7 +112,7 @@ def inference(eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
 
     # Define training files and labels
     # eval_labels_dict= load_json_dictionary(eval_labels_path)
-    eval_labels_dict= load_labels_txt2dict(eval_labels_path)
+    # eval_labels_dict= load_labels_txt2dict(eval_labels_path)
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
     eval_data_loader = initialize_data_loader(eval_data_path, eval_labels_path,BATCH_SIZE,False, num_workers, prefetch_factor,pin_memory)
 
@@ -141,15 +143,16 @@ def inference(eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
         feature_extractor=feature_extractor,
         criterion=criterion,
         test_data_loader=eval_data_loader, 
-        test_labels_dict=eval_labels_dict,
         DEVICE=DEVICE)
 
     if DEVICE=='cuda': torch.cuda.empty_cache()
 
 
 # ===========================================================================================================================
+# def dev_one_epoch(model, feature_extractor,criterion,
+#                   dev_data_loader, dev_labels_dict,dropout_prob=0,DEVICE='cpu'):
 def dev_one_epoch(model, feature_extractor,criterion,
-                  dev_data_loader, dev_labels_dict,dropout_prob=0,DEVICE='cpu'):
+                  dev_data_loader,dropout_prob=0,DEVICE='cpu'):
     """Evaluate the model on the development set"""
 
     # Validation phase
@@ -166,7 +169,8 @@ def dev_one_epoch(model, feature_extractor,criterion,
     epoch_loss = 0
     utterance_eer, utterance_eer_threshold=0,0
     utterance_predictions=[]
-    # c=0
+    utterance_labels=[]
+    c=0
     nan_count=0
     with torch.no_grad():
         for batch in tqdm(dev_data_loader, desc="Dev Batches", leave=False):
@@ -205,13 +209,15 @@ def dev_one_epoch(model, feature_extractor,criterion,
             with torch.no_grad():
                 # Calculate utterance predictions
                 utterance_predictions.extend(outputs)
+                utterance_labels.extend(labels)
                 # Accumulate files names
                 files_names.extend(batch['file_name'])
 
 
         # Get Average Utterance EER for the epoch
-        utterance_labels =torch.tensor([dev_labels_dict[file_name] for file_name in files_names])
+        # utterance_labels =torch.tensor([dev_labels_dict[file_name] for file_name in files_names])
         # print(f'epoch {epoch} , utterance_labels: {utterance_labels}')
+        utterance_labels = torch.cat(utterance_labels)
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions,utterance_labels)
 
@@ -226,7 +232,7 @@ def dev_one_epoch(model, feature_extractor,criterion,
     print("===================================================")
     print(f'In Dev loop, Total loss NAN count: {nan_count}')
     
-    return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss)
+    return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss), nan_count
 
 
 
@@ -237,13 +243,13 @@ if __name__ == "__main__":
 
     inference(PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'))
 
-    # inference(eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
-    #     eval_labels_path = os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),
+    # inference(eval_data_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac'),
+    #     eval_labels_path = os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trn.txt'),
     #     ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt'),
     #     PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'),
     #     feature_dim=768,num_heads=8,hidden_dim=128,max_dropout=0,depthwise_conv_kernel_size=31,
     #     conformer_layers=1,max_pooling_factor=3,
-    #     BATCH_SIZE=16, num_workers=0, prefetch_factor=None, DEVICE='cuda')
+    #     BATCH_SIZE=16, num_workers=0, prefetch_factor=None, DEVICE='cpu')
 
     # Record the end time
     end_time = datetime.now()

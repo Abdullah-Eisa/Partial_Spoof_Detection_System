@@ -32,26 +32,7 @@ if [ $retVal -ne 0 ]; then
     pip install --upgrade pip
     conda clean --all
 
-    # conda install pytorch torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
 
-    # Get the CUDA version available on your system
-    # CUDA_VERSION=$(nvcc --version | grep "release" | awk '{print $5}' | sed 's/,//')
-
-    # # If CUDA is available, choose the compatible pytorch version
-    # if [[ "$CUDA_VERSION" == "11.8" ]]; then
-    #     conda install pytorch torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
-    # elif [[ "$CUDA_VERSION" == "12.1" ]]; then
-    #     conda install pytorch torchaudio pytorch-cuda=12.1 -c pytorch -c nvidia
-    # else
-    #     echo "No compatible CUDA version detected, falling back to CPU-only installation"
-    #     conda install pytorch torchaudio cpuonly -c pytorch
-    # fi
-
-    # install some foundational libraries
-    # pip install torch==2.2.0+cu118
-    # pip install torchaudio==2.2.0+cu118
-    # pip install torch==2.5.1+cu124
-    # pip install torchaudio==2.5.1+cu124
     pip install torch
     pip install torchaudio
     pip install s3prl

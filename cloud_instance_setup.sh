@@ -35,5 +35,8 @@ sh ./env_setup.sh
 sudo apt update
 sudo apt install screen
 
+sudo apt update
+sudo apt install unzip
+
 rm Miniconda3-latest-Linux-x86_64.sh
 echo "Done"

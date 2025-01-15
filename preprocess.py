@@ -199,15 +199,8 @@ def initialize_data_loader(data_path, labels_path,BATCH_SIZE=32, shuffle=True, n
 
 if __name__ == "__main__":
 
-    train_data_path=os.path.join(os.getcwd(),'database/train/con_wav')
-    # train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_train_trl.json')
+    train_data_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac')
     train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/ASVspoof2019.LA.cm.train.trl.txt')
-
-    # train_data_path=os.path.join(os.getcwd(),'database/dev/con_wav')
-    # train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json')
-
-    # train_data_path=os.path.join(os.getcwd(),'database/eval/con_wav')
-    # train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json')
 
     dataset = ASVspoof2019(train_data_path,train_labels_path)
     print(f"len(dataset): {len(dataset)}")

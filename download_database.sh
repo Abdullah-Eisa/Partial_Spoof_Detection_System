@@ -1,51 +1,49 @@
 set -x
 	
-# FILE_NAMEs="train dev eval segment_labels_v1.2 protocols"
-# FILE_NAMEs="train segment_labels_v1.2 dev protocols eval"
-# FILE_NAMEs="train dev segment_labels_v1.2 protocols"
-FILE_NAMEs="README.txt"
+FILE_NAMEs="LA"
 
 
 for file in ${FILE_NAMEs}; do
+    link="https://datashare.ed.ac.uk/bitstream/handle/10283/3336/LA.zip?sequence=3&isAllowed=y"
 
-    # link="https://datashare.ed.ac.uk/bitstream/handle/10283/3336/asvspoof2019_evaluation_plan.pdf?sequence=1&isAllowed=y"
-    link="https://datashare.ed.ac.uk/bitstream/handle/10283/3336/README.txt?sequence=5&isAllowed=y"
-    # if [ ! -d ./database/ASVspoof2019/${file} ] && [ ! -d ./database/${file}/con_wav ]; then
-    if [ ! -d ./database/ASVspoof2019/${file} ]; then
+    if [ ! -d ./database/ASVspoof2019/${file} ] && [ ! -d ./database/${file}/flac ]; then
+    # if [ ! -d ./database/ASVspoof2019/${file} ]; then
         echo -e "${RED}Downloading PartialSpoof ${name}"
-	# echo ${link}
-        wget -q --show-progress -c ${link} -O  README.txt
-        # tar -zxvf database_${file}.tar.gz
-        # rm database_${file}.tar.gz
+	echo ${link}
+        wget -q --show-progress -c ${link} -O ${file}.zip
+        # unzip -q ${file} -d LA
+        UNZIP_FOLDER_PATH="./database/ASVspoof2019/"${file}""
+        mkdir -p "$UNZIP_FOLDER_PATH"
+        unzip -q ${file} -d "$UNZIP_FOLDER_PATH"
+        rm ${file}.zip
+
     fi
 done
-# remove any labels except for 0.64 resolution
-echo 'We have PartialSpoof database now'
 
+echo 'We have ASVspoof2019 LA database now'
 
 
 
 # #!/bin/bash
 # set -x
+	
+# # FILE_NAMEs="train dev eval segment_labels_v1.2 protocols"
+# FILE_NAMEs="train segment_labels_v1.2 dev protocols eval"
+# # FILE_NAMEs="train dev segment_labels_v1.2 protocols"
+# # FILE_NAMEs="eval"
 
-# # Define the file names and links to download
-# FILE_NAMEs="asvspoof2019_evaluation_plan.pdf LA.zip"
 
 # for file in ${FILE_NAMEs}; do
-#     # Define the URL based on the file name
-#     if [ "${file}" == "asvspoof2019_evaluation_plan.pdf" ]; then
-#         link="https://datashare.ed.ac.uk/bitstream/handle/10283/3336/asvspoof2019_evaluation_plan.pdf?sequence=1&isAllowed=y"
-#     elif [ "${file}" == "LA.zip" ]; then
-#         link="https://datashare.ed.ac.uk/bitstream/handle/10283/3336/LA.zip?sequence=3&isAllowed=y"
-#     fi
 
-#     # Check if the file exists before downloading
-#     if [ ! -f ./${file} ]; then
-#         echo -e "Downloading ${file}"
-#         wget -q --show-progress -c ${link} -O ${file}
-#     else
-#         echo -e "${file} already exists, skipping download."
+#     link="https://zenodo.org/record/5766198/files/database_"${file}".tar.gz?download=1"
+#     if [ ! -d ./database/${file} ] && [ ! -d ./database/${file}/con_wav ]; then
+#         echo -e "${RED}Downloading PartialSpoof ${name}"
+# 	echo ${link}
+#         wget -q --show-progress -c ${link} -O  database_${file}.tar.gz
+#         tar -zxvf database_${file}.tar.gz
+#         rm database_${file}.tar.gz
 #     fi
 # done
-
-# echo "Download complete!"
+# # remove any labels except for 0.64 resolution
+# find /root/Partial_Spoof_Detection_System/database/segment_labels  -type f ! -name '*0.64*' -exec rm {} +
+# echo 'We have PartialSpoof database now'

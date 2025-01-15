@@ -20,9 +20,15 @@ def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion
     epoch_loss = 0
     # utterance_eer, utterance_eer_threshold = 0, 0
     utterance_predictions = []
+    utterance_labels = []
     files_names = []
     nan_count=0
+    c=0
     for batch in tqdm(train_loader, desc="Train Batches", leave=False):
+        # if c>8:
+        #     break
+        # else:
+        #     c+=1
         waveforms = batch['waveform'].to(DEVICE)
         labels = batch['label'].to(DEVICE).unsqueeze(1).float()
 
@@ -53,13 +59,14 @@ def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion
 
         # Collect predictions for evaluation
         utterance_predictions.extend(outputs)
+        utterance_labels.extend(labels)
         files_names.extend(batch['file_name'])
 
     print("===================================================")
     print(f'In Training loop, Total loss NAN count: {nan_count}')
     # Average epoch loss
     epoch_loss /= len(train_loader)
-    return epoch_loss, utterance_predictions, files_names
+    return epoch_loss, utterance_predictions, utterance_labels, files_names, nan_count
 
 # ===========================================================================================================================
 def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_path, ssl_ckpt_path,apply_transform,
@@ -88,22 +95,24 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
     # Initialize data loader
     train_loader = initialize_data_loader(train_data_path, train_labels_path,BATCH_SIZE, True, num_workers, prefetch_factor,pin_memory,apply_transform)
     # train_labels_dict= load_json_dictionary(train_labels_path)
-    train_labels_dict= load_labels_txt2dict(train_labels_path)
+    # train_labels_dict= load_labels_txt2dict(train_labels_path)
 
     LR_SCHEDULER = initialize_lr_scheduler(optimizer)
 
     wandb.watch(PS_Model, log_freq=100,log='all')
     # Set model to train
     PS_Model.train()
-
+    total_train_nan_counter=0
+    total_dev_nan_counter=0
     for epoch in tqdm(range(NUM_EPOCHS), desc="Epochs"):
 
         dropout_prob = adjust_dropout_prob(PS_Model, epoch, NUM_EPOCHS)
 
         # Training step for the current epoch
-        epoch_loss, utterance_predictions, files_names = train_one_epoch(
+        epoch_loss, utterance_predictions, utterance_labels, files_names ,train_nan_counter = train_one_epoch(
             PS_Model, train_loader, feature_extractor, optimizer, criterion,max_grad_norm,dropout_prob, DEVICE)
 
+        total_train_nan_counter+=train_nan_counter
         # Save checkpoint
         if (epoch + 1) % save_interval == 0:
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -111,7 +120,8 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
             save_checkpoint(PS_Model, optimizer, epoch + 1, os.path.join(model_save_path, model_filename))
 
         # Compute and log metrics
-        utterance_labels = torch.tensor([train_labels_dict[file_name] for file_name in files_names])
+        # utterance_labels = torch.tensor([train_labels_dict[file_name] for file_name in files_names])
+        utterance_labels = torch.cat(utterance_labels)
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions, utterance_labels)
 
@@ -119,10 +129,12 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
         if (epoch + 1) >= monitor_dev_epoch:
             dev_data_loader=initialize_data_loader(dev_data_path, dev_labels_path,BATCH_SIZE,False,num_workers, prefetch_factor,pin_memory)
             # dev_labels_dict= load_json_dictionary(dev_labels_path)
-            dev_labels_dict= load_labels_txt2dict(dev_labels_path)
+            # dev_labels_dict= load_labels_txt2dict(dev_labels_path)
             print(f"train_loader: {len(train_loader)} , dev_data_loader: {len(dev_data_loader)}")
-            dev_metrics_dict = dev_one_epoch(PS_Model, feature_extractor,criterion,dev_data_loader, dev_labels_dict,0,DEVICE)
-            
+            # dev_metrics_dict, dev_nan_counter = dev_one_epoch(PS_Model, feature_extractor,criterion,dev_data_loader, dev_labels_dict,0,DEVICE)
+            dev_metrics_dict, dev_nan_counter = dev_one_epoch(PS_Model, feature_extractor,criterion,dev_data_loader,0,DEVICE)
+            total_dev_nan_counter+=dev_nan_counter
+
             if save_feature_extractor:
                 log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],optimizer.param_groups[1]['lr'],dropout_prob, dev_metrics_dict)               # Log metrics to W&B
             else:
@@ -162,7 +174,8 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
     # training_metrics_dict_filename = f"metrics_dict_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.json"
     # training_metrics_dict_save_path=os.path.join(os.getcwd(),f'outputs/{training_metrics_dict_filename}')
     # save_json_dictionary(training_metrics_dict_save_path,training_metrics_dict)
-
+    print("============================================================================================")
+    print(f"total_train_nan_counter= {total_train_nan_counter} , total_dev_nan_counter= {total_dev_nan_counter}")
     if DEVICE=='cuda': torch.cuda.empty_cache()
     wandb.finish()
     print("Training complete!")
@@ -185,9 +198,6 @@ def train():
     print(f'device: {DEVICE}')
 
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
-# /root/Partial_Spoof_Detection_System/database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac
-# /root/Partial_Spoof_Detection_System/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt
-# /root/Partial_Spoof_Detection_System/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt
     # Define training files and labels
     train_data_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac')
     # train_data_path=os.path.join(os.getcwd(),'database/mini_database/train')
