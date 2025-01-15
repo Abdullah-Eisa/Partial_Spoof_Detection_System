@@ -78,10 +78,18 @@ class ASVspoof2019(Dataset):
         # file_list=[]
         with open(labels_path, 'r') as f:
             file_lines = f.readlines()
-
+        # print("file_lines= ",file_lines)
         for line in file_lines:
-            _, key,_,_,label = line.strip().split(' ')
-            labels_dict[key] = self._get_label(label)
+            # print("line= ",line.strip())
+            line = line.strip()
+            if not line:continue  # Skip empty lines
+
+            try:
+                _, key, _, _, label = line.split(' ')
+                labels_dict[key] = self._get_label(label)
+            except ValueError:
+                # If there are not exactly 5 values, print a warning
+                print(f"Warning: Skipping malformed line: {line}")
         
         return labels_dict
 

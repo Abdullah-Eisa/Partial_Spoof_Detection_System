@@ -402,7 +402,7 @@ class BinarySpoofingClassificationModel(nn.Module):
             ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
             num_layers=conformer_layers,  # Example, adjust as needed
             depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
-            dropout=0.3,
+            dropout=0.2,
             use_group_norm= False, 
             convolution_first= False
         )
@@ -587,6 +587,6 @@ def initialize_lr_scheduler(optimizer):
     factor = 2/3
     patience = 5   # Number of epochs with no improvement after which learning rate will be reduced
     threshold=0.005
-    min_lr = 0.00001
+    min_lr = 0.000005
 
     return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=factor, patience=patience, threshold=threshold, min_lr=min_lr)

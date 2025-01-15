@@ -31,8 +31,8 @@ def main():
             # 'NUM_EPOCHS': {'values': [5, 7]},
             # 'LEARNING_RATE': {'values': [0.001]},
             # 'BATCH_SIZE': {'values': [16,32]},
-            'NUM_EPOCHS': {'values': [60]},
-            'LEARNING_RATE': {'values': [0.001]},
+            'NUM_EPOCHS': {'values': [2]},
+            'LEARNING_RATE': {'values': [0.0001]},
             # 'LEARNING_RATE': {'values': [0.00021195579137608126]},
             # 'LEARNING_RATE': {'values': [2.3550643486231242e-05]},
             'BATCH_SIZE': {'values': [8]},
@@ -52,18 +52,18 @@ if __name__ == "__main__":
     # Record the start time
     start_time = datetime.now()
 
-    # main()
+    main()
 
     #========================= test inference ================
     # inference(PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'))
 
-    inference(eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
-        eval_labels_path = os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),
-        ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt'),
-        PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.001_20250105_064743.pth'),
-        feature_dim=768,num_heads=8,hidden_dim=128,max_dropout=0,depthwise_conv_kernel_size=31,
-        conformer_layers=1,max_pooling_factor=3,
-        BATCH_SIZE=16, num_workers=8, prefetch_factor=2, DEVICE='cuda')
+    # inference(eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
+    #     eval_labels_path = os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),
+    #     ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt'),
+    #     PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.001_20250105_064743.pth'),
+    #     feature_dim=768,num_heads=8,hidden_dim=128,max_dropout=0,depthwise_conv_kernel_size=31,
+    #     conformer_layers=1,max_pooling_factor=3,
+    #     BATCH_SIZE=16, num_workers=8, prefetch_factor=2, DEVICE='cuda')
 
     # Record the end time
     end_time = datetime.now()

@@ -27,6 +27,27 @@ def load_json_dictionary(path):
 
   return my_dict
 
+def load_labels_txt2dict(path):
+    # labels_dict = {}
+    label_map = {"spoof": 1, "bonafide": 0}
+    labels_dict = dict()
+    # file_list=[]
+    with open(path, 'r') as f:
+        file_lines = f.readlines()
+    # print("file_lines= ",file_lines)
+    for line in file_lines:
+        # print("line= ",line.strip())
+        line = line.strip()
+        if not line:continue  # Skip empty lines
+
+        try:
+            _, key, _, _, label = line.split(' ')
+            labels_dict[key] = label_map[label]
+        except ValueError:
+            # If there are not exactly 5 values, print a warning
+            print(f"Warning: Skipping malformed line: {line}")
+    
+    return labels_dict
 
 
 def convert_to_serializable(obj):

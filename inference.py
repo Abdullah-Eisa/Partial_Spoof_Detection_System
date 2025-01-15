@@ -109,7 +109,8 @@ def inference(eval_data_path=os.path.join(os.getcwd(),'database/eval/con_wav'),
     BASE_DIR = os.getcwd()
 
     # Define training files and labels
-    eval_labels_dict= load_json_dictionary(eval_labels_path)
+    # eval_labels_dict= load_json_dictionary(eval_labels_path)
+    eval_labels_dict= load_labels_txt2dict(eval_labels_path)
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
     eval_data_loader = initialize_data_loader(eval_data_path, eval_labels_path,BATCH_SIZE,False, num_workers, prefetch_factor,pin_memory)
 

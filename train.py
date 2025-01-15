@@ -87,7 +87,8 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
 
     # Initialize data loader
     train_loader = initialize_data_loader(train_data_path, train_labels_path,BATCH_SIZE, True, num_workers, prefetch_factor,pin_memory,apply_transform)
-    train_labels_dict= load_json_dictionary(train_labels_path)
+    # train_labels_dict= load_json_dictionary(train_labels_path)
+    train_labels_dict= load_labels_txt2dict(train_labels_path)
 
     LR_SCHEDULER = initialize_lr_scheduler(optimizer)
 
@@ -117,7 +118,8 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
         # Validation step (optional)
         if (epoch + 1) >= monitor_dev_epoch:
             dev_data_loader=initialize_data_loader(dev_data_path, dev_labels_path,BATCH_SIZE,False,num_workers, prefetch_factor,pin_memory)
-            dev_labels_dict= load_json_dictionary(dev_labels_path)
+            # dev_labels_dict= load_json_dictionary(dev_labels_path)
+            dev_labels_dict= load_labels_txt2dict(dev_labels_path)
             print(f"train_loader: {len(train_loader)} , dev_data_loader: {len(dev_data_loader)}")
             dev_metrics_dict = dev_one_epoch(PS_Model, feature_extractor,criterion,dev_data_loader, dev_labels_dict,0,DEVICE)
             
@@ -183,14 +185,17 @@ def train():
     print(f'device: {DEVICE}')
 
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
-
+# /root/Partial_Spoof_Detection_System/database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac
+# /root/Partial_Spoof_Detection_System/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt
+# /root/Partial_Spoof_Detection_System/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt
     # Define training files and labels
-    train_data_path=os.path.join(os.getcwd(),'database/train/con_wav')
+    train_data_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac')
     # train_data_path=os.path.join(os.getcwd(),'database/mini_database/train')
-    train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_train_trl.json')
-    dev_data_path=os.path.join(os.getcwd(), 'database/dev/con_wav')
+    train_labels_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt')
+
+    dev_data_path=os.path.join(os.getcwd(), 'database/ASVspoof2019/LA/ASVspoof2019_LA_dev/flac')
     # dev_data_path=os.path.join(os.getcwd(), 'database/mini_database/dev')
-    dev_labels_path=os.path.join(os.getcwd(), 'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json') 
+    dev_labels_path=os.path.join(os.getcwd(), 'database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt') 
     ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
     
     # Call train_model with parameters from W&B sweep
@@ -204,7 +209,7 @@ def train():
                feature_dim=768, 
                num_heads=8, 
                hidden_dim=128, 
-               max_dropout=0.4,
+               max_dropout=0.35,
                depthwise_conv_kernel_size=31, 
                conformer_layers=1, 
                max_pooling_factor=3,
