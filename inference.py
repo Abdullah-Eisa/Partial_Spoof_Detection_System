@@ -29,6 +29,7 @@ def inference_helper(model, feature_extractor,criterion,
 
     epoch_loss = 0
     utterance_predictions=[]
+    utterance_labels=[]
     dropout_prob=0
     # c=0
     nan_count=0
