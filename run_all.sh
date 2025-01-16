@@ -2,7 +2,7 @@ git config --global user.email "s-abdallah@zewailcity.edu.eg"
 git config --global user.name "Abdullah"
 
 # Create and switch to a new branch (e.g., "new-branch-name")
-git checkout -b ASVspoof_train
+git checkout -b RFP_train
 
 
 # Initialize the Git repository
@@ -18,7 +18,7 @@ git commit -m " Initial commit v0.0 for RFP_train branch"
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
 # Push the new branch to GitHub and set it to track the remote branch
-git push -u origin ASVspoof_train
+git push -u origin RFP_train
 
 
 
