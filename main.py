@@ -17,7 +17,7 @@ def main():
     wandb.login(key=wandb_api_key,relogin=True,force=True)
 
     # wandb.init(project='partial_spoof_demo')
-    project_name='ASVspoof2019_Wav2Vec2_Conformer_binary_classifier'
+    project_name='RFP_Wav2Vec2_Conformer_binary_classifier'
 
     sweep_config = {
         'method': 'bayes',
