@@ -1,26 +1,27 @@
 set -x
 	
-FILE_NAMEs="LA"
+FILE_NAMEs="RFP_Norm"
 
 
 for file in ${FILE_NAMEs}; do
-    link="https://datashare.ed.ac.uk/bitstream/handle/10283/3336/LA.zip?sequence=3&isAllowed=y"
+    # link="https://drive.usercontent.google.com/download?id=1GcfhXl2QEWvw98Fdh1vksezS58zohqxP&export=download&authuser=1"
+    link="https://zenodo.org/records/10202142/files/RFP_Norm.zipx?download=1"
 
-    if [ ! -d ./database/ASVspoof2019/${file} ] && [ ! -d ./database/${file}/flac ]; then
-    # if [ ! -d ./database/ASVspoof2019/${file} ]; then
-        echo -e "${RED}Downloading PartialSpoof ${name}"
+    if [ ! -d ./database/RFP_database/${file} ] && [ ! -d ./database/${file}/flac ]; then
+    # if [ ! -d ./database/RFP/${file} ]; then
+        echo -e "${RED}Downloading RFP_database ${name}"
 	echo ${link}
         wget -q --show-progress -c ${link} -O ${file}.zip
         # unzip -q ${file} -d LA
-        UNZIP_FOLDER_PATH="./database/ASVspoof2019/"${file}""
+        UNZIP_FOLDER_PATH="./database/RFP_database/"${file}""
         mkdir -p "$UNZIP_FOLDER_PATH"
-        unzip -q ${file} -d "$UNZIP_FOLDER_PATH"
-        rm ${file}.zip
+        # unzip -q ${file} -d "$UNZIP_FOLDER_PATH"
+        # rm ${file}.zip
 
     fi
 done
 
-echo 'We have ASVspoof2019 LA database now'
+echo 'We have RFP database now'
 
 
 

@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==================== ENV with GPU ==============================
 # git clone -b <branch> <remote_repo>
-# git clone -b ASVspoof_train  https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
+# git clone -b RFP_train  https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 # ========================
 # git fetch origin
 # git reset --hard origin/<branch_name>
@@ -51,7 +51,7 @@ if [ $retVal -ne 0 ]; then
     
     # make empty folders if not available
     python -c "import os; os.makedirs('database', exist_ok=True)"
-    python -c "import os; os.makedirs('database/ASVspoof2019', exist_ok=True)"
+    python -c "import os; os.makedirs('database/RFP', exist_ok=True)"
     python -c "import os; os.makedirs('models', exist_ok=True)"
     python -c "import os; os.makedirs('models/back_end_models', exist_ok=True)"
     python -c "import os; os.makedirs('outputs', exist_ok=True)"
