@@ -13,7 +13,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " different-sweep-1 setup configuration"
+git commit -m " leafy-sweep-1 setup saving training  configuration "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

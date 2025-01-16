@@ -12,7 +12,7 @@ for file in ${FILE_NAMEs}; do
 	echo ${link}
         wget -q --show-progress -c ${link} -O ${file}.zip
         # unzip -q ${file} -d LA
-        UNZIP_FOLDER_PATH="./database/ASVspoof2019/"${file}""
+        UNZIP_FOLDER_PATH="./database/ASVspoof2019/"
         mkdir -p "$UNZIP_FOLDER_PATH"
         unzip -q ${file} -d "$UNZIP_FOLDER_PATH"
         rm ${file}.zip

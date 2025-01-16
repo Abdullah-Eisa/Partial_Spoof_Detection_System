@@ -230,7 +230,7 @@ def train():
                prefetch_factor=2,
                pin_memory=pin_memory,
                monitor_dev_epoch=0,
-               save_interval=10,
+               save_interval=5,
                model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
                patience=10,
                max_grad_norm=1.0,
