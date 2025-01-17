@@ -50,7 +50,7 @@ class PitchShiftTransform:
 
 
 class ASVspoof2019(Dataset):
-    def __init__(self, data_path,labels_path, transform=None,normalize=True, label_map = {"spoof": 1, "bonafide": 0}):
+    def __init__(self, data_path,labels_path, transform=None,normalize=True, label_map = {"spoof": 1, "genuine": 0}):
         super(ASVspoof2019, self).__init__()
 
         self.data_path = data_path

@@ -237,6 +237,7 @@ class EarlyStopping:
             base_path = self.path.split(".")[0]
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             model_path = f"{base_path}_{timestamp}.pth"
+            print("==================================================================")
             print(f"in EarlyStopping: model_path= {model_path}")
             # torch.save(self.best_model_wts, self.path)  # Save the model checkpoint
             torch.save(self.best_model_wts, model_path)  # Save the model checkpoint

@@ -35,7 +35,7 @@ def main():
             'LEARNING_RATE': {'values': [0.0001]},
             # 'LEARNING_RATE': {'values': [0.00021195579137608126]},
             # 'LEARNING_RATE': {'values': [2.3550643486231242e-05]},
-            'BATCH_SIZE': {'values': [8]},
+            'BATCH_SIZE': {'values': [4]},
             # 'CLASS0_WEIGHT': {'values': [0.42,0.45,0.48]},
 
         }
@@ -56,11 +56,11 @@ if __name__ == "__main__":
 
     #========================= test inference ================
     # inference(PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'))
-    
-    # inference(eval_data_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac'),
-    #     eval_labels_path = os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trl.txt'),
+
+    # inference(eval_data_path=os.path.join(os.getcwd(),'database/RFP/testing'),
+    #     eval_labels_path = os.path.join(os.getcwd(),'database/RFP/labels/ASVspoof2017_V2_eval.trl.txt'),
     #     ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt'),
-    #     PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs30_batch8_lr0.0001_20250116_022529.pth'),
+    #     PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/???????.pth'),
     #     feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0, depthwise_conv_kernel_size=31,
     #     conformer_layers=1, max_pooling_factor=3,
     #     BATCH_SIZE=16, num_workers=0, prefetch_factor=None, DEVICE='cpu')

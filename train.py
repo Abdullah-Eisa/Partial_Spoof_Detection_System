@@ -204,13 +204,13 @@ def train():
 
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
     # Define training files and labels
-    train_data_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac')
+    train_data_path=os.path.join(os.getcwd(),'database/RFP/training')
     # train_data_path=os.path.join(os.getcwd(),'database/mini_database/train')
-    train_labels_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt')
+    train_labels_path=os.path.join(os.getcwd(),'database/RFP/labels/ASVspoof2017_V2_train.trl.txt')
 
-    dev_data_path=os.path.join(os.getcwd(), 'database/ASVspoof2019/LA/ASVspoof2019_LA_dev/flac')
+    dev_data_path=os.path.join(os.getcwd(), 'database/RFP/validation')
     # dev_data_path=os.path.join(os.getcwd(), 'database/mini_database/dev')
-    dev_labels_path=os.path.join(os.getcwd(), 'database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt') 
+    dev_labels_path=os.path.join(os.getcwd(), 'database/RFP/labels/ASVspoof2017_V2_dev.trl.txt') 
     ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
     
     # Call train_model with parameters from W&B sweep
