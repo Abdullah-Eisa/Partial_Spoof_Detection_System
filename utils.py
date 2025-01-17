@@ -208,7 +208,7 @@ def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_thresho
 
 
 class EarlyStopping:
-    def __init__(self, patience=10, delta=0.001, verbose=False, path=os.path.join(os.getcwd(),'models/back_end_models/best_model.pth')):
+    def __init__(self, patience=10, delta=0.001, verbose=False, path=os.path.join(os.getcwd(),'models/back_end_models/RFP_best_model.pth')):
         """
         Args:
             patience (int): Number of epochs with no improvement after which training will be stopped.

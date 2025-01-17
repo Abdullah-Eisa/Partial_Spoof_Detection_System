@@ -373,6 +373,7 @@ class BinarySpoofingClassificationModel(nn.Module):
         # Refine features before classification using the fc_refinement block
         utt_score = self.fc_refinement(x)
         return utt_score # Return the classification output
+        
     def adjust_dropout(self, epoch, total_epochs):
         # Cosine annealing for dropout probability
         return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2

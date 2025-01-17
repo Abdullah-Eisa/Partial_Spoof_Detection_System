@@ -159,7 +159,7 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
 
     # Generate a unique filename based on hyperparameters
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    model_filename = f"model_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
+    model_filename = f"RFP_model_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
     if save_feature_extractor:
         feature_extractor_filename = f"w2v_large_lv_fsh_swbd_cv_{timestamp}.pt"
         feature_extractor_save_path=os.path.join(model_save_path,feature_extractor_filename)
