@@ -1,23 +1,26 @@
 set -x
 	
-FILE_NAMEs="RFP_Norm"
+FILE_NAMEs="RFP_database"
 
 
 for file in ${FILE_NAMEs}; do
     # link="https://drive.usercontent.google.com/download?id=1GcfhXl2QEWvw98Fdh1vksezS58zohqxP&export=download&authuser=1"
-    link="https://zenodo.org/records/10202142/files/RFP_Norm.zipx?download=1"
+    # link="https://zenodo.org/records/10202142/files/RFP_Norm.zipx?download=1"
+    link="https://zenodo.org/records/14675126/files/database.zip?download=1"
 
-    if [ ! -d ./database/RFP_database/${file} ] && [ ! -d ./database/${file}/flac ]; then
+    # if [ ! -d ./database/RFP_database/${file} ] && [ ! -d ./database/${file}/flac ]; then
+    if [ ! -d ./database/RFP_database/ ]; then
     # if [ ! -d ./database/RFP/${file} ]; then
         echo -e "${RED}Downloading RFP_database ${name}"
 	echo ${link}
-        wget -q --show-progress -c ${link} -O ${file}.zip
+        wget -q --show-progress -c ${link} -O RFP_database.zip
         # unzip -q ${file} -d LA
-        UNZIP_FOLDER_PATH="./database/RFP_database/"${file}""
+        UNZIP_FOLDER_PATH="./database/"
         mkdir -p "$UNZIP_FOLDER_PATH"
-        # unzip -q ${file} -d "$UNZIP_FOLDER_PATH"
-        # rm ${file}.zip
-
+        unzip -q RFP_database.zip -d "$UNZIP_FOLDER_PATH"
+        rm RFP_database.zip
+        mv ./database/database/* ./database/RFP/
+        
     fi
 done
 

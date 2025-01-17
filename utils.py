@@ -6,6 +6,7 @@ import torch
 import wandb
 from sklearn.metrics import roc_curve
 
+from datetime import datetime
 
 def create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss):
     metrics_dict=dict()
@@ -174,7 +175,7 @@ def compute_metrics(outputs, labels):
     return utterance_eer, utterance_eer_threshold
 
 
-def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,feature_extractor_lr,backend_model_lr,dropout_prob, dev_metrics_dict=None):
+def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, backend_model_lr, feature_extractor_lr, dropout_prob, dev_metrics_dict=None):
     """Log metrics to W&B"""
     if dev_metrics_dict:
         wandb.log({
@@ -199,3 +200,51 @@ def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_thresho
             'backend_model_lr': backend_model_lr,
             'dropout_prob': dropout_prob,
         })
+
+
+
+
+
+
+
+class EarlyStopping:
+    def __init__(self, patience=10, delta=0.001, verbose=False, path=os.path.join(os.getcwd(),'models/back_end_models/best_model.pth')):
+        """
+        Args:
+            patience (int): Number of epochs with no improvement after which training will be stopped.
+            delta (float): Minimum change to qualify as an improvement.
+            verbose (bool): If True, prints a message for each validation loss improvement.
+            path (str): Path to save the best model.
+        """
+        self.patience = patience
+        self.delta = delta
+        self.verbose = verbose
+        self.path = path
+        self.counter = 0
+        self.best_loss = np.inf
+        self.early_stop = False
+        self.best_model_wts = None
+
+    def __call__(self, val_loss, model):
+        if self.best_loss - val_loss > self.delta and val_loss < 0.15:
+            self.best_loss = val_loss
+            self.counter = 0
+            if self.verbose:
+                # print(f'Validation loss decreased ({self.best_loss:.6f} --> {val_loss:.6f}). Saving model...')
+                print(f'Validation utterance_eer decreased ({self.best_loss:.6f} --> {val_loss:.6f}). Saving model...')
+            self.best_model_wts = model.state_dict()  # Save best model weights
+
+            base_path = self.path.split(".")[0]
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            model_path = f"{base_path}_{timestamp}.pth"
+            print(f"in EarlyStopping: model_path= {model_path}")
+            # torch.save(self.best_model_wts, self.path)  # Save the model checkpoint
+            torch.save(self.best_model_wts, model_path)  # Save the model checkpoint
+        else:
+            self.counter += 1
+            if self.verbose:
+                # print(f'Validation loss did not improve. Counter: {self.counter}/{self.patience}')
+                print(f'Validation utterance_eer did not improve. Counter: {self.counter}/{self.patience}')
+            if self.counter >= self.patience:
+                self.early_stop = True
+                print("Early stopping triggered.")

@@ -82,7 +82,7 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
     initialize_wandb()
 
     # # Initialize early stopping
-    # early_stopping = EarlyStopping(patience=patience, verbose=True)
+    early_stopping = EarlyStopping(patience=patience, verbose=True)
 
     # Initialize model, feature extractor, optimizer, loss function
     PS_Model, feature_extractor, optimizer = initialize_models(ssl_ckpt_path, save_feature_extractor,
@@ -136,19 +136,24 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
             total_dev_nan_counter+=dev_nan_counter
 
             if save_feature_extractor:
-                log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],optimizer.param_groups[1]['lr'],dropout_prob, dev_metrics_dict)               # Log metrics to W&B
+                log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, optimizer.param_groups[1]['lr'], optimizer.param_groups[0]['lr'],dropout_prob, dev_metrics_dict)               # Log metrics to W&B
             else:
-                log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],0,dropout_prob, dev_metrics_dict)               # Log metrics to W&B
+                log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'], 0,dropout_prob, dev_metrics_dict)               # Log metrics to W&B
 
             LR_SCHEDULER.step(dev_metrics_dict['utterance_eer'])
+            
             # Early stopping check
-            # early_stopping(dev_metrics_dict['epoch_loss'], PS_Model)
-            # if early_stopping.early_stop:
-            #     print(f"Early stopping at epoch {epoch+1}")
-            #     break
+            early_stopping(dev_metrics_dict['utterance_eer'], PS_Model)
+            if early_stopping.early_stop:
+                print(f"Early stopping at epoch {epoch+1}")
+                break
 
         else:
-            log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'],optimizer.param_groups[1]['lr'],dropout_prob, dev_metrics_dict= None)         # Log metrics to W&B
+            if save_feature_extractor:
+                log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, optimizer.param_groups[1]['lr'], optimizer.param_groups[0]['lr'], dropout_prob, dev_metrics_dict= None)  
+            else:       # Log metrics to W&B
+                log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, optimizer.param_groups[0]['lr'], 0, dropout_prob, dev_metrics_dict= None)    
+                     # Log metrics to W&B
             LR_SCHEDULER.step()
 
 
@@ -230,7 +235,7 @@ def train():
                prefetch_factor=2,
                pin_memory=pin_memory,
                monitor_dev_epoch=0,
-               save_interval=10,
+               save_interval=5,
                model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
                patience=10,
                max_grad_norm=1.0,
