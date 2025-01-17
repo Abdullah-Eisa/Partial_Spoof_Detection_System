@@ -13,7 +13,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " Initial commit v0.4 for RFP_train branch"
+git commit -m "clean-sweep-1 setup training configuration for RFP_train branch"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

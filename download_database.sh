@@ -19,7 +19,8 @@ for file in ${FILE_NAMEs}; do
         mkdir -p "$UNZIP_FOLDER_PATH"
         unzip -q RFP_database.zip -d "$UNZIP_FOLDER_PATH"
         rm RFP_database.zip
-        
+
+        mkdir -p ./database/RFP/
         mv ./database/database/* ./database/RFP/
         rm -r ./database/database
     fi
