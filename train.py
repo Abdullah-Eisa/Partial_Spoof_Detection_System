@@ -90,6 +90,10 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
                       LEARNING_RATE,DEVICE)
 
 
+    checkpoint = torch.load(os.path.join(os.getcwd(),'models/back_end_models/RFP_model_epochs30_batch8_lr0.0001_20250118_020114.pth'))
+    print("loading RFP_model_epochs30_batch8_lr0.0001_20250118_020114.pth ...")
+    PS_Model.load_state_dict(checkpoint['model_state_dict'])
+
     criterion = initialize_loss_function().to(DEVICE)
 
     # Initialize data loader
@@ -224,7 +228,7 @@ def train():
                feature_dim=768, 
                num_heads=8, 
                hidden_dim=128, 
-               max_dropout=0.35,
+               max_dropout=0.2625,
                depthwise_conv_kernel_size=31, 
                conformer_layers=1, 
                max_pooling_factor=3,
@@ -237,7 +241,7 @@ def train():
                monitor_dev_epoch=0,
                save_interval=5,
                model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
-               patience=10,
+               patience=15,
                max_grad_norm=1.0,
                gamma=0.9,
                DEVICE=DEVICE)

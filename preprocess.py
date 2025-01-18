@@ -128,6 +128,7 @@ class ASVspoof2019(Dataset):
 
         # label = self.labels_dict.get(file_name)
         label = self.all_labels.get(file_name,0)
+        # label = self.all_labels.get(file_name)
         # label = torch.tensor(label, dtype=torch.int8)
         label = torch.tensor(label)
 

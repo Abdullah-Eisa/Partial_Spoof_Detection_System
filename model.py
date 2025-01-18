@@ -583,9 +583,9 @@ def adjust_dropout_prob(model, epoch, NUM_EPOCHS):
 
 def initialize_lr_scheduler(optimizer):
     """Initialize the learning rate scheduler"""
-    factor = 3/4
+    factor = 4/5
     patience = 5   # Number of epochs with no improvement after which learning rate will be reduced
     threshold=0.009
-    min_lr = 0.000005
+    min_lr = 0.00001
 
     return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=factor, patience=patience, threshold=threshold, min_lr=min_lr)
