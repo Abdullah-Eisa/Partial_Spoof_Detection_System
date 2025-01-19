@@ -52,18 +52,18 @@ if __name__ == "__main__":
     # Record the start time
     start_time = datetime.now()
 
-    main()
+    # main()
 
     #========================= test inference ================
     # inference(PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'))
 
-    # inference(eval_data_path=os.path.join(os.getcwd(),'database/RFP/testing'),
-    #     eval_labels_path = os.path.join(os.getcwd(),'database/RFP/labels/ASVspoof2017_V2_eval.trl.txt'),
-    #     ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt'),
-    #     PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/???????.pth'),
-    #     feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0, depthwise_conv_kernel_size=31,
-    #     conformer_layers=1, max_pooling_factor=3,
-    #     BATCH_SIZE=16, num_workers=0, prefetch_factor=None, DEVICE='cpu')
+    inference(eval_data_path=os.path.join(os.getcwd(),'database/RFP/testing'),
+        eval_labels_path = os.path.join(os.getcwd(),'database/RFP/labels/ASVspoof2017_V2_eval.trl.txt'),
+        ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt'),
+        PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/RFP_best_model_20250118_193348.pth'),
+        feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0, depthwise_conv_kernel_size=31,
+        conformer_layers=1, max_pooling_factor=3,
+        BATCH_SIZE=16, num_workers=0, prefetch_factor=None, DEVICE='cpu')
 
     # Record the end time
     end_time = datetime.now()

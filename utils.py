@@ -232,15 +232,15 @@ class EarlyStopping:
             if self.verbose:
                 # print(f'Validation loss decreased ({self.best_loss:.6f} --> {val_loss:.6f}). Saving model...')
                 print(f'Validation utterance_eer decreased ({self.best_loss:.6f} --> {val_loss:.6f}). Saving model...')
-            self.best_model_wts = model.state_dict()  # Save best model weights
+            # self.best_model_wts = model.state_dict()  # Save best model weights
 
             base_path = self.path.split(".")[0]
             timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
             model_path = f"{base_path}_{timestamp}.pth"
             print("==================================================================")
             print(f"in EarlyStopping: model_path= {model_path}")
-            # torch.save(self.best_model_wts, self.path)  # Save the model checkpoint
-            torch.save(self.best_model_wts, model_path)  # Save the model checkpoint
+            # torch.save(self.best_model_wts, model_path)  # Save the model checkpoint
+            torch.save({'model_state_dict': model.state_dict()}, model_path)
         else:
             self.counter += 1
             if self.verbose:

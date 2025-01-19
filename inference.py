@@ -133,6 +133,7 @@ def inference(eval_data_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/
     # PS_Model,_,_=load_checkpoint(PS_Model, optimizer, path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs30_batch8_lr0.005_20241216_013405.pth'))
     checkpoint = torch.load(PS_Model_path)
     PS_Model.load_state_dict(checkpoint['model_state_dict'])
+    # PS_Model.load_state_dict(checkpoint)
     PS_Model.eval()  # Set the model to evaluation mode
 
 
