@@ -50,8 +50,185 @@ class PitchShiftTransform:
 
 
 class ASVspoof2019(Dataset):
-    def __init__(self, data_path,labels_path, transform=None,normalize=True, label_map = {"spoof": 1, "genuine": 0}):
+    def __init__(self, data_path,labels_path, transform=None,normalize=True, label_map = {"spoof": 1, "bonafide": 0}):
         super(ASVspoof2019, self).__init__()
+
+        self.data_path = data_path
+        self.labels_path = labels_path
+        self.transform = transform
+        self.normalize = normalize
+        self.label_map = label_map
+
+        self.all_files = librosa.util.find_files(self.data_path)
+        self.all_labels= self._get_labels()
+
+
+    def __len__(self):
+        return len(self.all_files)
+
+    def _get_label(self, file_name):
+        # return self.label_map[file_name.split("_")[1]]
+        return self.label_map[file_name]
+    
+    def _get_labels(self):
+        labels_path= self.labels_path 
+            
+        # labels_dict = {}
+        labels_dict = dict()
+        # file_list=[]
+        with open(labels_path, 'r') as f:
+            file_lines = f.readlines()
+        # print("file_lines= ",file_lines)
+        for line in file_lines:
+            # print("line= ",line.strip())
+            line = line.strip()
+            if not line:continue  # Skip empty lines
+
+            try:
+                _, key, _, _, label = line.split(' ')
+                labels_dict[key] = self._get_label(label)
+            except ValueError:
+                # If there are not exactly 5 values, print a warning
+                print(f"Warning: Skipping malformed line: {line}")
+        
+        return labels_dict
+
+
+    def _normalize_waveform(self, waveform):
+        """
+        Normalize the waveform by scaling it to [-1, 1] or applying Z-score normalization.
+        Args: waveform (Tensor): The input waveform tensor.
+        Returns: Tensor: The normalized waveform.
+        """
+        # Method 1: Normalize to [-1, 1]
+        waveform = waveform / waveform.abs().max()
+        # Method 2: Z-score normalization (mean=0, std=1)
+        # waveform = (waveform - waveform.mean()) / waveform.std()
+        return waveform
+    
+    def __getitem__(self, idx):
+        file_path = self.all_files[idx]
+        base_name = os.path.basename(file_path)
+        file_name = base_name.split(".")[0]
+
+        try:
+            # waveform, sample_rate = torchaudio.load(file_path, normalize=True)
+            waveform, sample_rate = torchaudio.load(file_path, normalize=False)
+        except Exception as e:
+            print(f"Error loading audio file {file_path}: {e}")
+            return None
+        
+        # Normalize waveform if needed
+        if self.normalize:
+            waveform = self._normalize_waveform(waveform)
+
+        # Apply any other transformations if provided
+        if self.transform:
+            waveform = self.transform(waveform)
+
+        # label = self.labels_dict.get(file_name)
+        label = self.all_labels.get(file_name,0)
+        # label = torch.tensor(label, dtype=torch.int8)
+        label = torch.tensor(label)
+
+        return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
+    
+    # def collate_fn(self, samples):
+    #     return default_collate(samples)
+        
+    
+
+
+class PartialSpoofDataset(Dataset):
+    def __init__(self, directory,labels_path, transform=None,normalize=True):
+        """
+        Args:
+            directory (str): Path to the directory containing the audio files.
+            labels_dict (dict): Dictionary of labels for each audio file.
+            save_dir (str): Path to the directory where the extracted features will be saved.
+            tokenizer (callable): A tokenizer for preprocessing the audio data.
+            feature_extractor (callable): Feature extractor model (e.g., from HuggingFace).
+            transform (callable, optional): Optional transform to apply to the waveform.
+            normalize (bool, optional): Whether to normalize the waveform. Default is True.
+        """
+        super(PartialSpoofDataset, self).__init__()
+
+
+        self.directory = directory
+        self.labels_path = labels_path
+        self.labels_dict = self._get_labels()
+        # self.save_dir = save_dir
+        # self.tokenizer = tokenizer
+        # self.feature_extractor = feature_extractor
+        self.transform = transform
+        self.normalize = normalize
+        self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')]
+
+        # Ensure the save directory exists
+        # os.makedirs(save_dir, exist_ok=True)
+
+    def __len__(self):
+        return len(self.file_list)
+
+    def _get_labels(self):
+        return load_json_dictionary(self.labels_path)
+
+    def normalize_waveform(self, waveform):
+        """
+        Normalize the waveform by scaling it to [-1, 1] or applying Z-score normalization.
+        
+        Args:
+            waveform (Tensor): The input waveform tensor.
+        
+        Returns:
+            Tensor: The normalized waveform.
+        """
+        # Method 1: Normalize to [-1, 1]
+        waveform = waveform / waveform.abs().max()
+
+        # Method 2: Z-score normalization (mean=0, std=1)
+        # waveform = (waveform - waveform.mean()) / waveform.std()
+
+        return waveform
+    
+    def __getitem__(self, idx):
+        file_name = self.file_list[idx]
+        file_path = os.path.join(self.directory, file_name)
+
+        try:
+            # waveform, sample_rate = torchaudio.load(file_path, normalize=True)
+            waveform, sample_rate = torchaudio.load(file_path, normalize=False)
+        except Exception as e:
+            print(f"Error loading audio file {file_path}: {e}")
+            return None
+        
+        # Normalize waveform if needed
+        if self.normalize:
+            waveform = self.normalize_waveform(waveform)
+
+        # Apply any other transformations if provided
+        if self.transform:
+            waveform = self.transform(waveform)
+
+        # Return raw waveform and sample rate
+        file_name = file_name.split('.')[0]
+        # label = self.labels_dict.get(file_name).astype(int)
+        label = self.labels_dict.get(file_name)
+        # label = torch.tensor(label, dtype=torch.int8)
+        label = torch.tensor(label)
+
+        return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
+    
+
+
+
+
+
+
+
+class RFP_Dataset(Dataset):
+    def __init__(self, data_path,labels_path, transform=None,normalize=True, label_map = {"spoof": 1, "genuine": 0}):
+        super(RFP_Dataset, self).__init__()
 
         self.data_path = data_path
         self.labels_path = labels_path
@@ -136,8 +313,13 @@ class ASVspoof2019(Dataset):
     
     # def collate_fn(self, samples):
     #     return default_collate(samples)
-    
-    
+
+
+
+
+# ============================================================================================
+# ============================================================================================
+# ============================================================================================
 
 
 
@@ -158,7 +340,7 @@ def custom_collate_fn(batch):
 
 
 
-def initialize_data_loader(data_path, labels_path,BATCH_SIZE=32, shuffle=True, num_workers=0, prefetch_factor=None,pin_memory=False,apply_transform=False):
+def initialize_data_loader(dataset_name,data_path, labels_path,BATCH_SIZE=32, shuffle=True, num_workers=0, prefetch_factor=None,pin_memory=False,apply_transform=False):
     """Initialize and return the training data loader"""
 
         # If multiprocessing is used, set start method to 'spawn' (for avoiding pickling issues)
@@ -168,26 +350,27 @@ def initialize_data_loader(data_path, labels_path,BATCH_SIZE=32, shuffle=True, n
         else:  # Unix-based (Linux, macOS, etc.)
             mp.set_start_method('fork', force=True)
     
-    # Create the dataset instance
-    combined_dataset = ASVspoof2019(data_path, labels_path)
-    
-    if apply_transform:
-        # Apply pitch shift transform
-        pitch_shift_transform = PitchShiftTransform(sample_rate=16000, pitch_shift_prob=1.0, pitch_shift_steps=(-2, 2))
 
-        # # Initialize the dataset with the transform
-        augmented_dataset = ASVspoof2019(
-            directory=data_path,
-            labels_dict=labels_path,
-            transform=pitch_shift_transform  # Apply pitch shift as part of the dataset transform
-        )
+    if dataset_name == "RFP_Dataset":
+        print("You selected RFP_Dataset.")
+        audio_dataset = RFP_Dataset(data_path, labels_path)
 
-        # Combine datasets
-        combined_dataset = ConcatDataset([combined_dataset, augmented_dataset])
+    elif dataset_name == "PartialSpoof_Dataset":
+        print("You selected PartialSpoof_Dataset.")
+        audio_dataset = PartialSpoofDataset(data_path, labels_path)
+
+    elif dataset_name == "ASVspoof2019_Dataset":
+        print("You selected ASVspoof2019_Dataset.")
+        audio_dataset = ASVspoof2019(data_path, labels_path)
+
+    else:
+        print("Invalid dataset name selected.")
+
+
 
     # Create the DataLoader
     return DataLoader(
-        combined_dataset,
+        audio_dataset,
         batch_size=BATCH_SIZE, 
         shuffle=shuffle, 
         num_workers=num_workers, 

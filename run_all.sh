@@ -2,7 +2,7 @@ git config --global user.email "s-abdallah@zewailcity.edu.eg"
 git config --global user.name "Abdullah"
 
 # Create and switch to a new branch (e.g., "new-branch-name")
-git checkout -b RFP_train
+git checkout -b main
 
 
 # Initialize the Git repository
@@ -13,12 +13,12 @@ git init
 git add *
 
 # Commit your changes
-git commit -m "crimson-sweep-1 setup training configuration for RFP_train branch"
+git commit -m "modify the last commit from RFP_train branch to include dataloaders for different datasets , move model testing to inference.py , modify function parameters in the train.py and inference.py to be in json like format"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
 # Push the new branch to GitHub and set it to track the remote branch
-git push -u origin RFP_train
+git push -u origin main
 
 
 

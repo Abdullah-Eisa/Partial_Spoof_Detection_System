@@ -69,7 +69,7 @@ def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion
     return epoch_loss, utterance_predictions, utterance_labels, files_names, nan_count
 
 # ===========================================================================================================================
-def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_path, ssl_ckpt_path,apply_transform,
+def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, dev_labels_path, ssl_ckpt_path,apply_transform,
                 save_feature_extractor=False,feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0.2,
                 depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3,LEARNING_RATE=0.0001,
                 BATCH_SIZE=32,NUM_EPOCHS=1, num_workers=0, prefetch_factor=None,
@@ -97,7 +97,7 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
     criterion = initialize_loss_function().to(DEVICE)
 
     # Initialize data loader
-    train_loader = initialize_data_loader(train_data_path, train_labels_path,BATCH_SIZE, True, num_workers, prefetch_factor,pin_memory,apply_transform)
+    train_loader = initialize_data_loader(dataset_name,train_data_path, train_labels_path,BATCH_SIZE, True, num_workers, prefetch_factor,pin_memory,apply_transform)
     # train_labels_dict= load_json_dictionary(train_labels_path)
     # train_labels_dict= load_labels_txt2dict(train_labels_path)
 
@@ -131,7 +131,7 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
 
         # Validation step (optional)
         if (epoch + 1) >= monitor_dev_epoch:
-            dev_data_loader=initialize_data_loader(dev_data_path, dev_labels_path,BATCH_SIZE,False,num_workers, prefetch_factor,pin_memory)
+            dev_data_loader=initialize_data_loader(dataset_name,dev_data_path, dev_labels_path,BATCH_SIZE,False,num_workers, prefetch_factor,pin_memory)
             # dev_labels_dict= load_json_dictionary(dev_labels_path)
             # dev_labels_dict= load_labels_txt2dict(dev_labels_path)
             print(f"train_loader: {len(train_loader)} , dev_data_loader: {len(dev_data_loader)}")
@@ -163,7 +163,7 @@ def train_model(train_data_path, train_labels_path,dev_data_path, dev_labels_pat
 
     # Generate a unique filename based on hyperparameters
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    model_filename = f"RFP_model_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
+    model_filename = f"{dataset_name}_model_epochs{NUM_EPOCHS}_batch{BATCH_SIZE}_lr{LEARNING_RATE}_{timestamp}.pth"
     if save_feature_extractor:
         feature_extractor_filename = f"w2v_large_lv_fsh_swbd_cv_{timestamp}.pt"
         feature_extractor_save_path=os.path.join(model_save_path,feature_extractor_filename)
@@ -196,56 +196,34 @@ def train():
     # Initialize W&B
     # wandb.init(project='partial_spoof_Wav2Vec2_Conformer_binary_classifier')
     initialize_wandb()
-
     # Extract parameters from W&B configuration
     config = wandb.config
     
-    # Get Device
-    use_cuda= True
-    use_cuda =  use_cuda and torch.cuda.is_available()
-    DEVICE = torch.device("cuda" if use_cuda else "cpu")
-    print(f'device: {DEVICE}')
-
-    pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
-    # Define training files and labels
-    train_data_path=os.path.join(os.getcwd(),'database/RFP/training')
-    # train_data_path=os.path.join(os.getcwd(),'database/mini_database/train')
-    train_labels_path=os.path.join(os.getcwd(),'database/RFP/labels/ASVspoof2017_V2_train.trl.txt')
-
-    dev_data_path=os.path.join(os.getcwd(), 'database/RFP/validation')
-    # dev_data_path=os.path.join(os.getcwd(), 'database/mini_database/dev')
-    dev_labels_path=os.path.join(os.getcwd(), 'database/RFP/labels/ASVspoof2017_V2_dev.trl.txt') 
-    ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
-    
-    # Call train_model with parameters from W&B sweep
-    train_model(train_data_path=train_data_path, 
-               train_labels_path=train_labels_path,
-               dev_data_path=dev_data_path, 
-               dev_labels_path=dev_labels_path, 
-               ssl_ckpt_path=ssl_ckpt_path,
-               apply_transform=False,
-               save_feature_extractor=False,
-               feature_dim=768, 
-               num_heads=8, 
-               hidden_dim=128, 
-               max_dropout=0.2625,
-               depthwise_conv_kernel_size=31, 
-               conformer_layers=1, 
-               max_pooling_factor=3,
-               LEARNING_RATE=config.LEARNING_RATE,
-               BATCH_SIZE=config.BATCH_SIZE,
-               NUM_EPOCHS=config.NUM_EPOCHS, 
-               num_workers=8, 
-               prefetch_factor=2,
-               pin_memory=pin_memory,
-               monitor_dev_epoch=0,
-               save_interval=5,
-               model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
-               patience=15,
-               max_grad_norm=1.0,
-               gamma=0.9,
-               DEVICE=DEVICE)
-    
-
-
-
+    train_model(dataset_name=config.dataset_name,
+                train_data_path=config.train_data_path, 
+                train_labels_path=config.train_labels_path,
+                dev_data_path=config.dev_data_path, 
+                dev_labels_path=config.dev_labels_path, 
+                ssl_ckpt_path=config.ssl_ckpt_path,
+                apply_transform=config.apply_transform,
+                save_feature_extractor=config.save_feature_extractor,
+                feature_dim=config.feature_dim, 
+                num_heads=config.num_heads, 
+                hidden_dim=config.hidden_dim, 
+                max_dropout=config.max_dropout,
+                depthwise_conv_kernel_size=config.depthwise_conv_kernel_size, 
+                conformer_layers=config.conformer_layers, 
+                max_pooling_factor=config.max_pooling_factor,
+                LEARNING_RATE=config.learning_rate,
+                BATCH_SIZE=config.batch_size,
+                NUM_EPOCHS=config.num_epochs, 
+                num_workers=config.num_workers, 
+                prefetch_factor=config.prefetch_factor,
+                pin_memory=config.pin_memory,
+                monitor_dev_epoch=config.monitor_dev_epoch,
+                save_interval=config.save_interval,
+                model_save_path=config.model_save_path,
+                patience=config.patience,
+                max_grad_norm=config.max_grad_norm,
+                gamma=config.gamma,
+                DEVICE=config.device)

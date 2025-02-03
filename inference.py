@@ -93,13 +93,10 @@ def inference_helper(model, feature_extractor,criterion,
 
 
 
-def inference(eval_data_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac'),
-    eval_labels_path = os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trn.txt'),
-    ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt'),
-    PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'),
-    feature_dim=768,num_heads=8,hidden_dim=128,max_dropout=0,depthwise_conv_kernel_size=31,
-    conformer_layers=1,max_pooling_factor=3,
-    BATCH_SIZE=16, num_workers=0, prefetch_factor=None, DEVICE='cpu'):
+def inference(dataset_name,eval_data_path,eval_labels_path ,ssl_ckpt_path,PS_Model_path,
+    feature_dim,num_heads,hidden_dim,max_dropout,depthwise_conv_kernel_size,
+    conformer_layers,max_pooling_factor,
+    BATCH_SIZE, num_workers, prefetch_factor, DEVICE):
 
     print("infer_model is working ... ")
     # Get Device
@@ -109,13 +106,13 @@ def inference(eval_data_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/
     print(f'inference device: {DEVICE}')
 
     # Define your paths and other fixed arguments
-    BASE_DIR = os.getcwd()
+    # BASE_DIR = os.getcwd()
 
     # Define training files and labels
     # eval_labels_dict= load_json_dictionary(eval_labels_path)
     # eval_labels_dict= load_labels_txt2dict(eval_labels_path)
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
-    eval_data_loader = initialize_data_loader(eval_data_path, eval_labels_path,BATCH_SIZE,False, num_workers, prefetch_factor,pin_memory)
+    eval_data_loader = initialize_data_loader(dataset_name, eval_data_path, eval_labels_path,BATCH_SIZE,False, num_workers, prefetch_factor,pin_memory)
 
 
     # Load feature extractor
@@ -243,15 +240,30 @@ if __name__ == "__main__":
     # Record the start time
     start_time = datetime.now()
 
-    inference(PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'))
+    # Choose the dataset to train on
+    dataset_namses_set= ['RFP_Dataset','PartialSpoof_Dataset','ASVspoof2019_Dataset']
+    dataset_name=dataset_namses_set[1]
+    params = {
+        'dataset_name': dataset_name,
+        'eval_data_path': os.path.join(os.getcwd(),'database/eval/con_wav}'),
+        'eval_labels_path': os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),
+        'ssl_ckpt_path': os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt'),
+        'PS_Model_path': os.path.join(os.getcwd(),f'models/back_end_models/RFP_model_epochs26_batch8_lr0.00075_20250119_025126.pth'),
+        'feature_dim': 768,
+        'num_heads': 8,
+        'hidden_dim': 128,
+        'max_dropout': 0.0,
+        'depthwise_conv_kernel_size': 31,
+        'conformer_layers': 1,
+        'max_pooling_factor': 3,
+        'BATCH_SIZE': 16,
+        'num_workers': 8,
+        'prefetch_factor': 2,
+        'DEVICE': 'cuda' if torch.cuda.is_available() else 'cpu'
+    }
 
-    # inference(eval_data_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac'),
-    #     eval_labels_path = os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trn.txt'),
-    #     ssl_ckpt_path=os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt'),
-    #     PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/model_epochs60_batch8_lr0.005_20241226_214707.pth'),
-    #     feature_dim=768,num_heads=8,hidden_dim=128,max_dropout=0,depthwise_conv_kernel_size=31,
-    #     conformer_layers=1,max_pooling_factor=3,
-    #     BATCH_SIZE=16, num_workers=0, prefetch_factor=None, DEVICE='cpu')
+    # Call inference function, unpacking the dictionary
+    inference(**params)
 
     # Record the end time
     end_time = datetime.now()

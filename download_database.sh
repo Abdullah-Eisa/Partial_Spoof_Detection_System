@@ -1,55 +1,90 @@
+#!/bin/bash
 set -x
-	
-FILE_NAMEs="RFP_database"
 
+# Prompt the user to choose a database
+echo "Select the database you want to download:"
+echo "1) RFP_database"
+echo "2) PartialSpoof"
+echo "3) ASVspoof2019 LA"
+read -p "Enter the number of your choice: " db_choice
 
-for file in ${FILE_NAMEs}; do
-    # link="https://drive.usercontent.google.com/download?id=1GcfhXl2QEWvw98Fdh1vksezS58zohqxP&export=download&authuser=1"
-    # link="https://zenodo.org/records/10202142/files/RFP_Norm.zipx?download=1"
-    link="https://zenodo.org/records/14675126/files/database.zip?download=1"
+case $db_choice in
+    1)
+        echo "You chose to download the RFP_database."
 
-    # if [ ! -d ./database/RFP_database/${file} ] && [ ! -d ./database/${file}/flac ]; then
-    if [ ! -d ./database/RFP_database/ ]; then
-    # if [ ! -d ./database/RFP/${file} ]; then
-        echo -e "${RED}Downloading RFP_database ${name}"
-	echo ${link}
-        wget -q --show-progress -c ${link} -O RFP_database.zip
-        # unzip -q ${file} -d LA
-        UNZIP_FOLDER_PATH="./database/"
-        mkdir -p "$UNZIP_FOLDER_PATH"
-        unzip -q RFP_database.zip -d "$UNZIP_FOLDER_PATH"
-        rm RFP_database.zip
+        FILE_NAMEs="RFP_database"
+        for file in ${FILE_NAMEs}; do
+            link="https://zenodo.org/records/14675126/files/database.zip?download=1"
 
-        mkdir -p ./database/RFP/
-        mv ./database/database/* ./database/RFP/
-        rm -r ./database/database
-    fi
-done
+            if [ ! -d ./database/RFP_database/ ]; then
+                echo -e "${RED}Downloading RFP_database ${file}"
+                echo ${link}
+                wget -q --show-progress -c ${link} -O RFP_database.zip
+                UNZIP_FOLDER_PATH="./database/"
+                mkdir -p "$UNZIP_FOLDER_PATH"
+                unzip -q RFP_database.zip -d "$UNZIP_FOLDER_PATH"
+                rm RFP_database.zip
 
-echo 'We have RFP database now'
+                mkdir -p ./database/RFP/
+                mv ./database/database/* ./database/RFP/
+                rm -r ./database/database
+            fi
+        done
 
+        echo 'We have RFP database now'
+        ;;
 
+    2)
+        echo "You chose to download the PartialSpoof database."
 
-# #!/bin/bash
-# set -x
-	
-# # FILE_NAMEs="train dev eval segment_labels_v1.2 protocols"
-# FILE_NAMEs="train segment_labels_v1.2 dev protocols eval"
-# # FILE_NAMEs="train dev segment_labels_v1.2 protocols"
-# # FILE_NAMEs="eval"
+        FILE_NAMEs="train segment_labels_v1.2 dev protocols eval"
+        TARGET_DIR="./database/PartialSpoof"  # Specify your target directory here
 
+        # Create the target directory if it doesn't exist
+        mkdir -p $TARGET_DIR
 
-# for file in ${FILE_NAMEs}; do
+        for file in ${FILE_NAMEs}; do
+            link="https://zenodo.org/record/5766198/files/database_"${file}".tar.gz?download=1"
+            if [ ! -d $TARGET_DIR/${file} ] && [ ! -d $TARGET_DIR/${file}/con_wav ]; then
+                echo -e "${RED}Downloading PartialSpoof ${file}"
+                echo ${link}
+                wget -q --show-progress -c ${link} -O  database_${file}.tar.gz
+                
+                # Extract the tar.gz file to the specified directory
+                tar -zxvf database_${file}.tar.gz -C $TARGET_DIR
+                
+                # Clean up the tar.gz file after extraction
+                rm database_${file}.tar.gz
+            fi
+        done
+        # remove any labels except for 0.64 resolution
+        find /root/Partial_Spoof_Detection_System/database/segment_labels  -type f ! -name '*0.64*' -exec rm {} +
 
-#     link="https://zenodo.org/record/5766198/files/database_"${file}".tar.gz?download=1"
-#     if [ ! -d ./database/${file} ] && [ ! -d ./database/${file}/con_wav ]; then
-#         echo -e "${RED}Downloading PartialSpoof ${name}"
-# 	echo ${link}
-#         wget -q --show-progress -c ${link} -O  database_${file}.tar.gz
-#         tar -zxvf database_${file}.tar.gz
-#         rm database_${file}.tar.gz
-#     fi
-# done
-# # remove any labels except for 0.64 resolution
-# find /root/Partial_Spoof_Detection_System/database/segment_labels  -type f ! -name '*0.64*' -exec rm {} +
-# echo 'We have PartialSpoof database now'
+        echo 'We have PartialSpoof database now'
+        ;;
+
+    3)
+        echo "You chose to download the ASVspoof2019 LA database."
+
+        FILE_NAMEs="LA"
+        for file in ${FILE_NAMEs}; do
+            link="https://datashare.ed.ac.uk/bitstream/handle/10283/3336/LA.zip?sequence=3&isAllowed=y"
+
+            if [ ! -d ./database/ASVspoof2019/${file} ] && [ ! -d ./database/${file}/flac ]; then
+                echo -e "${RED}Downloading ASVspoof2019 LA ${file}"
+                echo ${link}
+                wget -q --show-progress -c ${link} -O ${file}.zip
+                UNZIP_FOLDER_PATH="./database/ASVspoof2019/"
+                mkdir -p "$UNZIP_FOLDER_PATH"
+                unzip -q ${file} -d "$UNZIP_FOLDER_PATH"
+                rm ${file}.zip
+            fi
+        done
+
+        echo 'We have ASVspoof2019 LA database now'
+        ;;
+
+    *)
+        echo "Invalid choice. Please select a valid option (1, 2, or 3)."
+        ;;
+esac
