@@ -239,13 +239,13 @@ if __name__ == "__main__":
     print("SA, inference.py file !")
     # Record the start time
     start_time = datetime.now()
-
+# /root/Partial_Spoof_Detection_System/database/PartialSpoof/database/eval
     # Choose the dataset to train on
     dataset_namses_set= ['RFP_Dataset','PartialSpoof_Dataset','ASVspoof2019_Dataset']
     dataset_name=dataset_namses_set[1]
     params = {
         'dataset_name': dataset_name,
-        'eval_data_path': os.path.join(os.getcwd(),'database/eval/con_wav}'),
+        'eval_data_path': os.path.join(os.getcwd(),'database/PartialSpoof/database/eval/con_wav'),
         'eval_labels_path': os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json'),
         'ssl_ckpt_path': os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt'),
         'PS_Model_path': os.path.join(os.getcwd(),f'models/back_end_models/RFP_model_epochs26_batch8_lr0.00075_20250119_025126.pth'),

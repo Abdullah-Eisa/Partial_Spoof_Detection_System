@@ -90,9 +90,9 @@ def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, d
                       LEARNING_RATE,DEVICE)
 
 
-    checkpoint = torch.load(os.path.join(os.getcwd(),'models/back_end_models/RFP_model_epochs30_batch8_lr0.0001_20250118_020114.pth'))
-    print("loading RFP_model_epochs30_batch8_lr0.0001_20250118_020114.pth ...")
-    PS_Model.load_state_dict(checkpoint['model_state_dict'])
+    # checkpoint = torch.load(os.path.join(os.getcwd(),'models/back_end_models/RFP_model_epochs30_batch8_lr0.0001_20250118_020114.pth'))
+    # print("loading RFP_model_epochs30_batch8_lr0.0001_20250118_020114.pth ...")
+    # PS_Model.load_state_dict(checkpoint['model_state_dict'])
 
     criterion = initialize_loss_function().to(DEVICE)
 
@@ -214,9 +214,9 @@ def train():
                 depthwise_conv_kernel_size=config.depthwise_conv_kernel_size, 
                 conformer_layers=config.conformer_layers, 
                 max_pooling_factor=config.max_pooling_factor,
-                LEARNING_RATE=config.learning_rate,
-                BATCH_SIZE=config.batch_size,
-                NUM_EPOCHS=config.num_epochs, 
+                LEARNING_RATE=config.LEARNING_RATE,
+                BATCH_SIZE=config.BATCH_SIZE,
+                NUM_EPOCHS=config.NUM_EPOCHS, 
                 num_workers=config.num_workers, 
                 prefetch_factor=config.prefetch_factor,
                 pin_memory=config.pin_memory,

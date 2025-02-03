@@ -18,7 +18,7 @@ def main():
 
     # Choose the dataset to train on
     dataset_namses_set= ['RFP_Dataset','PartialSpoof_Dataset','ASVspoof2019_Dataset']
-    dataset_name=dataset_namses_set[0]
+    dataset_name=dataset_namses_set[1]
 
     sweep_config = {
         'method': 'bayes',
@@ -39,10 +39,10 @@ def main():
 
             # Add additional parameters here
             'dataset_name': {'value': dataset_name},  # Changed to lowercase
-            'train_data_path': {'value': os.path.join(os.getcwd(),'database/RFP/training')},  # Changed to lowercase
-            'train_labels_path': {'value': os.path.join(os.getcwd(),'database/RFP/labels/ASVspoof2017_V2_train.trl.txt')},  # Changed to lowercase
-            'dev_data_path': {'value': os.path.join(os.getcwd(), 'database/RFP/validation')},  # Changed to lowercase
-            'dev_labels_path': {'value': os.path.join(os.getcwd(), 'database/RFP/labels/ASVspoof2017_V2_dev.trl.txt')},  # Changed to lowercase
+            'train_data_path': {'value': os.path.join(os.getcwd(),'database/PartialSpoof/database/train/con_wav')},  # Changed to lowercase
+            'train_labels_path': {'value': os.path.join(os.getcwd(),'database/utterance_labels/PartialSpoof_LA_cm_train_trl.json')},  # Changed to lowercase
+            'dev_data_path': {'value': os.path.join(os.getcwd(), 'database/PartialSpoof/database/dev/con_wav')},  # Changed to lowercase
+            'dev_labels_path': {'value': os.path.join(os.getcwd(), 'database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json')},  # Changed to lowercase
             'ssl_ckpt_path': {'value': os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')},  # Added path to SSL checkpoint
             'apply_transform': {'value': False},  # Added boolean parameter
             'save_feature_extractor': {'value': False},  # Added boolean parameter

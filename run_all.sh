@@ -13,7 +13,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m "modify the last commit from RFP_train branch to include dataloaders for different datasets , move model testing to inference.py , modify function parameters in the train.py and inference.py to be in json like format"
+git commit -m " correct some syntax errors in paths , hyperparameters names"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
