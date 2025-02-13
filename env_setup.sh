@@ -9,8 +9,6 @@
 # conda activate ${ENVNAME}
 # conda env create -f environment.yml
 
-# Install dependency for ps_scratch environment
-
 # Name of the conda environment
 ENVNAME=ps
 

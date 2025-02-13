@@ -14,7 +14,7 @@ import torchaudio.models as tam
 
 import torch.nn.init as torch_init
 
-
+# code adapted from: https://github.com/nii-yamagishilab/PartialSpoof/blob/847347aaec6f65c3c6d2f17c63515b826b94feb3/project-NN-Pytorch-scripts.202102/sandbox/block_nn.py#L709
 class SelfWeightedPooling(torch_nn.Module):
     """ SelfWeightedPooling module
     Inspired by
@@ -141,7 +141,7 @@ class SelfWeightedPooling(torch_nn.Module):
 
 
 # ============================================================================================
-# ============================================================================================
+# code adapted from: https://pytorch.org/torchtune/stable/_modules/torchtune/modules/position_embeddings.html
 
 from typing import Optional
 
@@ -263,11 +263,8 @@ class RotaryPositionalEmbeddings(nn.Module):
 
 # ============================================================================================
 # ============================================================================================
-# ============================================================================================
-# ============================================================================================
+# binary classification model with Rotary Positional Encoding and max pooling after feature extractor
 
-
-# binary classification model  max pooling after feature extractor
 class BinarySpoofingClassificationModel(nn.Module):
     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3):
         super(BinarySpoofingClassificationModel, self).__init__()
@@ -291,7 +288,7 @@ class BinarySpoofingClassificationModel(nn.Module):
             ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
             num_layers=conformer_layers,  # Example, adjust as needed
             depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
-            dropout=0.2,
+            dropout=0.2, # Dropout initialized with 0.2 for conformer block
             use_group_norm= False, 
             convolution_first= False
         )
@@ -318,7 +315,6 @@ class BinarySpoofingClassificationModel(nn.Module):
 
             nn.Linear(hidden_dim//4, 1),  # Final output layer
             # nn.Sigmoid(),
-            # nn.GELU(),
         )
 
 
@@ -353,17 +349,14 @@ class BinarySpoofingClassificationModel(nn.Module):
 
 
     def forward(self, x, lengths,dropout_prob):
-        # print(f" x size before conformer = {x.size()}")
         if self.max_pooling is not None:
             x = self.max_pooling(x)  # Apply max pooling
 
         # Apply Conformer model
         x, _ = self.conformer(x, lengths)  # The second returned value is the sequence lengths
-        # print(f" x size after conformer = {x.size()}")
         
         # Apply global pooling across the sequence dimension (SelfWeightedPooling)
         x = self.pooling(x)  # Now x is (batch_size, hidden_dim, 1)
-        # print(f" x size after pooling = {x.size()}")
 
         # Update the dropout probability dynamically
         self.fc_refinement[3].p = dropout_prob  # Update the dropout layer's probability
@@ -385,8 +378,8 @@ class BinarySpoofingClassificationModel(nn.Module):
 
 
 
-
-
+# ===========================================================================================================================
+# Binary Spoofing Classification Model with Rotary Positional Encoding
 # class BinarySpoofingClassificationModel(nn.Module):
 #     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3):
 #         super(BinarySpoofingClassificationModel, self).__init__()
@@ -521,10 +514,6 @@ class BinarySpoofingClassificationModel(nn.Module):
 
 # ===========================================================================================================================
 # ===========================================================================================================================
-# ===========================================================================================================================
-# ===========================================================================================================================
-# ===========================================================================================================================
-
 
 def initialize_models(ssl_ckpt_path, save_feature_extractor=False,
                       feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3, 

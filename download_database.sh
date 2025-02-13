@@ -36,7 +36,7 @@ case $db_choice in
 
     2)
         echo "You chose to download the PartialSpoof database."
-
+        # code adapted from: https://github.com/nii-yamagishilab/PartialSpoof/blob/847347aaec6f65c3c6d2f17c63515b826b94feb3/01_download_database.sh
         FILE_NAMEs="train segment_labels_v1.2 dev protocols eval"
         TARGET_DIR="./database/PartialSpoof"  # Specify your target directory here
 

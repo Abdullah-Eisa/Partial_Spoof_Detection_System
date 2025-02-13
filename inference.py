@@ -9,9 +9,7 @@ from utils import *
 from preprocess import *
 from model import *
 
-# ===========================================================================================================================
-# def inference_helper(model, feature_extractor,criterion,
-#                   test_data_loader, test_labels_dict,DEVICE='cpu'):
+
 def inference_helper(model, feature_extractor,criterion,
                   test_data_loader, DEVICE='cpu'):
     """Evaluate the model on the test set"""
@@ -31,14 +29,9 @@ def inference_helper(model, feature_extractor,criterion,
     utterance_predictions=[]
     utterance_labels=[]
     dropout_prob=0
-    # c=0
-    nan_count=0
+    nan_count=0 # To count the number of NaNs in the loss
     with torch.no_grad():
         for batch in tqdm(test_data_loader, desc="Test Batches", leave=False):
-            # if c>8:
-            #     break
-            # else:
-            #     c+=1
             waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
             labels = labels.unsqueeze(1).float()   # Converts labels from shape [batch_size] to [batch_size, 1]
@@ -71,8 +64,6 @@ def inference_helper(model, feature_extractor,criterion,
 
 
         # Get Average Utterance EER for the epoch
-        # utterance_labels =torch.tensor([test_labels_dict[file_name] for file_name in files_names])
-        # print(f'epoch {epoch} , utterance_labels: {utterance_labels}')
         utterance_labels = torch.cat(utterance_labels)
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions,utterance_labels)
@@ -108,35 +99,23 @@ def inference(dataset_name,eval_data_path,eval_labels_path ,ssl_ckpt_path,PS_Mod
     # Define your paths and other fixed arguments
     # BASE_DIR = os.getcwd()
 
-    # Define training files and labels
-    # eval_labels_dict= load_json_dictionary(eval_labels_path)
-    # eval_labels_dict= load_labels_txt2dict(eval_labels_path)
     pin_memory= True if DEVICE=='cuda' else False   # Enable page-locked memory for faster data transfer to GPU
     eval_data_loader = initialize_data_loader(dataset_name, eval_data_path, eval_labels_path,BATCH_SIZE,False, num_workers, prefetch_factor,pin_memory)
 
 
     # Load feature extractor
-    # ssl_ckpt_path = os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
-    # ssl_ckpt_name='w2v_large_lv_fsh_swbd_cv_20241223_152156.pt'
-    # ssl_ckpt_path = os.path.join(os.getcwd(), f'models/back_end_models/{ssl_ckpt_name}')
     feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
     feature_extractor.eval()
 
     # Initialize Binary Spoofing Classification Model
     PS_Model = BinarySpoofingClassificationModel(feature_dim, num_heads, hidden_dim, max_dropout, depthwise_conv_kernel_size, conformer_layers, max_pooling_factor).to(DEVICE)
-    # PS_Model_name='model_epochs60_batch8_lr0.005_20241226_214707.pth'
-    # PS_Model_path=os.path.join(os.getcwd(),f'models/back_end_models/{PS_Model_name}')
 
-    # PS_Model,_,_=load_checkpoint(PS_Model, optimizer, path=os.path.join(os.getcwd(),'models/back_end_models/model_epochs30_batch8_lr0.005_20241216_013405.pth'))
     checkpoint = torch.load(PS_Model_path)
     PS_Model.load_state_dict(checkpoint['model_state_dict'])
-    # PS_Model.load_state_dict(checkpoint)
     PS_Model.eval()  # Set the model to evaluation mode
 
-
     criterion = initialize_loss_function().to(DEVICE)
-
-
+    # call inference helper function
     inference_helper(
         model=PS_Model,
         feature_extractor=feature_extractor,
@@ -147,9 +126,6 @@ def inference(dataset_name,eval_data_path,eval_labels_path ,ssl_ckpt_path,PS_Mod
     if DEVICE=='cuda': torch.cuda.empty_cache()
 
 
-# ===========================================================================================================================
-# def dev_one_epoch(model, feature_extractor,criterion,
-#                   dev_data_loader, dev_labels_dict,dropout_prob=0,DEVICE='cpu'):
 def dev_one_epoch(model, feature_extractor,criterion,
                   dev_data_loader,dropout_prob=0,DEVICE='cpu'):
     """Evaluate the model on the development set"""
@@ -169,27 +145,20 @@ def dev_one_epoch(model, feature_extractor,criterion,
     utterance_eer, utterance_eer_threshold=0,0
     utterance_predictions=[]
     utterance_labels=[]
-    c=0
-    nan_count=0
+    nan_count=0 # To count the number of NaNs in the loss
     with torch.no_grad():
         for batch in tqdm(dev_data_loader, desc="Dev Batches", leave=False):
-            # if c>8:
-            #     break
-            # else:
-            #     c+=1
             waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
             labels = labels.unsqueeze(1).float()   # Converts labels from shape [batch_size] to [batch_size, 1]
 
             # Forward pass through wav2vec2 for feature extraction
             features = feature_extractor(waveforms)['hidden_states'][-1] 
-             # print(f'type {type(features)}  with size {features.size()} , features= {features}')
 
             # lengths should be the number of non-padded frames in each sequence
             lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
 
             # Pass features to model and get predictions
-            # outputs = PS_Model(features,lengths,dropout_prob)
             outputs = forward_pass(model, features, lengths, dropout_prob)
 
             # Calculate loss
@@ -206,16 +175,12 @@ def dev_one_epoch(model, feature_extractor,criterion,
             epoch_loss += loss.item()
 
             with torch.no_grad():
-                # Calculate utterance predictions
-                utterance_predictions.extend(outputs)
+                utterance_predictions.extend(outputs)                 # Calculate utterance predictions
                 utterance_labels.extend(labels)
-                # Accumulate files names
-                files_names.extend(batch['file_name'])
+                files_names.extend(batch['file_name'])                 # Accumulate files names
 
 
         # Get Average Utterance EER for the epoch
-        # utterance_labels =torch.tensor([dev_labels_dict[file_name] for file_name in files_names])
-        # print(f'epoch {epoch} , utterance_labels: {utterance_labels}')
         utterance_labels = torch.cat(utterance_labels)
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions,utterance_labels)
@@ -236,10 +201,11 @@ def dev_one_epoch(model, feature_extractor,criterion,
 
 
 if __name__ == "__main__":
+    # test inference function
     print("SA, inference.py file !")
     # Record the start time
     start_time = datetime.now()
-# /root/Partial_Spoof_Detection_System/database/PartialSpoof/database/eval
+
     # Choose the dataset to train on
     dataset_namses_set= ['RFP_Dataset','PartialSpoof_Dataset','ASVspoof2019_Dataset']
     dataset_name=dataset_namses_set[1]

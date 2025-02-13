@@ -5,9 +5,11 @@ import numpy as np
 import torch
 import wandb
 from sklearn.metrics import roc_curve
+import json
 
 from datetime import datetime
 
+# Define some utility functions used in the project
 def create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss):
     metrics_dict=dict()
     metrics_dict['utterance_eer']=utterance_eer
@@ -17,11 +19,6 @@ def create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss):
 
 
 def load_json_dictionary(path):
-  import json
-
-  # Define the path to your JSON file
-  # input_file_path = os.path.join(BASE_DIR,'PartialSpoof_LA_cm_eval_trl.json')
-
   # Load the dictionary from the JSON file
   with open(path, 'r') as json_file:
       my_dict = json.load(json_file)
@@ -35,9 +32,7 @@ def load_labels_txt2dict(path):
     # file_list=[]
     with open(path, 'r') as f:
         file_lines = f.readlines()
-    # print("file_lines= ",file_lines)
     for line in file_lines:
-        # print("line= ",line.strip())
         line = line.strip()
         if not line:continue  # Skip empty lines
 
@@ -88,16 +83,12 @@ def save_json_dictionary(path,my_dict):
 
 
 def save_checkpoint(model, optimizer, epoch, path='checkpoint.pth'):
-    # os.makedirs(os.path.dirname(path), exist_ok=True)
-
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
     }, path)
 
-import os
-import torch
 
 def load_checkpoint(model, optimizer, path='checkpoint.pth'):
     # Check if the file exists
@@ -122,14 +113,8 @@ def load_checkpoint(model, optimizer, path='checkpoint.pth'):
     # Return the model, optimizer, and epoch number
     return model, optimizer, checkpoint['epoch']
 
-
+# Code adapted from: https://github.com/YuanGongND/python-compute-eer
 def compute_eer(predictions, labels):
-
-    # Mask padding value
-    # predictions, labels =get_masked_labels_and_outputs(predictions, labels)
-    # print(f"after Mask padding value,\n nontarget_scores=\n{nontarget_scores} target_scores=\n{target_scores} ")
-    # print(f"after Masking,\n predictions= {predictions} \n labels= {labels}")
-    # Ensure scores and labels are PyTorch tensors and detach them
     predictions = predictions.detach().cpu().numpy()
     labels = labels.detach().cpu().numpy()
     
@@ -156,9 +141,6 @@ def compute_eer(predictions, labels):
         return eer, eer_threshold
 
 
-# ===========================================================================================================================
-# ===========================================================================================================================
-# ===========================================================================================================================
 # ===========================================================================================================================
 # ===========================================================================================================================
 # Modularized helper functions
@@ -200,10 +182,6 @@ def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_thresho
             'backend_model_lr': backend_model_lr,
             'dropout_prob': dropout_prob,
         })
-
-
-
-
 
 
 

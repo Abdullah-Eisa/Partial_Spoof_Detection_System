@@ -30,8 +30,6 @@ def main():
         'parameters': 
         {   
             # Hyperparameters to tune
-            # 'NUM_EPOCHS': {'values': [5, 7]},
-            # 'BATCH_SIZE': {'values': [16,32]},
             'NUM_EPOCHS': {'values': [19]},
             'LEARNING_RATE': {'values': [0.00075]},
             'BATCH_SIZE': {'values': [8]},
@@ -72,10 +70,7 @@ def main():
     project_name=f'{dataset_name}_Wav2Vec2_Conformer_binary_classifier'
 
     sweep_id = wandb.sweep(sweep=sweep_config,project=project_name)
-    # sweep_id = wandb.sweep(sweep=sweep_config)
     wandb.agent(sweep_id, function=train, count=1)
-
-
 
 
 if __name__ == "__main__":

@@ -12,6 +12,7 @@ from torch.nn.utils.rnn import pad_sequence
 import torch.multiprocessing as mp
 import librosa
 
+# Data augmentation transforms for Audio files
 class PitchShiftTransform:
     def __init__(self, sample_rate, pitch_shift_prob=0.5, pitch_shift_steps=(-3, 3)):
         """
@@ -45,9 +46,7 @@ class PitchShiftTransform:
 
 
 # ============================================================================================
-# ============================================================================================
-# ============================================================================================
-
+# ASVspoof2019 Dataset class
 
 class ASVspoof2019(Dataset):
     def __init__(self, data_path,labels_path, transform=None,normalize=True, label_map = {"spoof": 1, "bonafide": 0}):
@@ -138,16 +137,14 @@ class ASVspoof2019(Dataset):
         
     
 
-
+# PartialSpoof Dataset class
 class PartialSpoofDataset(Dataset):
     def __init__(self, directory,labels_path, transform=None,normalize=True):
         """
         Args:
             directory (str): Path to the directory containing the audio files.
-            labels_dict (dict): Dictionary of labels for each audio file.
+            labels_path (str): Path to labels for all audio files.
             save_dir (str): Path to the directory where the extracted features will be saved.
-            tokenizer (callable): A tokenizer for preprocessing the audio data.
-            feature_extractor (callable): Feature extractor model (e.g., from HuggingFace).
             transform (callable, optional): Optional transform to apply to the waveform.
             normalize (bool, optional): Whether to normalize the waveform. Default is True.
         """
@@ -157,9 +154,6 @@ class PartialSpoofDataset(Dataset):
         self.directory = directory
         self.labels_path = labels_path
         self.labels_dict = self._get_labels()
-        # self.save_dir = save_dir
-        # self.tokenizer = tokenizer
-        # self.feature_extractor = feature_extractor
         self.transform = transform
         self.normalize = normalize
         self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')]
@@ -225,7 +219,7 @@ class PartialSpoofDataset(Dataset):
 
 
 
-
+# RFP Dataset class
 class RFP_Dataset(Dataset):
     def __init__(self, data_path,labels_path, transform=None,normalize=True, label_map = {"spoof": 1, "genuine": 0}):
         super(RFP_Dataset, self).__init__()
@@ -250,14 +244,10 @@ class RFP_Dataset(Dataset):
     def _get_labels(self):
         labels_path= self.labels_path 
             
-        # labels_dict = {}
         labels_dict = dict()
-        # file_list=[]
         with open(labels_path, 'r') as f:
             file_lines = f.readlines()
-        # print("file_lines= ",file_lines)
         for line in file_lines:
-            # print("line= ",line.strip())
             line = line.strip()
             if not line:continue  # Skip empty lines
 
@@ -265,7 +255,6 @@ class RFP_Dataset(Dataset):
                 _, key, _, _, label = line.split(' ')
                 labels_dict[key] = self._get_label(label)
             except ValueError:
-                # If there are not exactly 5 values, print a warning
                 print(f"Warning: Skipping malformed line: {line}")
         
         return labels_dict
@@ -289,7 +278,6 @@ class RFP_Dataset(Dataset):
         file_name = base_name.split(".")[0]
 
         try:
-            # waveform, sample_rate = torchaudio.load(file_path, normalize=True)
             waveform, sample_rate = torchaudio.load(file_path, normalize=False)
         except Exception as e:
             print(f"Error loading audio file {file_path}: {e}")
@@ -303,10 +291,7 @@ class RFP_Dataset(Dataset):
         if self.transform:
             waveform = self.transform(waveform)
 
-        # label = self.labels_dict.get(file_name)
         label = self.all_labels.get(file_name,0)
-        # label = self.all_labels.get(file_name)
-        # label = torch.tensor(label, dtype=torch.int8)
         label = torch.tensor(label)
 
         return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
@@ -350,7 +335,7 @@ def initialize_data_loader(dataset_name,data_path, labels_path,BATCH_SIZE=32, sh
         else:  # Unix-based (Linux, macOS, etc.)
             mp.set_start_method('fork', force=True)
     
-
+    # Choose the dataset to train on and create the DataLoader
     if dataset_name == "RFP_Dataset":
         print("You selected RFP_Dataset.")
         audio_dataset = RFP_Dataset(data_path, labels_path)
@@ -382,7 +367,7 @@ def initialize_data_loader(dataset_name,data_path, labels_path,BATCH_SIZE=32, sh
 
 
 if __name__ == "__main__":
-
+    # Test the ASVspoof2019 dataset
     train_data_path=os.path.join(os.getcwd(),'database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac')
     train_labels_path=os.path.join(os.getcwd(),'database/utterance_labels/ASVspoof2019.LA.cm.train.trl.txt')
 

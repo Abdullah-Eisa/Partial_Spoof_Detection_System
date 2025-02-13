@@ -7,28 +7,23 @@ from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
-# from utils import initialize_wandb, initialize_models, initialize_loss_function, initialize_data_loader, save_checkpoint, compute_metrics, log_metrics_to_wandb
 from utils import *
 from preprocess import *
 from model import *
 from inference import dev_one_epoch
 
 # ===========================================================================================================================
+# Define training logic for one epoch
 def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion, max_grad_norm, dropout_prob=0, DEVICE='cpu'):
     """Train for one epoch"""
     model.train()
+
     epoch_loss = 0
-    # utterance_eer, utterance_eer_threshold = 0, 0
     utterance_predictions = []
     utterance_labels = []
     files_names = []
     nan_count=0
-    c=0
     for batch in tqdm(train_loader, desc="Train Batches", leave=False):
-        # if c>8:
-        #     break
-        # else:
-        #     c+=1
         waveforms = batch['waveform'].to(DEVICE)
         labels = batch['label'].to(DEVICE).unsqueeze(1).float()
 
@@ -45,7 +40,6 @@ def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion
         loss = criterion(outputs, labels)
         if torch.isnan(loss).any():
             print(f"NaN detected in loss during training")
-            # c+=1
             nan_count+=torch.isnan(loss).sum().item()
             print(f"loss value: {loss.item()}")
             print(f"batch['file_name']: {batch['file_name']}")
@@ -89,18 +83,11 @@ def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, d
                       feature_dim, num_heads,hidden_dim,max_dropout,depthwise_conv_kernel_size,conformer_layers,max_pooling_factor, 
                       LEARNING_RATE,DEVICE)
 
-
-    # checkpoint = torch.load(os.path.join(os.getcwd(),'models/back_end_models/RFP_model_epochs30_batch8_lr0.0001_20250118_020114.pth'))
-    # print("loading RFP_model_epochs30_batch8_lr0.0001_20250118_020114.pth ...")
-    # PS_Model.load_state_dict(checkpoint['model_state_dict'])
-
     criterion = initialize_loss_function().to(DEVICE)
 
     # Initialize data loader
     train_loader = initialize_data_loader(dataset_name,train_data_path, train_labels_path,BATCH_SIZE, True, num_workers, prefetch_factor,pin_memory,apply_transform)
-    # train_labels_dict= load_json_dictionary(train_labels_path)
-    # train_labels_dict= load_labels_txt2dict(train_labels_path)
-
+    # initialize learning rate scheduler
     LR_SCHEDULER = initialize_lr_scheduler(optimizer)
 
     wandb.watch(PS_Model, log_freq=100,log='all')
@@ -124,21 +111,20 @@ def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, d
             save_checkpoint(PS_Model, optimizer, epoch + 1, os.path.join(model_save_path, model_filename))
 
         # Compute and log metrics
-        # utterance_labels = torch.tensor([train_labels_dict[file_name] for file_name in files_names])
         utterance_labels = torch.cat(utterance_labels)
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions, utterance_labels)
 
         # Validation step (optional)
         if (epoch + 1) >= monitor_dev_epoch:
+            # Initialize dev data loader
             dev_data_loader=initialize_data_loader(dataset_name,dev_data_path, dev_labels_path,BATCH_SIZE,False,num_workers, prefetch_factor,pin_memory)
-            # dev_labels_dict= load_json_dictionary(dev_labels_path)
-            # dev_labels_dict= load_labels_txt2dict(dev_labels_path)
+ 
             print(f"train_loader: {len(train_loader)} , dev_data_loader: {len(dev_data_loader)}")
-            # dev_metrics_dict, dev_nan_counter = dev_one_epoch(PS_Model, feature_extractor,criterion,dev_data_loader, dev_labels_dict,0,DEVICE)
             dev_metrics_dict, dev_nan_counter = dev_one_epoch(PS_Model, feature_extractor,criterion,dev_data_loader,0,DEVICE)
             total_dev_nan_counter+=dev_nan_counter
 
+            # Log metrics to W&B
             if save_feature_extractor:
                 log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, optimizer.param_groups[1]['lr'], optimizer.param_groups[0]['lr'],dropout_prob, dev_metrics_dict)               # Log metrics to W&B
             else:
@@ -194,7 +180,6 @@ def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, d
 
 def train():
     # Initialize W&B
-    # wandb.init(project='partial_spoof_Wav2Vec2_Conformer_binary_classifier')
     initialize_wandb()
     # Extract parameters from W&B configuration
     config = wandb.config
