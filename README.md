@@ -8,7 +8,7 @@ A deep learning-based system for the **efficient classification of partially fak
 
 This implementation reproduces and extends the methodology from the paper:  
 **[Efficient Classification of Partially Faked Audio Using Deep Learning](https://ieeexplore.ieee.org/document/11130153)**
-
+ 
 ---
 
 ## 📖 Table of Contents
