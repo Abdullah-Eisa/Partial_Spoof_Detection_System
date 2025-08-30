@@ -9,7 +9,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " Adding comments to the scripts"
+git commit -m " Add steps to run the project in readme file"
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

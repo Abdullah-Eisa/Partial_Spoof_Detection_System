@@ -10,7 +10,8 @@
 # conda env create -f environment.yml
 
 # Name of the conda environment
-ENVNAME=ps
+# ENVNAME=ps
+ENVNAME=ps3
 
 eval "$(conda shell.bash hook)"
 
@@ -30,9 +31,9 @@ if [ $retVal -ne 0 ]; then
     pip install --upgrade pip
     conda clean --all
 
-
-    pip install torch
-    pip install torchaudio
+    pip3 install torch torchaudio --index-url https://download.pytorch.org/whl/cu126
+    # pip install torch
+    # pip install torchaudio
     pip install s3prl
     pip install os
     pip install librosa
