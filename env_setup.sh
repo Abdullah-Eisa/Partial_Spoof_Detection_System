@@ -11,7 +11,6 @@
 
 # Name of the conda environment
 ENVNAME=ps
-# ENVNAME=ps3
 
 eval "$(conda shell.bash hook)"
 

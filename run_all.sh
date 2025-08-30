@@ -9,7 +9,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " refactor main.py and inference.py, add .vscode/* , config/* and utils/* "
+git commit -m " remove unnecessary comments, modify readme file "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

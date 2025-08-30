@@ -1,61 +1,4 @@
 
-# # Training configuration
-# training:
-#   # num_epochs: 19
-#   num_epochs: 3
-#   learning_rate: 0.00075
-#   batch_size: 8
-#   save_interval: 5
-#   patience: 15
-#   max_grad_norm: 1.0
-#   gamma: 0.9
-#   monitor_dev_epoch: 0
-#   use_wandb: false  # Enable/disable wandb logging
-
-# # Model configuration  
-# model:
-#   feature_dim: 768
-#   num_heads: 8
-#   hidden_dim: 128
-#   max_dropout: 0.35
-#   depthwise_conv_kernel_size: 31
-#   conformer_layers: 1
-#   max_pooling_factor: 3
-
-# # Data configuration
-# data:
-#   dataset_name: "PartialSpoof_Dataset"  # Options: RFP_Dataset, PartialSpoof_Dataset, ASVspoof2019_Dataset
-#   base_path: "${BASE_DIR}/database"
-#   train_data_path: "PartialSpoof/database/train/con_wav"
-#   train_labels_path: "utterance_labels/PartialSpoof_LA_cm_train_trl.json"
-#   dev_data_path: "PartialSpoof/database/dev/con_wav"
-#   dev_labels_path: "utterance_labels/PartialSpoof_LA_cm_dev_trl.json"
-#   eval_data_path: "PartialSpoof/database/eval/con_wav"
-#   eval_labels_path: "utterance_labels/PartialSpoof_LA_cm_eval_trl.json"
-
-# # Model paths
-# paths:
-#   ssl_checkpoint: "${BASE_DIR}/models/w2v_large_lv_fsh_swbd_cv.pt"
-#   model_save_dir: "${BASE_DIR}/models/back_end_models"
-#   wandb_key_file: "${BASE_DIR}/config/wandb_key.txt"
-
-# # System configuration
-# system:
-#   num_workers: 8
-#   prefetch_factor: 2
-#   pin_memory: true
-#   device: "cuda"  # Will be overridden based on availability
-#   apply_transform: false
-#   save_feature_extractor: false
-
-
-
-
-
-
-
-
-
 # Training configuration
 training:
   num_epochs: 2
@@ -66,8 +9,8 @@ training:
   max_grad_norm: 1.0
   gamma: 0.9
   monitor_dev_epoch: 0
-  use_wandb: true  # Enable/disable wandb logging
-  # use_wandb: false  # Enable/disable wandb logging
+  # use_wandb: true  # Enable/disable wandb logging
+  use_wandb: false  # Enable/disable wandb logging
 
 # Model configuration  
 model:

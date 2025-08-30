@@ -178,43 +178,6 @@ def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, d
 
 
 
-# def train():
-#     # Initialize W&B
-#     initialize_wandb()
-#     # Extract parameters from W&B configuration
-#     config = wandb.config
-    
-#     train_model(dataset_name=config.dataset_name,
-#                 train_data_path=config.train_data_path, 
-#                 train_labels_path=config.train_labels_path,
-#                 dev_data_path=config.dev_data_path, 
-#                 dev_labels_path=config.dev_labels_path, 
-#                 ssl_ckpt_path=config.ssl_ckpt_path,
-#                 apply_transform=config.apply_transform,
-#                 save_feature_extractor=config.save_feature_extractor,
-#                 feature_dim=config.feature_dim, 
-#                 num_heads=config.num_heads, 
-#                 hidden_dim=config.hidden_dim, 
-#                 max_dropout=config.max_dropout,
-#                 depthwise_conv_kernel_size=config.depthwise_conv_kernel_size, 
-#                 conformer_layers=config.conformer_layers, 
-#                 max_pooling_factor=config.max_pooling_factor,
-#                 LEARNING_RATE=config.LEARNING_RATE,
-#                 BATCH_SIZE=config.BATCH_SIZE,
-#                 NUM_EPOCHS=config.NUM_EPOCHS, 
-#                 num_workers=config.num_workers, 
-#                 prefetch_factor=config.prefetch_factor,
-#                 pin_memory=config.pin_memory,
-#                 monitor_dev_epoch=config.monitor_dev_epoch,
-#                 save_interval=config.save_interval,
-#                 model_save_path=config.model_save_path,
-#                 patience=config.patience,
-#                 max_grad_norm=config.max_grad_norm,
-#                 gamma=config.gamma,
-#                 DEVICE=config.device)
-
-
-
 def train(config=None):
     """
     Training function that accepts configuration
