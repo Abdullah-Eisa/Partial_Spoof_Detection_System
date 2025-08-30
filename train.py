@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 import matplotlib.pyplot as plt
 
-from utils import *
+from utils.utils import *
 from preprocess import *
 from model import *
 from inference import dev_one_epoch
@@ -178,37 +178,82 @@ def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, d
 
 
 
-def train():
-    # Initialize W&B
-    initialize_wandb()
-    # Extract parameters from W&B configuration
-    config = wandb.config
+# def train():
+#     # Initialize W&B
+#     initialize_wandb()
+#     # Extract parameters from W&B configuration
+#     config = wandb.config
     
-    train_model(dataset_name=config.dataset_name,
-                train_data_path=config.train_data_path, 
-                train_labels_path=config.train_labels_path,
-                dev_data_path=config.dev_data_path, 
-                dev_labels_path=config.dev_labels_path, 
-                ssl_ckpt_path=config.ssl_ckpt_path,
-                apply_transform=config.apply_transform,
-                save_feature_extractor=config.save_feature_extractor,
-                feature_dim=config.feature_dim, 
-                num_heads=config.num_heads, 
-                hidden_dim=config.hidden_dim, 
-                max_dropout=config.max_dropout,
-                depthwise_conv_kernel_size=config.depthwise_conv_kernel_size, 
-                conformer_layers=config.conformer_layers, 
-                max_pooling_factor=config.max_pooling_factor,
-                LEARNING_RATE=config.LEARNING_RATE,
-                BATCH_SIZE=config.BATCH_SIZE,
-                NUM_EPOCHS=config.NUM_EPOCHS, 
-                num_workers=config.num_workers, 
-                prefetch_factor=config.prefetch_factor,
-                pin_memory=config.pin_memory,
-                monitor_dev_epoch=config.monitor_dev_epoch,
-                save_interval=config.save_interval,
-                model_save_path=config.model_save_path,
-                patience=config.patience,
-                max_grad_norm=config.max_grad_norm,
-                gamma=config.gamma,
-                DEVICE=config.device)
+#     train_model(dataset_name=config.dataset_name,
+#                 train_data_path=config.train_data_path, 
+#                 train_labels_path=config.train_labels_path,
+#                 dev_data_path=config.dev_data_path, 
+#                 dev_labels_path=config.dev_labels_path, 
+#                 ssl_ckpt_path=config.ssl_ckpt_path,
+#                 apply_transform=config.apply_transform,
+#                 save_feature_extractor=config.save_feature_extractor,
+#                 feature_dim=config.feature_dim, 
+#                 num_heads=config.num_heads, 
+#                 hidden_dim=config.hidden_dim, 
+#                 max_dropout=config.max_dropout,
+#                 depthwise_conv_kernel_size=config.depthwise_conv_kernel_size, 
+#                 conformer_layers=config.conformer_layers, 
+#                 max_pooling_factor=config.max_pooling_factor,
+#                 LEARNING_RATE=config.LEARNING_RATE,
+#                 BATCH_SIZE=config.BATCH_SIZE,
+#                 NUM_EPOCHS=config.NUM_EPOCHS, 
+#                 num_workers=config.num_workers, 
+#                 prefetch_factor=config.prefetch_factor,
+#                 pin_memory=config.pin_memory,
+#                 monitor_dev_epoch=config.monitor_dev_epoch,
+#                 save_interval=config.save_interval,
+#                 model_save_path=config.model_save_path,
+#                 patience=config.patience,
+#                 max_grad_norm=config.max_grad_norm,
+#                 gamma=config.gamma,
+#                 DEVICE=config.device)
+
+
+
+def train(config=None):
+    """
+    Training function that accepts configuration
+    Args:
+        config: Configuration object from wandb or ConfigManager
+    """
+    if config is None:
+        # Initialize W&B if no config provided
+        initialize_wandb()
+        config = wandb.config
+    
+    train_model(
+        dataset_name=config['data']['dataset_name'],
+        train_data_path=config['data']['train_data_path'],
+        train_labels_path=config['data']['train_labels_path'],
+        dev_data_path=config['data']['dev_data_path'],
+        dev_labels_path=config['data']['dev_labels_path'],
+        ssl_ckpt_path=config['paths']['ssl_checkpoint'],
+        apply_transform=config['system']['apply_transform'],
+        save_feature_extractor=config['system']['save_feature_extractor'],
+        feature_dim=config['model']['feature_dim'],
+        num_heads=config['model']['num_heads'],
+        hidden_dim=config['model']['hidden_dim'],
+        max_dropout=config['model']['max_dropout'],
+        depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
+        conformer_layers=config['model']['conformer_layers'],
+        max_pooling_factor=config['model']['max_pooling_factor'],
+        LEARNING_RATE=config['training']['learning_rate'],
+        BATCH_SIZE=config['training']['batch_size'],
+        NUM_EPOCHS=config['training']['num_epochs'],
+        num_workers=config['system']['num_workers'],
+        prefetch_factor=config['system']['prefetch_factor'],
+        pin_memory=config['system']['pin_memory'],
+        monitor_dev_epoch=config['training']['monitor_dev_epoch'],
+        save_interval=config['training']['save_interval'],
+        model_save_path=config['paths']['model_save_dir'],
+        patience=config['training']['patience'],
+        max_grad_norm=config['training']['max_grad_norm'],
+        gamma=config['training']['gamma'],
+        DEVICE=config['system']['device']
+    )
+

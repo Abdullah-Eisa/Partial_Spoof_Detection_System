@@ -16,6 +16,7 @@ bash Miniconda3-latest-Linux-x86_64.sh
 # restart/close and reopen the terminal
 conda --version
 
+# conda init bash && source ~/.bashrc 
 
 # Get the current working directory
 PWD=$(pwd)

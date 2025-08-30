@@ -2,7 +2,7 @@ import os
 import torch
 import torchaudio
 from torch.utils.data import Dataset, DataLoader
-from utils import *
+from utils.utils import *
 import random
 import torchaudio.transforms as T
 from torch.utils.data import Dataset
@@ -156,7 +156,8 @@ class PartialSpoofDataset(Dataset):
         self.labels_dict = self._get_labels()
         self.transform = transform
         self.normalize = normalize
-        self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')]
+        # self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')]
+        self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')][:1000]
 
         # Ensure the save directory exists
         # os.makedirs(save_dir, exist_ok=True)

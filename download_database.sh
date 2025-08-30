@@ -17,6 +17,7 @@ case $db_choice in
             link="https://zenodo.org/records/14675126/files/database.zip?download=1"
 
             if [ ! -d ./database/RFP_database/ ]; then
+
                 echo -e "${RED}Downloading RFP_database ${file}"
                 echo ${link}
                 wget -q --show-progress -c ${link} -O RFP_database.zip

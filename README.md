@@ -7,6 +7,7 @@
 - `bash download_database.sh `
 - `bash download_pretrained_model.sh  `
 - `bash cloud_instance_setup.sh `
+- `bash env_setup.sh `
 - for training `python main.py  `
 - for inference `python inference.py  `
 - ` `

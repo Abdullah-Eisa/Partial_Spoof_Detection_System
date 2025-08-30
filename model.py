@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 import torch.nn as nn
 import math
-from utils import *
+from utils.utils import *
 import torch.nn as torch_nn
 import torch.nn.functional as torch_nn_func
 import os
