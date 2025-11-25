@@ -231,7 +231,11 @@ class RFP_Dataset(Dataset):
         self.normalize = normalize
         self.label_map = label_map
 
-        self.all_files = librosa.util.find_files(self.data_path)
+        # self.all_files = librosa.util.find_files(self.data_path)
+        self.all_files = librosa.util.find_files(self.data_path)[:6
+        
+        
+        00]
         self.all_labels= self._get_labels()
 
 
