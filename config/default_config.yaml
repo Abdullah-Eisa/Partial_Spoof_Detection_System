@@ -1,16 +1,25 @@
 
 # Training configuration
 training:
-  num_epochs: 2
-  learning_rate: 0.00075
-  batch_size: 8
+  num_epochs: &num_epochs 30
+  learning_rate: &learning_rate 0.00075
+  batch_size: &batch_size 8
   save_interval: 5
   patience: 15
   max_grad_norm: 1.0
   gamma: 0.9
   monitor_dev_epoch: 0
-  # use_wandb: true  # Enable/disable wandb logging
-  use_wandb: true  # Enable/disable wandb logging
+  use_wandb: true
+
+# WandB sweep configuration
+wandb_sweep:
+  NUM_EPOCHS:
+    values: [*num_epochs]
+  LEARNING_RATE:
+    values: [*learning_rate]
+  BATCH_SIZE:
+    values: [*batch_size]
+
 
 # Model configuration  
 model:
@@ -32,6 +41,7 @@ data:
   # dev_labels_path: "${BASE_DIR}/database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json"
   # eval_data_path: "${BASE_DIR}/database/PartialSpoof/database/eval/con_wav"
   # eval_labels_path: "${BASE_DIR}/database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json"
+
   dataset_name: "RFP_Dataset"
   base_path: "${BASE_DIR}/database"
   train_data_path: "${BASE_DIR}/database/RFP/training"
@@ -41,13 +51,23 @@ data:
   eval_data_path: "${BASE_DIR}/database/RFP/testing"
   eval_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_eval.trl.txt"
 
+  # dataset_name: "ASVspoof2019_LA_Dataset"
+  # base_path: "${BASE_DIR}/database"
+  # train_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac"
+  # train_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt"
+  # dev_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_dev/flac"
+  # dev_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt"
+  # eval_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac"
+  # eval_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trl.txt"
+
+
 # Model paths
 paths:
   ssl_checkpoint: "${BASE_DIR}/models/w2v_large_lv_fsh_swbd_cv.pt"
   model_save_dir: "${BASE_DIR}/models/back_end_models"
   wandb_key_file: "${BASE_DIR}/config/wandb_key.txt"
   # Add the PS model checkpoint path
-  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/RFP_model_epochs26_batch8_lr0.00075_20250119_025126.pth"
+  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
 
 # Inference configuration
 inference:
@@ -66,14 +86,4 @@ system:
   device: "cuda"  # Will be overridden based on availability
   apply_transform: false
   save_feature_extractor: false
-
-# WandB sweep configuration
-wandb_sweep:
-  NUM_EPOCHS: 
-    values: [3]
-  LEARNING_RATE:
-    values: [0.00075]
-  BATCH_SIZE:
-    values: [8]
-
 

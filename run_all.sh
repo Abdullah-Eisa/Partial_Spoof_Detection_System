@@ -9,7 +9,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " update config , and prepare env to check RFP training "
+git commit -m " update default_config.yaml , preprocess.py to include full dataset "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

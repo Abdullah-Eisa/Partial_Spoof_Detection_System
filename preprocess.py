@@ -156,8 +156,8 @@ class PartialSpoofDataset(Dataset):
         self.labels_dict = self._get_labels()
         self.transform = transform
         self.normalize = normalize
-        # self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')]
-        self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')][:1000]
+        self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')]
+        # self.file_list = [f for f in os.listdir(directory) if f.endswith('.wav')][:1000]
 
         # Ensure the save directory exists
         # os.makedirs(save_dir, exist_ok=True)
@@ -231,11 +231,8 @@ class RFP_Dataset(Dataset):
         self.normalize = normalize
         self.label_map = label_map
 
-        # self.all_files = librosa.util.find_files(self.data_path)
-        self.all_files = librosa.util.find_files(self.data_path)[:6
-        
-        
-        00]
+        self.all_files = librosa.util.find_files(self.data_path)
+        # self.all_files = librosa.util.find_files(self.data_path)[:6000]
         self.all_labels= self._get_labels()
 
 
@@ -296,7 +293,8 @@ class RFP_Dataset(Dataset):
         if self.transform:
             waveform = self.transform(waveform)
 
-        label = self.all_labels.get(file_name,0)
+        # label = self.all_labels.get(file_name,0)
+        label = self.all_labels.get(file_name)
         label = torch.tensor(label)
 
         return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
@@ -349,8 +347,8 @@ def initialize_data_loader(dataset_name,data_path, labels_path,BATCH_SIZE=32, sh
         print("You selected PartialSpoof_Dataset.")
         audio_dataset = PartialSpoofDataset(data_path, labels_path)
 
-    elif dataset_name == "ASVspoof2019_Dataset":
-        print("You selected ASVspoof2019_Dataset.")
+    elif dataset_name == "ASVspoof2019_LA_Dataset":
+        print("You selected ASVspoof2019_LA_Dataset.")
         audio_dataset = ASVspoof2019(data_path, labels_path)
 
     else:
