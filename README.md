@@ -154,6 +154,12 @@ Run:
 python main.py
 ```
 
+or
+
+```bash
+python main.py 2>&1 | tee outputs/output.log
+```
+
 * Logs and checkpoints → `models/back_end_models/`
 * Optional WandB logging if enabled in config.
 

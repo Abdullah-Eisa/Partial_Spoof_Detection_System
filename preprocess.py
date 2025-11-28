@@ -293,8 +293,17 @@ class RFP_Dataset(Dataset):
         if self.transform:
             waveform = self.transform(waveform)
 
-        # label = self.all_labels.get(file_name,0)
-        label = self.all_labels.get(file_name)
+        # # label = self.all_labels.get(file_name,0)
+        # label = self.all_labels.get(file_name)
+        try:
+            # label = self.all_labels.get(file_name, 0)
+            label = self.all_labels.get(file_name)
+        except Exception as e:
+            print(f"Error while processing file: {file_name}")
+            print(f"Exception: {e}")
+            label = self.all_labels.get(file_name, 0)   # or whatever fallback value you prefer
+
+
         label = torch.tensor(label)
 
         return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
