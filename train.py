@@ -76,7 +76,8 @@ def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, d
     initialize_wandb()
 
     # # Initialize early stopping
-    early_stopping = EarlyStopping(patience=patience, verbose=True)
+    # early_stopping = EarlyStopping(patience=patience, verbose=True)
+    early_stopping = EarlyStopping(patience=patience, verbose=True, path=os.path.join(os.getcwd(),f'models/back_end_models/{dataset_name}_best_model.pth'))
 
     # Initialize model, feature extractor, optimizer, loss function
     PS_Model, feature_extractor, optimizer = initialize_models(ssl_ckpt_path, save_feature_extractor,

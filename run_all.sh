@@ -1,5 +1,6 @@
 # Create and switch to a new branch (e.g., "new-branch-name")
-git checkout -b main
+# git checkout -b main
+git checkout -b remove-max-pooling-block
 
 # Initialize the Git repository
 git init
@@ -9,9 +10,9 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " update preprocess.py to handle fallback with zero value when loading dataset , update README.md to include run training with logs cmd "
+git commit -m " remove-max-pooling-block, update cloud_instance_setup.sh , inference.py , model.py , utils.py "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
 # Push the new branch to GitHub and set it to track the remote branch
-git push -u origin main
+git push -u origin remove-max-pooling-block

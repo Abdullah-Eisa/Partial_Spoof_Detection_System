@@ -265,146 +265,146 @@ class RotaryPositionalEmbeddings(nn.Module):
 # ============================================================================================
 # binary classification model with Rotary Positional Encoding and max pooling after feature extractor
 
-class BinarySpoofingClassificationModel(nn.Module):
-    def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3):
-        super(BinarySpoofingClassificationModel, self).__init__()
+# class BinarySpoofingClassificationModel(nn.Module):
+#     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3):
+#         super(BinarySpoofingClassificationModel, self).__init__()
 
-        self.max_pooling_factor = max_pooling_factor
-        self.feature_dim = feature_dim
-        self.num_heads = num_heads
-        self.max_dropout=max_dropout
+#         self.max_pooling_factor = max_pooling_factor
+#         self.feature_dim = feature_dim
+#         self.num_heads = num_heads
+#         self.max_dropout=max_dropout
 
-        if self.max_pooling_factor is not None:
-            self.max_pooling = nn.MaxPool1d(kernel_size=self.max_pooling_factor, stride=self.max_pooling_factor)
-            self.feature_dim=feature_dim//self.max_pooling_factor
-        else:
-            self.max_pooling = None
+#         if self.max_pooling_factor is not None:
+#             self.max_pooling = nn.MaxPool1d(kernel_size=self.max_pooling_factor, stride=self.max_pooling_factor)
+#             self.feature_dim=feature_dim//self.max_pooling_factor
+#         else:
+#             self.max_pooling = None
         
-        print(f"self.feature_dim= {self.feature_dim} , self.max_pooling= {self.max_pooling}")
-        # Define the Conformer model from torchaudio
-        self.conformer = tam.Conformer(
-            input_dim=self.feature_dim,
-            num_heads=self.num_heads,
-            ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
-            num_layers=conformer_layers,  # Example, adjust as needed
-            depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
-            dropout=0.2, # Dropout initialized with 0.2 for conformer block
-            use_group_norm= False, 
-            convolution_first= False
-        )
+#         print(f"self.feature_dim= {self.feature_dim} , self.max_pooling= {self.max_pooling}")
+#         # Define the Conformer model from torchaudio
+#         self.conformer = tam.Conformer(
+#             input_dim=self.feature_dim,
+#             num_heads=self.num_heads,
+#             ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
+#             num_layers=conformer_layers,  # Example, adjust as needed
+#             depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
+#             dropout=0.2, # Dropout initialized with 0.2 for conformer block
+#             use_group_norm= False, 
+#             convolution_first= False
+#         )
         
-        # Global pooling layer (SelfWeightedPooling)
-        self.pooling = SelfWeightedPooling(self.feature_dim , mean_only=True)  # Pool across sequence dimension
+#         # Global pooling layer (SelfWeightedPooling)
+#         self.pooling = SelfWeightedPooling(self.feature_dim , mean_only=True)  # Pool across sequence dimension
         
-        # Add a feedforward block for feature refinement before classification
-        self.fc_refinement = nn.Sequential(
-            nn.Linear(self.feature_dim, hidden_dim),  # Refined hidden dimension for classification
-            nn.LayerNorm(hidden_dim),
-            nn.GELU(),
-            nn.Dropout(0.2),  # Dropout for regularization
+#         # Add a feedforward block for feature refinement before classification
+#         self.fc_refinement = nn.Sequential(
+#             nn.Linear(self.feature_dim, hidden_dim),  # Refined hidden dimension for classification
+#             nn.LayerNorm(hidden_dim),
+#             nn.GELU(),
+#             nn.Dropout(0.2),  # Dropout for regularization
 
-            nn.Linear(hidden_dim, hidden_dim//2),  # Refined hidden dimension for classification
-            nn.LayerNorm(hidden_dim//2),
-            nn.GELU(),
-            nn.Dropout(0.2),  # Dropout for regularization
+#             nn.Linear(hidden_dim, hidden_dim//2),  # Refined hidden dimension for classification
+#             nn.LayerNorm(hidden_dim//2),
+#             nn.GELU(),
+#             nn.Dropout(0.2),  # Dropout for regularization
 
-            nn.Linear(hidden_dim//2, hidden_dim//4),  # Refined hidden dimension for classification
-            nn.LayerNorm(hidden_dim//4),
-            nn.GELU(),
-            nn.Dropout(0.2),  # Dropout for regularization
+#             nn.Linear(hidden_dim//2, hidden_dim//4),  # Refined hidden dimension for classification
+#             nn.LayerNorm(hidden_dim//4),
+#             nn.GELU(),
+#             nn.Dropout(0.2),  # Dropout for regularization
 
-            nn.Linear(hidden_dim//4, 1),  # Final output layer
-            # nn.Sigmoid(),
-        )
-
-
-        self.apply(self.initialize_weights)
-
-    # Custom initialization for He and Xavier
-    def initialize_weights(self, m, bias_value=0.005):
-        if isinstance(m, nn.Linear):  # For Linear layers
-            # We do not directly check activation here, since it's separate
-            if isinstance(m, nn.Linear):
-                if hasattr(m, 'activation') and isinstance(m.activation, nn.ReLU):
-                    # He (Kaiming) initialization for ReLU/GELU layers
-                    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                elif hasattr(m, 'activation') and isinstance(m.activation, nn.GELU):
-                    # He (Kaiming) initialization for GELU layers
-                    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-                elif hasattr(m, 'activation') and isinstance(m.activation, (nn.Tanh, nn.Sigmoid)):
-                    # Xavier (Glorot) initialization for tanh/sigmoid layers
-                    nn.init.xavier_normal_(m.weight)
-            if m.bias is not None:
-                nn.init.constant_(m.bias, bias_value)
-
-        elif isinstance(m, nn.Conv1d):  # For Conv1d layers (typically used in Conformer)
-            if hasattr(m, 'activation') and isinstance(m.activation, nn.ReLU):
-                # He (Kaiming) initialization for Conv1d with ReLU/GELU
-                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
-            elif hasattr(m, 'activation') and isinstance(m.activation, (nn.Tanh, nn.Sigmoid)):
-                # Xavier (Glorot) initialization for Conv1d with tanh/sigmoid
-                nn.init.xavier_normal_(m.weight)
-            if m.bias is not None:
-                nn.init.constant_(m.bias, bias_value)
+#             nn.Linear(hidden_dim//4, 1),  # Final output layer
+#             # nn.Sigmoid(),
+#         )
 
 
-    def forward(self, x, lengths,dropout_prob):
-        if self.max_pooling is not None:
-            x = self.max_pooling(x)  # Apply max pooling
+#         self.apply(self.initialize_weights)
 
-        # Apply Conformer model
-        x, _ = self.conformer(x, lengths)  # The second returned value is the sequence lengths
+#     # Custom initialization for He and Xavier
+#     def initialize_weights(self, m, bias_value=0.005):
+#         if isinstance(m, nn.Linear):  # For Linear layers
+#             # We do not directly check activation here, since it's separate
+#             if isinstance(m, nn.Linear):
+#                 if hasattr(m, 'activation') and isinstance(m.activation, nn.ReLU):
+#                     # He (Kaiming) initialization for ReLU/GELU layers
+#                     nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+#                 elif hasattr(m, 'activation') and isinstance(m.activation, nn.GELU):
+#                     # He (Kaiming) initialization for GELU layers
+#                     nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+#                 elif hasattr(m, 'activation') and isinstance(m.activation, (nn.Tanh, nn.Sigmoid)):
+#                     # Xavier (Glorot) initialization for tanh/sigmoid layers
+#                     nn.init.xavier_normal_(m.weight)
+#             if m.bias is not None:
+#                 nn.init.constant_(m.bias, bias_value)
+
+#         elif isinstance(m, nn.Conv1d):  # For Conv1d layers (typically used in Conformer)
+#             if hasattr(m, 'activation') and isinstance(m.activation, nn.ReLU):
+#                 # He (Kaiming) initialization for Conv1d with ReLU/GELU
+#                 nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+#             elif hasattr(m, 'activation') and isinstance(m.activation, (nn.Tanh, nn.Sigmoid)):
+#                 # Xavier (Glorot) initialization for Conv1d with tanh/sigmoid
+#                 nn.init.xavier_normal_(m.weight)
+#             if m.bias is not None:
+#                 nn.init.constant_(m.bias, bias_value)
+
+
+#     def forward(self, x, lengths,dropout_prob):
+#         if self.max_pooling is not None:
+#             x = self.max_pooling(x)  # Apply max pooling
+
+#         # Apply Conformer model
+#         x, _ = self.conformer(x, lengths)  # The second returned value is the sequence lengths
         
-        # Apply global pooling across the sequence dimension (SelfWeightedPooling)
-        x = self.pooling(x)  # Now x is (batch_size, hidden_dim, 1)
+#         # Apply global pooling across the sequence dimension (SelfWeightedPooling)
+#         x = self.pooling(x)  # Now x is (batch_size, hidden_dim, 1)
 
-        # Update the dropout probability dynamically
-        self.fc_refinement[3].p = dropout_prob  # Update the dropout layer's probability
-        self.fc_refinement[7].p = dropout_prob  # Update the dropout layer's probability
-        self.fc_refinement[11].p = dropout_prob  # Update the dropout layer's probability
+#         # Update the dropout probability dynamically
+#         self.fc_refinement[3].p = dropout_prob  # Update the dropout layer's probability
+#         self.fc_refinement[7].p = dropout_prob  # Update the dropout layer's probability
+#         self.fc_refinement[11].p = dropout_prob  # Update the dropout layer's probability
 
-        # Refine features before classification using the fc_refinement block
-        utt_score = self.fc_refinement(x)
-        return utt_score # Return the classification output
+#         # Refine features before classification using the fc_refinement block
+#         utt_score = self.fc_refinement(x)
+#         return utt_score # Return the classification output
         
-    def adjust_dropout(self, epoch, total_epochs):
-        # Cosine annealing for dropout probability
-        return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
+#     def adjust_dropout(self, epoch, total_epochs):
+#         # Cosine annealing for dropout probability
+#         return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
 
 
 
 # ===========================================================================================================================
 # ===========================================================================================================================
 
-def initialize_models(ssl_ckpt_path, save_feature_extractor=False,
-                      feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3, 
-                      LEARNING_RATE=0.0001,DEVICE='cpu'):
-    """Initialize the model, feature extractor, and optimizer"""
-    # Initialize feature extractor
-    if os.path.exists(ssl_ckpt_path):
-        feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
-    else:
-        ssl_ckpt_path = os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
-        feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
+# def initialize_models(ssl_ckpt_path, save_feature_extractor=False,
+#                       feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3, 
+#                       LEARNING_RATE=0.0001,DEVICE='cpu'):
+#     """Initialize the model, feature extractor, and optimizer"""
+#     # Initialize feature extractor
+#     if os.path.exists(ssl_ckpt_path):
+#         feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
+#     else:
+#         ssl_ckpt_path = os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
+#         feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
 
-    # Initialize Binary Spoofing Classification Model
-    PS_Model = BinarySpoofingClassificationModel(feature_dim, num_heads, hidden_dim, max_dropout, depthwise_conv_kernel_size, conformer_layers, max_pooling_factor).to(DEVICE)
+#     # Initialize Binary Spoofing Classification Model
+#     PS_Model = BinarySpoofingClassificationModel(feature_dim, num_heads, hidden_dim, max_dropout, depthwise_conv_kernel_size, conformer_layers, max_pooling_factor).to(DEVICE)
 
-    # Freeze feature extractor if necessary
-    if save_feature_extractor:
-        for name, param in feature_extractor.named_parameters():
-            if 'final_proj' not in name:
-                param.requires_grad = False
-            else:
-                param.requires_grad = True
+#     # Freeze feature extractor if necessary
+#     if save_feature_extractor:
+#         for name, param in feature_extractor.named_parameters():
+#             if 'final_proj' not in name:
+#                 param.requires_grad = False
+#             else:
+#                 param.requires_grad = True
     
-    # Optimizer setup
-    optimizer = optim.AdamW(
-        [{'params': feature_extractor.parameters(), 'lr': 0.00005},
-         {'params': PS_Model.parameters()}], 
-        lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8) if save_feature_extractor else optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+#     # Optimizer setup
+#     optimizer = optim.AdamW(
+#         [{'params': feature_extractor.parameters(), 'lr': 0.00005},
+#          {'params': PS_Model.parameters()}], 
+#         lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8) if save_feature_extractor else optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
 
-    return PS_Model, feature_extractor, optimizer
+#     return PS_Model, feature_extractor, optimizer
 
 
 
@@ -439,3 +439,197 @@ def initialize_lr_scheduler(optimizer):
     min_lr = 0.00001
 
     return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=factor, patience=patience, threshold=threshold, min_lr=min_lr)
+
+
+
+
+
+
+
+
+
+
+# ===========================================================================================================================
+# ===========================================================================================================================
+# ===========================================================================================================================
+
+import torch
+import torch.nn as nn
+import math
+import torchaudio.models as tam
+
+
+class BinarySpoofingClassificationModel(nn.Module):
+    """
+    Modified version without max pooling and SelfWeightedPooling.
+    Uses mean pooling across the sequence dimension instead.
+    """
+    def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, 
+                 depthwise_conv_kernel_size=31, conformer_layers=1):
+        super(BinarySpoofingClassificationModel, self).__init__()
+
+        self.feature_dim = feature_dim  # No max pooling, so feature_dim stays the same
+        self.num_heads = num_heads
+        self.max_dropout = max_dropout
+        
+        print(f"BinarySpoofingClassificationModelV2: feature_dim={self.feature_dim} (no max pooling)")
+        
+        # Define the Conformer model from torchaudio
+        self.conformer = tam.Conformer(
+            input_dim=self.feature_dim,
+            num_heads=self.num_heads,
+            ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
+            num_layers=conformer_layers,  # Example, adjust as needed
+            depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
+            dropout=0.2,  # Dropout initialized with 0.2 for conformer block
+            use_group_norm=False, 
+            convolution_first=False
+        )
+
+        # Global pooling layer (SelfWeightedPooling)
+        self.pooling = SelfWeightedPooling(self.feature_dim , mean_only=True)  # Pool across sequence dimension
+        
+        
+        # Add a feedforward block for feature refinement before classification
+        self.fc_refinement = nn.Sequential(
+            nn.Linear(self.feature_dim, hidden_dim),  # Refined hidden dimension for classification
+            nn.LayerNorm(hidden_dim),
+            nn.GELU(),
+            nn.Dropout(0.2),  # Dropout for regularization
+
+            nn.Linear(hidden_dim, hidden_dim//2),  # Refined hidden dimension for classification
+            nn.LayerNorm(hidden_dim//2),
+            nn.GELU(),
+            nn.Dropout(0.2),  # Dropout for regularization
+
+            nn.Linear(hidden_dim//2, hidden_dim//4),  # Refined hidden dimension for classification
+            nn.LayerNorm(hidden_dim//4),
+            nn.GELU(),
+            nn.Dropout(0.2),  # Dropout for regularization
+
+            nn.Linear(hidden_dim//4, 1),  # Final output layer
+            # nn.Sigmoid(),
+        )
+
+        self.apply(self.initialize_weights)
+
+    # Custom initialization for He and Xavier
+    def initialize_weights(self, m, bias_value=0.005):
+        if isinstance(m, nn.Linear):  # For Linear layers
+            # We do not directly check activation here, since it's separate
+            if isinstance(m, nn.Linear):
+                if hasattr(m, 'activation') and isinstance(m.activation, nn.ReLU):
+                    # He (Kaiming) initialization for ReLU/GELU layers
+                    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                elif hasattr(m, 'activation') and isinstance(m.activation, nn.GELU):
+                    # He (Kaiming) initialization for GELU layers
+                    nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+                elif hasattr(m, 'activation') and isinstance(m.activation, (nn.Tanh, nn.Sigmoid)):
+                    # Xavier (Glorot) initialization for tanh/sigmoid layers
+                    nn.init.xavier_normal_(m.weight)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, bias_value)
+
+        elif isinstance(m, nn.Conv1d):  # For Conv1d layers (typically used in Conformer)
+            if hasattr(m, 'activation') and isinstance(m.activation, nn.ReLU):
+                # He (Kaiming) initialization for Conv1d with ReLU/GELU
+                nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+            elif hasattr(m, 'activation') and isinstance(m.activation, (nn.Tanh, nn.Sigmoid)):
+                # Xavier (Glorot) initialization for Conv1d with tanh/sigmoid
+                nn.init.xavier_normal_(m.weight)
+            if m.bias is not None:
+                nn.init.constant_(m.bias, bias_value)
+
+    def forward(self, x, lengths, dropout_prob):
+        """
+        Forward pass
+        Args:
+            x: Input features (batch_size, sequence_length, feature_dim)
+            lengths: Sequence lengths (batch_size,)
+            dropout_prob: Dropout probability for this forward pass
+        Returns:
+            utt_score: Classification output (batch_size, 1)
+        """
+
+        # print("Input x shape:", x.shape)
+
+        # Apply Conformer model (no max pooling beforehand)
+        x, _ = self.conformer(x, lengths)  # The second returned value is the sequence lengths
+        # print("After Conformer shape:", x.shape)
+  
+        # Apply mean pooling across the sequence dimension instead of SelfWeightedPooling
+        # x = torch.mean(x, dim=1)  # Now x is (batch_size, feature_dim)
+        # Apply SelfWeightedPooling instead of mean pooling
+        x = self.pooling(x)  # Now x is (batch_size, hidden_dim, 1)
+        # print("After pooling shape:", x.shape)
+
+        # Update the dropout probability dynamically
+        self.fc_refinement[3].p = dropout_prob  # Update the dropout layer's probability
+        self.fc_refinement[7].p = dropout_prob  # Update the dropout layer's probability
+        self.fc_refinement[11].p = dropout_prob  # Update the dropout layer's probability
+
+        # Refine features before classification using the fc_refinement block
+        utt_score = self.fc_refinement(x)
+        # print("After fc_refinement shape:", utt_score.shape)
+
+        return utt_score  # Return the classification output
+        
+    def adjust_dropout(self, epoch, total_epochs):
+        # Cosine annealing for dropout probability
+        return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
+
+
+# ===========================================================================================================================
+# Updated initialize_models function for the V2 model
+
+def initialize_models(ssl_ckpt_path, save_feature_extractor=False,
+                         feature_dim=768, num_heads=8, hidden_dim=128, 
+                         max_dropout=0.2, depthwise_conv_kernel_size=31, 
+                         conformer_layers=1, max_pooling_factor=0,
+                         LEARNING_RATE=0.0001, DEVICE='cpu'):
+    """
+    Initialize the V2 model (without max pooling and SelfWeightedPooling), 
+    feature extractor, and optimizer
+    """
+    import torch
+    import torch.optim as optim
+    import os
+    
+    # Initialize feature extractor
+    if os.path.exists(ssl_ckpt_path):
+        print(f"Loading SSL checkpoint from: {ssl_ckpt_path}")
+        feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', 
+                                          model_path=ssl_ckpt_path).to(DEVICE)
+    else:
+        ssl_ckpt_path = os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
+        feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', 
+                                          model_path=ssl_ckpt_path).to(DEVICE)
+
+    # Initialize Binary Spoofing Classification Model V2
+    PS_Model = BinarySpoofingClassificationModel(
+        feature_dim, num_heads, hidden_dim, max_dropout, 
+        depthwise_conv_kernel_size, conformer_layers
+    ).to(DEVICE)
+
+    # Freeze feature extractor if necessary
+    if save_feature_extractor:
+        for name, param in feature_extractor.named_parameters():
+            if 'final_proj' not in name:
+                param.requires_grad = False
+            else:
+                param.requires_grad = True
+    
+    # Optimizer setup
+    if save_feature_extractor:
+        optimizer = optim.AdamW(
+            [{'params': feature_extractor.parameters(), 'lr': 0.00005},
+             {'params': PS_Model.parameters()}], 
+            lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+    else:
+        optimizer = optim.AdamW(
+            PS_Model.parameters(), 
+            lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+
+    return PS_Model, feature_extractor, optimizer
+
+

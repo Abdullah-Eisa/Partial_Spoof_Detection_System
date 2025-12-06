@@ -5,7 +5,7 @@ training:
   learning_rate: &learning_rate 0.00075
   batch_size: &batch_size 8
   save_interval: 5
-  patience: 15
+  patience: 30
   max_grad_norm: 1.0
   gamma: 0.9
   monitor_dev_epoch: 0
@@ -68,6 +68,8 @@ paths:
   wandb_key_file: "${BASE_DIR}/config/wandb_key.txt"
   # Add the PS model checkpoint path
   ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
+  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/RFP_best_model_20251206_053800.pth"
+  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs30_batch8_lr0.00075_20251206_055110.pth"
 
 # Inference configuration
 inference:

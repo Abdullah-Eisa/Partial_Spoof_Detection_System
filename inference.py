@@ -103,6 +103,8 @@ def inference(config):
         dataset_name=config['data']['dataset_name'],
         data_path=config['data']['eval_data_path'],
         labels_path=config['data']['eval_labels_path'],
+        # data_path=config['data']['dev_data_path'],
+        # labels_path=config['data']['dev_labels_path'],
         BATCH_SIZE=config['inference'].get('batch_size', config['training']['batch_size']),
         shuffle=False,
         num_workers=config['inference'].get('num_workers', config['system']['num_workers']),
@@ -122,7 +124,7 @@ def inference(config):
         max_dropout=config['model']['max_dropout'],
         depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
         conformer_layers=config['model']['conformer_layers'],
-        max_pooling_factor=config['model']['max_pooling_factor']
+        # max_pooling_factor=config['model']['max_pooling_factor']
     ).to(device)
 
     # Load model checkpoint
@@ -135,6 +137,13 @@ def inference(config):
         return
 
     PS_Model.eval()
+
+    total_params = sum(p.numel() for p in PS_Model.parameters())
+    trainable_params = sum(p.numel() for p in PS_Model.parameters() if p.requires_grad)
+
+    print("PS_Model Total parameters:", total_params)
+    print("PS_Model Trainable parameters:", trainable_params)
+
 
     criterion = initialize_loss_function().to(device)
     

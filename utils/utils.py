@@ -209,7 +209,7 @@ class EarlyStopping:
             self.counter = 0
             if self.verbose:
                 # print(f'Validation loss decreased ({self.best_loss:.6f} --> {val_loss:.6f}). Saving model...')
-                print(f'Validation utterance_eer decreased ({self.best_loss:.6f} --> {val_loss:.6f}). Saving model...')
+                print(f'Validation utterance_eer decreased ({self.best_loss:.12f} --> {val_loss:.12f}). Saving model...')
             # self.best_model_wts = model.state_dict()  # Save best model weights
 
             base_path = self.path.split(".")[0]
