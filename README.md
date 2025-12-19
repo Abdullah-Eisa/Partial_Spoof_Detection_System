@@ -21,10 +21,10 @@ This implementation reproduces and extends the methodology from the paper:
 7. [Inference](#inference)  
 8. [Outputs](#outputs)  
 9. [Troubleshooting](#troubleshooting)  
-10. [Development Notes](#development-notes)  
-11. [License](#license)  
-12. [Citation](#citation)  
-13. [Contact](#contact)  
+<!-- 10. [Development Notes](#development-notes)   -->
+10. [License](#license)  
+11. [Citation](#citation)  
+12. [Contact](#contact)  
 
 ---
 
@@ -190,7 +190,7 @@ python inference.py
 * **Config mismatches** → Check train/inference scripts expect keys like `train_data_path`.
 * **WandB errors** → Re-login (`wandb login --relogin`) or disable by setting `training.use_wandb: false`.
 
----
+<!-- ---
 
 ## 10. Development Notes
 
@@ -198,17 +198,17 @@ python inference.py
 * Replace prints with structured logging.
 * Add unit tests for config, dataset loaders, and metrics.
 * Add Dockerfile for reproducibility.
-* CLI flags to override YAML configs (via `argparse` or `click`).
+* CLI flags to override YAML configs (via `argparse` or `click`). -->
 
 ---
 
-## 11. License
+## 10. License
 
 This project is licensed under the **MIT License** – see [LICENSE](LICENSE).
 
 ---
 
-## 12. Citation
+## 11. Citation
 
 If you use this work, please cite:
 
@@ -224,7 +224,7 @@ If you use this work, please cite:
 
 ---
 
-## 13. Contact
+## 12. Contact
 
 * **Author:** Abdulazeez AlAli; George Theodorakopoulos; Abdullah Emad  
 * **Issues:** Please open a GitHub issue for bug reports or feature requests.

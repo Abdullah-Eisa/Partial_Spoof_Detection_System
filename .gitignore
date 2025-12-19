@@ -10,7 +10,7 @@ models/*
 outputs/*
 
 modules/
-
+temp/
 
 # custom files
 run_all.sh

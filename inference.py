@@ -84,6 +84,8 @@ def inference_helper(model, feature_extractor,criterion,
     # Print epoch testing results
     print(f'Testing/Inference Complete. Test Loss: {epoch_loss:.4f},\n'
                f'Average Test Utterance EER: {utterance_eer:.4f}, Average Test Utterance EER Threshold: {utterance_eer_threshold:.4f}')
+    # print(f'Testing/Inference Complete. Test Loss: {epoch_loss:.4f},\n'
+    #            f'Average Test Utterance EER: {utterance_eer:.4f}, Average Test Utterance EER Threshold: {utterance_eer_threshold:.4f}')
     print("===================================================")
     print(f'In Test loop, Total loss NAN count: {nan_count}')
 
@@ -97,7 +99,8 @@ def inference(config):
     print("Starting inference...")
     
     device = torch.device(config['system']['device'])
-    
+    print(f"Using device: {device}")
+
     # Initialize data loader
     eval_data_loader = initialize_data_loader(
         dataset_name=config['data']['dataset_name'],
