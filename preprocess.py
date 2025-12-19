@@ -58,7 +58,9 @@ class ASVspoof2019(Dataset):
         self.normalize = normalize
         self.label_map = label_map
 
-        self.all_files = librosa.util.find_files(self.data_path)
+        # self.all_files = librosa.util.find_files(self.data_path)
+        self.all_files = librosa.util.find_files(self.data_path)[:1000]
+
         self.all_labels= self._get_labels()
 
 
@@ -232,7 +234,7 @@ class RFP_Dataset(Dataset):
         self.label_map = label_map
 
         self.all_files = librosa.util.find_files(self.data_path)
-        # self.all_files = librosa.util.find_files(self.data_path)[:6000]
+        # self.all_files = librosa.util.find_files(self.data_path)[:1000]
         self.all_labels= self._get_labels()
 
 

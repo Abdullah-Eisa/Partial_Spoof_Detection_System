@@ -46,7 +46,17 @@ def inference_helper(model, feature_extractor,criterion,
             labels = labels.unsqueeze(1).float()   # Converts labels from shape [batch_size] to [batch_size, 1]
 
             # Forward pass through wav2vec2 for feature extraction
-            features = feature_extractor(waveforms)['hidden_states'][-1] 
+            # features = feature_extractor(waveforms)['hidden_states'][-1] 
+
+            # Forward pass through feature extractor
+            features_output = feature_extractor(waveforms)
+
+            # Handle both dictionary output (SSL models) and direct tensor output (MFCC/LFCC)
+            if isinstance(features_output, dict):
+                features = features_output['hidden_states'][-1]
+            else:
+                features = features_output
+
 
             # lengths should be the number of non-padded frames in each sequence
             lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
@@ -94,13 +104,76 @@ def inference_helper(model, feature_extractor,criterion,
 
 
 
+# def inference(config):
+#     """Run inference using configuration"""
+#     print("Starting inference...")
+    
+#     device = torch.device(config['system']['device'])
+#     print(f"Using device: {device}")
+
+#     # Initialize data loader
+#     eval_data_loader = initialize_data_loader(
+#         dataset_name=config['data']['dataset_name'],
+#         data_path=config['data']['eval_data_path'],
+#         labels_path=config['data']['eval_labels_path'],
+#         BATCH_SIZE=config['inference'].get('batch_size', config['training']['batch_size']),
+#         shuffle=False,
+#         num_workers=config['inference'].get('num_workers', config['system']['num_workers']),
+#         prefetch_factor=config['inference'].get('prefetch_factor', config['system']['prefetch_factor']),
+#         pin_memory=config['inference'].get('pin_memory', config['system']['pin_memory'])
+#     )
+
+#     # Load models
+#     feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', 
+#                                      model_path=config['paths']['ssl_checkpoint']).to(device)
+#     feature_extractor.eval()
+
+#     PS_Model = BinarySpoofingClassificationModel(
+#         feature_dim=config['model']['feature_dim'],
+#         num_heads=config['model']['num_heads'],
+#         hidden_dim=config['model']['hidden_dim'],
+#         max_dropout=config['model']['max_dropout'],
+#         depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
+#         conformer_layers=config['model']['conformer_layers'],
+#         max_pooling_factor=config['model']['max_pooling_factor']
+#     ).to(device)
+
+#     # Load model checkpoint
+#     try:
+#         checkpoint = torch.load(config['paths']['ps_model_checkpoint'], map_location=device)
+#         PS_Model.load_state_dict(checkpoint['model_state_dict'])
+#         print(f"Loaded model checkpoint from {config['paths']['ps_model_checkpoint']}")
+#     except Exception as e:
+#         print(f"Error loading model checkpoint: {str(e)}")
+#         return
+
+#     PS_Model.eval()
+
+#     criterion = initialize_loss_function().to(device)
+    
+#     # Call inference helper function
+#     results = inference_helper(
+#         model=PS_Model,
+#         feature_extractor=feature_extractor,
+#         criterion=criterion,
+#         test_data_loader=eval_data_loader, 
+#         DEVICE=device
+#     )
+
+#     if device == 'cuda':
+#         torch.cuda.empty_cache()
+        
+#     return results
+
+
 def inference(config):
     """Run inference using configuration"""
+    from feature_extractors import FeatureExtractorFactory
+    
     print("Starting inference...")
     
     device = torch.device(config['system']['device'])
-    print(f"Using device: {device}")
-
+    
     # Initialize data loader
     eval_data_loader = initialize_data_loader(
         dataset_name=config['data']['dataset_name'],
@@ -113,13 +186,16 @@ def inference(config):
         pin_memory=config['inference'].get('pin_memory', config['system']['pin_memory'])
     )
 
-    # Load models
-    feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', 
-                                     model_path=config['paths']['ssl_checkpoint']).to(device)
+    # Load feature extractor
+    feature_extractor = FeatureExtractorFactory.create_extractor(config, device)
     feature_extractor.eval()
 
+    # Get feature dimension
+    from feature_extractors import get_feature_dim_from_config
+    feature_dim = get_feature_dim_from_config(config)
+
     PS_Model = BinarySpoofingClassificationModel(
-        feature_dim=config['model']['feature_dim'],
+        feature_dim=feature_dim,
         num_heads=config['model']['num_heads'],
         hidden_dim=config['model']['hidden_dim'],
         max_dropout=config['model']['max_dropout'],
@@ -185,7 +261,17 @@ def dev_one_epoch(model, feature_extractor,criterion,
             labels = labels.unsqueeze(1).float()   # Converts labels from shape [batch_size] to [batch_size, 1]
 
             # Forward pass through wav2vec2 for feature extraction
-            features = feature_extractor(waveforms)['hidden_states'][-1] 
+            # features = feature_extractor(waveforms)['hidden_states'][-1] 
+
+            # Forward pass through feature extractor
+            features_output = feature_extractor(waveforms)
+
+            # Handle both dictionary output (SSL models) and direct tensor output (MFCC/LFCC)
+            if isinstance(features_output, dict):
+                features = features_output['hidden_states'][-1]
+            else:
+                features = features_output
+
 
             # lengths should be the number of non-padded frames in each sequence
             lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)

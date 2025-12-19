@@ -265,58 +265,134 @@ class RotaryPositionalEmbeddings(nn.Module):
 # ============================================================================================
 # binary classification model with Rotary Positional Encoding and max pooling after feature extractor
 
+# class BinarySpoofingClassificationModel(nn.Module):
+#     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3):
+#         super(BinarySpoofingClassificationModel, self).__init__()
+
+#         self.max_pooling_factor = max_pooling_factor
+#         self.feature_dim = feature_dim
+#         self.num_heads = num_heads
+#         self.max_dropout=max_dropout
+
+#         if self.max_pooling_factor is not None:
+#             self.max_pooling = nn.MaxPool1d(kernel_size=self.max_pooling_factor, stride=self.max_pooling_factor)
+#             self.feature_dim=feature_dim//self.max_pooling_factor
+#         else:
+#             self.max_pooling = None
+        
+#         print(f"self.feature_dim= {self.feature_dim} , self.max_pooling= {self.max_pooling}")
+#         # Define the Conformer model from torchaudio
+#         self.conformer = tam.Conformer(
+#             input_dim=self.feature_dim,
+#             num_heads=self.num_heads,
+#             ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
+#             num_layers=conformer_layers,  # Example, adjust as needed
+#             depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
+#             dropout=0.2, # Dropout initialized with 0.2 for conformer block
+#             use_group_norm= False, 
+#             convolution_first= False
+#         )
+        
+#         # Global pooling layer (SelfWeightedPooling)
+#         self.pooling = SelfWeightedPooling(self.feature_dim , mean_only=True)  # Pool across sequence dimension
+        
+#         # Add a feedforward block for feature refinement before classification
+#         self.fc_refinement = nn.Sequential(
+#             nn.Linear(self.feature_dim, hidden_dim),  # Refined hidden dimension for classification
+#             nn.LayerNorm(hidden_dim),
+#             nn.GELU(),
+#             nn.Dropout(0.2),  # Dropout for regularization
+
+#             nn.Linear(hidden_dim, hidden_dim//2),  # Refined hidden dimension for classification
+#             nn.LayerNorm(hidden_dim//2),
+#             nn.GELU(),
+#             nn.Dropout(0.2),  # Dropout for regularization
+
+#             nn.Linear(hidden_dim//2, hidden_dim//4),  # Refined hidden dimension for classification
+#             nn.LayerNorm(hidden_dim//4),
+#             nn.GELU(),
+#             nn.Dropout(0.2),  # Dropout for regularization
+
+#             nn.Linear(hidden_dim//4, 1),  # Final output layer
+#             # nn.Sigmoid(),
+#         )
+
+
+#         self.apply(self.initialize_weights)
+
+
 class BinarySpoofingClassificationModel(nn.Module):
-    def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3):
+    def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, 
+                 depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3):
         super(BinarySpoofingClassificationModel, self).__init__()
 
         self.max_pooling_factor = max_pooling_factor
-        self.feature_dim = feature_dim
+        self.base_feature_dim = feature_dim
         self.num_heads = num_heads
-        self.max_dropout=max_dropout
+        self.max_dropout = max_dropout
 
+        # Calculate dimension after pooling
         if self.max_pooling_factor is not None:
-            self.max_pooling = nn.MaxPool1d(kernel_size=self.max_pooling_factor, stride=self.max_pooling_factor)
-            self.feature_dim=feature_dim//self.max_pooling_factor
+            dim_after_pooling = feature_dim // self.max_pooling_factor
+            # Adjust to be divisible by num_heads
+            self.conformer_input_dim = (dim_after_pooling // num_heads) * num_heads
+            
+            # Calculate how much we need to trim
+            self.trim_size = dim_after_pooling - self.conformer_input_dim
+            
+            self.max_pooling = nn.MaxPool1d(
+                kernel_size=self.max_pooling_factor, 
+                stride=self.max_pooling_factor
+            )
         else:
+            self.conformer_input_dim = feature_dim
+            self.trim_size = 0
             self.max_pooling = None
         
-        print(f"self.feature_dim= {self.feature_dim} , self.max_pooling= {self.max_pooling}")
+        print(f"base_feature_dim: {self.base_feature_dim}")
+        print(f"conformer_input_dim: {self.conformer_input_dim}")
+        print(f"num_heads: {self.num_heads}")
+        print(f"max_pooling: {self.max_pooling}")
+        print(f"trim_size: {self.trim_size}")
+        
+        # Verify dimension is divisible by num_heads
+        assert self.conformer_input_dim % num_heads == 0, \
+            f"conformer_input_dim ({self.conformer_input_dim}) must be divisible by num_heads ({num_heads})"
+        
         # Define the Conformer model from torchaudio
         self.conformer = tam.Conformer(
-            input_dim=self.feature_dim,
+            input_dim=self.conformer_input_dim,
             num_heads=self.num_heads,
-            ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
-            num_layers=conformer_layers,  # Example, adjust as needed
-            depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
-            dropout=0.2, # Dropout initialized with 0.2 for conformer block
-            use_group_norm= False, 
-            convolution_first= False
+            ffn_dim=hidden_dim,
+            num_layers=conformer_layers,
+            depthwise_conv_kernel_size=depthwise_conv_kernel_size,
+            dropout=0.2,
+            use_group_norm=False, 
+            convolution_first=False
         )
         
         # Global pooling layer (SelfWeightedPooling)
-        self.pooling = SelfWeightedPooling(self.feature_dim , mean_only=True)  # Pool across sequence dimension
+        self.pooling = SelfWeightedPooling(self.conformer_input_dim, mean_only=True)
         
         # Add a feedforward block for feature refinement before classification
         self.fc_refinement = nn.Sequential(
-            nn.Linear(self.feature_dim, hidden_dim),  # Refined hidden dimension for classification
+            nn.Linear(self.conformer_input_dim, hidden_dim),
             nn.LayerNorm(hidden_dim),
             nn.GELU(),
-            nn.Dropout(0.2),  # Dropout for regularization
+            nn.Dropout(0.2),
 
-            nn.Linear(hidden_dim, hidden_dim//2),  # Refined hidden dimension for classification
+            nn.Linear(hidden_dim, hidden_dim//2),
             nn.LayerNorm(hidden_dim//2),
             nn.GELU(),
-            nn.Dropout(0.2),  # Dropout for regularization
+            nn.Dropout(0.2),
 
-            nn.Linear(hidden_dim//2, hidden_dim//4),  # Refined hidden dimension for classification
+            nn.Linear(hidden_dim//2, hidden_dim//4),
             nn.LayerNorm(hidden_dim//4),
             nn.GELU(),
-            nn.Dropout(0.2),  # Dropout for regularization
+            nn.Dropout(0.2),
 
-            nn.Linear(hidden_dim//4, 1),  # Final output layer
-            # nn.Sigmoid(),
+            nn.Linear(hidden_dim//4, 1),
         )
-
 
         self.apply(self.initialize_weights)
 
@@ -348,25 +424,50 @@ class BinarySpoofingClassificationModel(nn.Module):
                 nn.init.constant_(m.bias, bias_value)
 
 
-    def forward(self, x, lengths,dropout_prob):
+    # def forward(self, x, lengths,dropout_prob):
+    #     if self.max_pooling is not None:
+    #         x = self.max_pooling(x)  # Apply max pooling
+
+    #     # Apply Conformer model
+    #     x, _ = self.conformer(x, lengths)  # The second returned value is the sequence lengths
+        
+    #     # Apply global pooling across the sequence dimension (SelfWeightedPooling)
+    #     x = self.pooling(x)  # Now x is (batch_size, hidden_dim, 1)
+
+    #     # Update the dropout probability dynamically
+    #     self.fc_refinement[3].p = dropout_prob  # Update the dropout layer's probability
+    #     self.fc_refinement[7].p = dropout_prob  # Update the dropout layer's probability
+    #     self.fc_refinement[11].p = dropout_prob  # Update the dropout layer's probability
+
+    #     # Refine features before classification using the fc_refinement block
+    #     utt_score = self.fc_refinement(x)
+    #     return utt_score # Return the classification output
+        
+    def forward(self, x, lengths, dropout_prob):
+        # Apply max pooling if configured
         if self.max_pooling is not None:
-            x = self.max_pooling(x)  # Apply max pooling
+            x = self.max_pooling(x)
+            
+            # Trim features if needed to make divisible by num_heads
+            if self.trim_size > 0:
+                x = x[:, :, :-self.trim_size]
 
         # Apply Conformer model
-        x, _ = self.conformer(x, lengths)  # The second returned value is the sequence lengths
+        x, _ = self.conformer(x, lengths)
         
-        # Apply global pooling across the sequence dimension (SelfWeightedPooling)
-        x = self.pooling(x)  # Now x is (batch_size, hidden_dim, 1)
+        # Apply global pooling across the sequence dimension
+        x = self.pooling(x)
 
         # Update the dropout probability dynamically
-        self.fc_refinement[3].p = dropout_prob  # Update the dropout layer's probability
-        self.fc_refinement[7].p = dropout_prob  # Update the dropout layer's probability
-        self.fc_refinement[11].p = dropout_prob  # Update the dropout layer's probability
+        self.fc_refinement[3].p = dropout_prob
+        self.fc_refinement[7].p = dropout_prob
+        self.fc_refinement[11].p = dropout_prob
 
-        # Refine features before classification using the fc_refinement block
+        # Refine features before classification
         utt_score = self.fc_refinement(x)
-        return utt_score # Return the classification output
-        
+        return utt_score
+
+
     def adjust_dropout(self, epoch, total_epochs):
         # Cosine annealing for dropout probability
         return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
@@ -376,35 +477,136 @@ class BinarySpoofingClassificationModel(nn.Module):
 # ===========================================================================================================================
 # ===========================================================================================================================
 
-def initialize_models(ssl_ckpt_path, save_feature_extractor=False,
-                      feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3, 
-                      LEARNING_RATE=0.0001,DEVICE='cpu'):
-    """Initialize the model, feature extractor, and optimizer"""
-    # Initialize feature extractor
-    if os.path.exists(ssl_ckpt_path):
-        feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
-    else:
-        ssl_ckpt_path = os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
-        feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
+# def initialize_models(ssl_ckpt_path, save_feature_extractor=False,
+#                       feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3, 
+#                       LEARNING_RATE=0.0001,DEVICE='cpu'):
+#     """Initialize the model, feature extractor, and optimizer"""
+#     # Initialize feature extractor
+#     if os.path.exists(ssl_ckpt_path):
+#         feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
+#     else:
+#         ssl_ckpt_path = os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
+#         feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
 
+#     # Initialize Binary Spoofing Classification Model
+#     PS_Model = BinarySpoofingClassificationModel(feature_dim, num_heads, hidden_dim, max_dropout, depthwise_conv_kernel_size, conformer_layers, max_pooling_factor).to(DEVICE)
+
+#     # Freeze feature extractor if necessary
+#     if save_feature_extractor:
+#         for name, param in feature_extractor.named_parameters():
+#             if 'final_proj' not in name:
+#                 param.requires_grad = False
+#             else:
+#                 param.requires_grad = True
+    
+#     # Optimizer setup
+#     optimizer = optim.AdamW(
+#         [{'params': feature_extractor.parameters(), 'lr': 0.00005},
+#          {'params': PS_Model.parameters()}], 
+#         lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8) if save_feature_extractor else optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+
+#     return PS_Model, feature_extractor, optimizer
+
+
+
+
+
+# def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001, DEVICE='cpu'):
+#     """Initialize the model, feature extractor, and optimizer"""
+#     from feature_extractors import FeatureExtractorFactory, get_feature_dim_from_config
+    
+#     # Create feature extractor based on config
+#     feature_extractor = FeatureExtractorFactory.create_extractor(config, DEVICE)
+    
+#     # Get feature dimension from config
+#     feature_dim = get_feature_dim_from_config(config)
+    
+#     # Initialize Binary Spoofing Classification Model
+#     PS_Model = BinarySpoofingClassificationModel(
+#         feature_dim=feature_dim,
+#         num_heads=config['model']['num_heads'],
+#         hidden_dim=config['model']['hidden_dim'],
+#         max_dropout=config['model']['max_dropout'],
+#         depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
+#         conformer_layers=config['model']['conformer_layers'],
+#         max_pooling_factor=config['model']['max_pooling_factor']
+#     ).to(DEVICE)
+
+#     # Freeze feature extractor if necessary
+#     if save_feature_extractor and hasattr(feature_extractor, 'model'):
+#         for name, param in feature_extractor.model.named_parameters():
+#             if 'final_proj' not in name:
+#                 param.requires_grad = False
+#             else:
+#                 param.requires_grad = True
+    
+#     # Optimizer setup
+#     if save_feature_extractor and hasattr(feature_extractor, 'parameters'):
+#         optimizer = optim.AdamW(
+#             [{'params': feature_extractor.parameters(), 'lr': 0.00005},
+#              {'params': PS_Model.parameters()}], 
+#             lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+#     else:
+#         optimizer = optim.AdamW(
+#             PS_Model.parameters(), 
+#             lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+
+#     return PS_Model, feature_extractor, optimizer
+
+
+def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001, DEVICE='cpu'):
+    """Initialize the model, feature extractor, and optimizer"""
+    from feature_extractors import FeatureExtractorFactory, get_feature_dim_from_config, calculate_conformer_input_dim
+    
+    # Create feature extractor based on config
+    feature_extractor = FeatureExtractorFactory.create_extractor(config, DEVICE)
+    
+    # Get base feature dimension from config
+    base_feature_dim = get_feature_dim_from_config(config)
+    
+    # Calculate conformer input dimension (after pooling and adjustment for num_heads)
+    conformer_input_dim = calculate_conformer_input_dim(
+        base_feature_dim=base_feature_dim,
+        max_pooling_factor=config['model'].get('max_pooling_factor'),
+        num_heads=config['model']['num_heads']
+    )
+    
+    print(f"Feature Extractor Type: {config['feature_extractor']['type']}")
+    print(f"Base Feature Dim: {base_feature_dim}")
+    print(f"Conformer Input Dim: {conformer_input_dim}")
+    
     # Initialize Binary Spoofing Classification Model
-    PS_Model = BinarySpoofingClassificationModel(feature_dim, num_heads, hidden_dim, max_dropout, depthwise_conv_kernel_size, conformer_layers, max_pooling_factor).to(DEVICE)
+    PS_Model = BinarySpoofingClassificationModel(
+        feature_dim=base_feature_dim,  # Pass base feature dim
+        num_heads=config['model']['num_heads'],
+        hidden_dim=config['model']['hidden_dim'],
+        max_dropout=config['model']['max_dropout'],
+        depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
+        conformer_layers=config['model']['conformer_layers'],
+        max_pooling_factor=config['model'].get('max_pooling_factor')
+    ).to(DEVICE)
 
     # Freeze feature extractor if necessary
-    if save_feature_extractor:
-        for name, param in feature_extractor.named_parameters():
+    if save_feature_extractor and hasattr(feature_extractor, 'model'):
+        for name, param in feature_extractor.model.named_parameters():
             if 'final_proj' not in name:
                 param.requires_grad = False
             else:
                 param.requires_grad = True
     
     # Optimizer setup
-    optimizer = optim.AdamW(
-        [{'params': feature_extractor.parameters(), 'lr': 0.00005},
-         {'params': PS_Model.parameters()}], 
-        lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8) if save_feature_extractor else optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+    if save_feature_extractor and hasattr(feature_extractor, 'parameters'):
+        optimizer = optim.AdamW(
+            [{'params': feature_extractor.parameters(), 'lr': 0.00005},
+             {'params': PS_Model.parameters()}], 
+            lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+    else:
+        optimizer = optim.AdamW(
+            PS_Model.parameters(), 
+            lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
 
     return PS_Model, feature_extractor, optimizer
+
 
 
 

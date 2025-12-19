@@ -30,7 +30,16 @@ def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion
         optimizer.zero_grad()
 
         # Feature extraction
-        features = feature_extractor(waveforms)['hidden_states'][-1]
+        # features = feature_extractor(waveforms)['hidden_states'][-1]
+        # Feature extraction
+        features_output = feature_extractor(waveforms)
+
+        # Handle both dictionary output (SSL models) and direct tensor output (MFCC/LFCC)
+        if isinstance(features_output, dict):
+            features = features_output['hidden_states'][-1]
+        else:
+            features = features_output
+
         lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)
 
         # Forward pass
@@ -63,13 +72,22 @@ def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion
     return epoch_loss, utterance_predictions, utterance_labels, files_names, nan_count
 
 # ===========================================================================================================================
-def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, dev_labels_path, ssl_ckpt_path,apply_transform,
-                save_feature_extractor=False,feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0.2,
-                depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3,LEARNING_RATE=0.0001,
-                BATCH_SIZE=32,NUM_EPOCHS=1, num_workers=0, prefetch_factor=None,
-                monitor_dev_epoch=0,save_interval=float('inf'),
+# def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, dev_labels_path, ssl_ckpt_path,apply_transform,
+#                 save_feature_extractor=False,feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0.2,
+#                 depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3,LEARNING_RATE=0.0001,
+#                 BATCH_SIZE=32,NUM_EPOCHS=1, num_workers=0, prefetch_factor=None,
+#                 monitor_dev_epoch=0,save_interval=float('inf'),
+#                 model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
+#                 patience=10,max_grad_norm=1.0,gamma=0.9,pin_memory=False,DEVICE='cpu'):
+
+def train_model(config, dataset_name, train_data_path, train_labels_path,
+                dev_data_path, dev_labels_path, apply_transform,
+                save_feature_extractor=False, LEARNING_RATE=0.0001,
+                BATCH_SIZE=32, NUM_EPOCHS=1, num_workers=0, prefetch_factor=None,
+                monitor_dev_epoch=0, save_interval=float('inf'),
                 model_save_path=os.path.join(os.getcwd(),'models/back_end_models'),
-                patience=10,max_grad_norm=1.0,gamma=0.9,pin_memory=False,DEVICE='cpu'):
+                patience=10, max_grad_norm=1.0, gamma=0.9, pin_memory=False, DEVICE='cpu'):
+
 
     """Train the model for NUM_EPOCHS"""
     # Initialize W&B
@@ -79,9 +97,14 @@ def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, d
     early_stopping = EarlyStopping(patience=patience, verbose=True)
 
     # Initialize model, feature extractor, optimizer, loss function
-    PS_Model, feature_extractor, optimizer = initialize_models(ssl_ckpt_path, save_feature_extractor,
-                      feature_dim, num_heads,hidden_dim,max_dropout,depthwise_conv_kernel_size,conformer_layers,max_pooling_factor, 
-                      LEARNING_RATE,DEVICE)
+    # PS_Model, feature_extractor, optimizer = initialize_models(ssl_ckpt_path, save_feature_extractor,
+    #                   feature_dim, num_heads,hidden_dim,max_dropout,depthwise_conv_kernel_size,conformer_layers,max_pooling_factor, 
+    #                   LEARNING_RATE,DEVICE)
+
+
+    PS_Model, feature_extractor, optimizer = initialize_models(
+        config, save_feature_extractor, LEARNING_RATE, DEVICE)
+
 
     criterion = initialize_loss_function().to(DEVICE)
 
@@ -178,6 +201,48 @@ def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, d
 
 
 
+# def train(config=None):
+#     """
+#     Training function that accepts configuration
+#     Args:
+#         config: Configuration object from wandb or ConfigManager
+#     """
+#     if config is None:
+#         # Initialize W&B if no config provided
+#         initialize_wandb()
+#         config = wandb.config
+    
+#     train_model(
+#         dataset_name=config['data']['dataset_name'],
+#         train_data_path=config['data']['train_data_path'],
+#         train_labels_path=config['data']['train_labels_path'],
+#         dev_data_path=config['data']['dev_data_path'],
+#         dev_labels_path=config['data']['dev_labels_path'],
+#         ssl_ckpt_path=config['paths']['ssl_checkpoint'],
+#         apply_transform=config['system']['apply_transform'],
+#         save_feature_extractor=config['system']['save_feature_extractor'],
+#         feature_dim=config['model']['feature_dim'],
+#         num_heads=config['model']['num_heads'],
+#         hidden_dim=config['model']['hidden_dim'],
+#         max_dropout=config['model']['max_dropout'],
+#         depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
+#         conformer_layers=config['model']['conformer_layers'],
+#         max_pooling_factor=config['model']['max_pooling_factor'],
+#         LEARNING_RATE=config['training']['learning_rate'],
+#         BATCH_SIZE=config['training']['batch_size'],
+#         NUM_EPOCHS=config['training']['num_epochs'],
+#         num_workers=config['system']['num_workers'],
+#         prefetch_factor=config['system']['prefetch_factor'],
+#         pin_memory=config['system']['pin_memory'],
+#         monitor_dev_epoch=config['training']['monitor_dev_epoch'],
+#         save_interval=config['training']['save_interval'],
+#         model_save_path=config['paths']['model_save_dir'],
+#         patience=config['training']['patience'],
+#         max_grad_norm=config['training']['max_grad_norm'],
+#         gamma=config['training']['gamma'],
+#         DEVICE=config['system']['device']
+#     )
+
 def train(config=None):
     """
     Training function that accepts configuration
@@ -185,26 +250,18 @@ def train(config=None):
         config: Configuration object from wandb or ConfigManager
     """
     if config is None:
-        # Initialize W&B if no config provided
         initialize_wandb()
         config = wandb.config
     
     train_model(
+        config=config,  # Pass the full config
         dataset_name=config['data']['dataset_name'],
         train_data_path=config['data']['train_data_path'],
         train_labels_path=config['data']['train_labels_path'],
         dev_data_path=config['data']['dev_data_path'],
         dev_labels_path=config['data']['dev_labels_path'],
-        ssl_ckpt_path=config['paths']['ssl_checkpoint'],
         apply_transform=config['system']['apply_transform'],
         save_feature_extractor=config['system']['save_feature_extractor'],
-        feature_dim=config['model']['feature_dim'],
-        num_heads=config['model']['num_heads'],
-        hidden_dim=config['model']['hidden_dim'],
-        max_dropout=config['model']['max_dropout'],
-        depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
-        conformer_layers=config['model']['conformer_layers'],
-        max_pooling_factor=config['model']['max_pooling_factor'],
         LEARNING_RATE=config['training']['learning_rate'],
         BATCH_SIZE=config['training']['batch_size'],
         NUM_EPOCHS=config['training']['num_epochs'],

@@ -1,7 +1,8 @@
 
 # Training configuration
 training:
-  num_epochs: &num_epochs 30
+  # num_epochs: &num_epochs 30
+  num_epochs: &num_epochs 1
   learning_rate: &learning_rate 0.00075
   batch_size: &batch_size 8
   save_interval: 5
@@ -9,7 +10,7 @@ training:
   max_grad_norm: 1.0
   gamma: 0.9
   monitor_dev_epoch: 0
-  use_wandb: true
+  use_wandb: false
 
 # WandB sweep configuration
 wandb_sweep:
@@ -21,9 +22,34 @@ wandb_sweep:
     values: [*batch_size]
 
 
+
+# Feature Extractor configuration
+feature_extractor:
+  # type: "wav2vec2"  # Options: "wav2vec2", "hubert", "mfcc", "lfcc"
+  type: "hubert"
+
+  # SSL models (wav2vec2, hubert)
+  ssl_checkpoint: "${BASE_DIR}/models/w2v_large_lv_fsh_swbd_cv.pt"
+  
+  # MFCC parameters
+  mfcc_n_mfcc: 40
+  mfcc_log_mels: true
+  mfcc_sample_rate: 16000
+  mfcc_n_fft: 400
+  mfcc_hop_length: 160
+  mfcc_n_mels: 80
+  
+  # LFCC parameters
+  lfcc_n_filters: 20
+  lfcc_n_lfcc: 40
+  lfcc_sample_rate: 16000
+  lfcc_n_fft: 512
+  lfcc_hop_length: 160
+
+
 # Model configuration  
 model:
-  feature_dim: 768
+  feature_dim: 768  # 768 for wav2vec2/hubert, 40 for mfcc/lfcc
   num_heads: 8
   hidden_dim: 128
   max_dropout: 0.35
@@ -42,23 +68,23 @@ data:
   # eval_data_path: "${BASE_DIR}/database/PartialSpoof/database/eval/con_wav"
   # eval_labels_path: "${BASE_DIR}/database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json"
 
-  dataset_name: "RFP_Dataset"
-  base_path: "${BASE_DIR}/database"
-  train_data_path: "${BASE_DIR}/database/RFP/training"
-  train_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_train.trl.txt"
-  dev_data_path: "${BASE_DIR}/database/RFP/validation"
-  dev_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_dev.trl.txt"
-  eval_data_path: "${BASE_DIR}/database/RFP/testing"
-  eval_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_eval.trl.txt"
-
-  # dataset_name: "ASVspoof2019_LA_Dataset"
+  # dataset_name: "RFP_Dataset"
   # base_path: "${BASE_DIR}/database"
-  # train_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac"
-  # train_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt"
-  # dev_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_dev/flac"
-  # dev_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt"
-  # eval_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac"
-  # eval_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trl.txt"
+  # train_data_path: "${BASE_DIR}/database/RFP/training"
+  # train_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_train.trl.txt"
+  # dev_data_path: "${BASE_DIR}/database/RFP/validation"
+  # dev_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_dev.trl.txt"
+  # eval_data_path: "${BASE_DIR}/database/RFP/testing"
+  # eval_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_eval.trl.txt"
+
+  dataset_name: "ASVspoof2019_LA_Dataset"
+  base_path: "${BASE_DIR}/database"
+  train_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac"
+  train_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt"
+  dev_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_dev/flac"
+  dev_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt"
+  eval_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac"
+  eval_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trl.txt"
 
 
 # Model paths

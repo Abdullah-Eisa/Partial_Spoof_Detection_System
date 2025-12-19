@@ -31,7 +31,7 @@ git restore --source HEAD~1 requirements.txt utils/__init__.py utils/config_mana
 # find "${PWD}" -type f  ! -name '*.txt' ! -name '*.yml' -exec chmod 777 {} \;
 
 echo "Running env_setup.sh ..."
-sh ./env_setup.sh
+bash ./env_setup.sh
 
 # install screen
 sudo apt update
