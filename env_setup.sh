@@ -53,6 +53,9 @@ if [ $retVal -ne 0 ]; then
     python -c "import os; os.makedirs('models/back_end_models', exist_ok=True)"
     python -c "import os; os.makedirs('outputs', exist_ok=True)"
     
+
+    python -c "from transformers import HubertModel; model = HubertModel.from_pretrained('facebook/hubert-large-ls960-ft'); model.save_pretrained('./models/hubert-large-ls960-ft')"
+
 else
     echo "Conda environment ${ENVNAME} is already installed"
 fi

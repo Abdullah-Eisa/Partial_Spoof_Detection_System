@@ -25,14 +25,7 @@ git checkout -b Feature-Extractor-Comparison
 git add .
 
 # Commit changes
-git commit -m "Refactor feature extraction and model initialization
-
-- Updated inference and training scripts to handle various feature extractors (Wav2Vec2, HuBERT, MFCC, LFCC) using a factory pattern.
-- Enhanced BinarySpoofingClassificationModel to dynamically calculate input dimensions based on pooling and attention heads.
-- Added new feature_extractors.py module to encapsulate feature extraction logic.
-- Modified data loading to limit the number of files processed for faster testing.
-- Improved error handling during model checkpoint loading.
-- Updated training function to accept a configuration object for better parameter management."
+git commit -m "add code for HuBERT feature extractor"
 
 # Push new branch to remote and set upstream
 git push -u origin Feature-Extractor-Comparison

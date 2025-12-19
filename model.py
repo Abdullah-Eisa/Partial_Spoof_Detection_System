@@ -354,6 +354,7 @@ class BinarySpoofingClassificationModel(nn.Module):
         print(f"num_heads: {self.num_heads}")
         print(f"max_pooling: {self.max_pooling}")
         print(f"trim_size: {self.trim_size}")
+        print(f"dim_after_pooling: {dim_after_pooling}")
         
         # Verify dimension is divisible by num_heads
         assert self.conformer_input_dim % num_heads == 0, \
@@ -445,11 +446,15 @@ class BinarySpoofingClassificationModel(nn.Module):
         
     def forward(self, x, lengths, dropout_prob):
         # Apply max pooling if configured
+        print(f"Input shape before max pooling: {x.size()}")
         if self.max_pooling is not None:
             x = self.max_pooling(x)
+            print(f"Input shape after max pooling: {x.size()}")
+
             
             # Trim features if needed to make divisible by num_heads
             if self.trim_size > 0:
+                print(f"Trimming features by {self.trim_size} to make divisible by num_heads")
                 x = x[:, :, :-self.trim_size]
 
         # Apply Conformer model
@@ -562,8 +567,9 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
     feature_extractor = FeatureExtractorFactory.create_extractor(config, DEVICE)
     
     # Get base feature dimension from config
-    base_feature_dim = get_feature_dim_from_config(config)
-    
+    # base_feature_dim = get_feature_dim_from_config(config)
+    base_feature_dim = feature_extractor.get_feature_dim()
+
     # Calculate conformer input dimension (after pooling and adjustment for num_heads)
     conformer_input_dim = calculate_conformer_input_dim(
         base_feature_dim=base_feature_dim,
@@ -574,6 +580,7 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
     print(f"Feature Extractor Type: {config['feature_extractor']['type']}")
     print(f"Base Feature Dim: {base_feature_dim}")
     print(f"Conformer Input Dim: {conformer_input_dim}")
+    print(f"feature_extractor: {feature_extractor}")
     
     # Initialize Binary Spoofing Classification Model
     PS_Model = BinarySpoofingClassificationModel(

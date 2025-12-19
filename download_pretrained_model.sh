@@ -94,7 +94,8 @@ case $model_choice in
         pip install -q huggingface_hub
 
         # Download model (weights + config)
-        huggingface-cli download facebook/hubert-large-ls960-ft \
+        # huggingface-cli download facebook/hubert-large-ls960-ft \
+        python -m huggingface_hub download facebook/hubert-large-ls960-ft \
             --local-dir "${save_folder}/hubert-large-ls960-ft" \
             --local-dir-use-symlinks False
         ;;

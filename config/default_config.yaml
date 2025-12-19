@@ -29,7 +29,8 @@ feature_extractor:
   type: "hubert"
 
   # SSL models (wav2vec2, hubert)
-  ssl_checkpoint: "${BASE_DIR}/models/w2v_large_lv_fsh_swbd_cv.pt"
+  # ssl_checkpoint: "${BASE_DIR}/models/w2v_large_lv_fsh_swbd_cv.pt"
+  ssl_checkpoint: "${BASE_DIR}/models/hubert-large-ls960-ft"
   
   # MFCC parameters
   mfcc_n_mfcc: 40
@@ -49,6 +50,7 @@ feature_extractor:
 
 # Model configuration  
 model:
+  # feature_dim: 768  # 768 for wav2vec2/hubert, 40 for mfcc/lfcc
   feature_dim: 768  # 768 for wav2vec2/hubert, 40 for mfcc/lfcc
   num_heads: 8
   hidden_dim: 128
@@ -56,6 +58,7 @@ model:
   depthwise_conv_kernel_size: 31
   conformer_layers: 1
   max_pooling_factor: 3
+  # max_pooling_factor: 4
 
 # Data configuration
 data:

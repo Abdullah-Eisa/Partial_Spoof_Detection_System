@@ -106,17 +106,57 @@ class Wav2Vec2Extractor(nn.Module):
         return self.get_feature_dim() // max_pooling_factor
 
 
-class HuBERTExtractor(nn.Module):
-    """HuBERT feature extractor"""
+# class HuBERTExtractor(nn.Module):
+#     """HuBERT feature extractor"""
     
+#     def __init__(self, checkpoint_path, device='cpu'):
+#         super().__init__()
+#         self.device = device
+#         # Load HuBERT model from s3prl
+#         self.model = torch.hub.load('s3prl/s3prl', 'hubert', 
+#                                     model_path=checkpoint_path).to(device)
+#         self.model.eval()
+          
+#     def get_feature_dim(self):
+#         return 1024  # HuBERT large has 1024 dims
+    
+#     def get_output_dim_after_pooling(self, max_pooling_factor):
+#         """Calculate output dimension after max pooling"""
+#         if max_pooling_factor is None:
+#             return self.get_feature_dim()
+#         return self.get_feature_dim() // max_pooling_factor
+
+class HuBERTExtractor(nn.Module):
     def __init__(self, checkpoint_path, device='cpu'):
         super().__init__()
         self.device = device
-        # Load HuBERT model from s3prl
-        self.model = torch.hub.load('s3prl/s3prl', 'hubert', 
-                                    model_path=checkpoint_path).to(device)
+        self.checkpoint_path = checkpoint_path
+        print(f"Loading HuBERT model from: {checkpoint_path} on {device}")
+        self.model = torch.hub.load('s3prl/s3prl', 'hubert', model_path=checkpoint_path).to(device)
         self.model.eval()
-        
+        # infer feature dim from a tiny dummy input
+        with torch.no_grad():
+            try:
+                dummy = torch.zeros(1, 16000).to(device)
+                out = self.model(dummy)
+                if isinstance(out, dict):
+                    last = out['hidden_states'][-1]
+                else:
+                    last = out
+                self._feature_dim = last.shape[-1]
+            except Exception as e:
+                print("Warning: cannot infer HuBERT feature dim, defaulting to 1024:", e)
+                self._feature_dim = 768
+        print(f"HuBERT inferred feature_dim = {self._feature_dim}")
+
+    def get_feature_dim(self):
+        return self._feature_dim
+
+    def get_output_dim_after_pooling(self, max_pooling_factor):
+        if max_pooling_factor is None:
+            return self.get_feature_dim()
+        return self.get_feature_dim() // max_pooling_factor
+
     # def forward(self, waveforms):
     #     """
     #     Extract features from waveforms
@@ -150,17 +190,8 @@ class HuBERTExtractor(nn.Module):
                 # If it returns tensor directly, wrap it
                 output = {'hidden_states': [output]}
                 
-        return output    
+        return output  
 
-
-    def get_feature_dim(self):
-        return 1024  # HuBERT large has 1024 dims
-    
-    def get_output_dim_after_pooling(self, max_pooling_factor):
-        """Calculate output dimension after max pooling"""
-        if max_pooling_factor is None:
-            return self.get_feature_dim()
-        return self.get_feature_dim() // max_pooling_factor
 
 
 class MFCCExtractor(nn.Module):
@@ -340,7 +371,7 @@ def get_feature_dim_from_config(config):
     if extractor_type == 'wav2vec2':
         return 768  # SSL models typically output 1024 dims
     elif extractor_type == 'hubert':
-        return 1024
+        return 768
     elif extractor_type == 'mfcc':
         return config['feature_extractor'].get('mfcc_n_mfcc', 40)
     elif extractor_type == 'lfcc':
