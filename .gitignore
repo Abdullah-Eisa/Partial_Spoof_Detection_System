@@ -22,10 +22,12 @@ PS_scripts.py
 temp.ipynb
 temp.py
 temp2.py
+notes.md
 
 ssl_pretrain
 *.tar.gz
 
+.vscode/
 
 # track specific files
 !database/utterance_labels
