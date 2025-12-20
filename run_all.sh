@@ -25,7 +25,7 @@ git checkout -b Feature-Extractor-Comparison
 git add .
 
 # Commit changes
-git commit -m "finished modifications to run MFCC , LFCC for feature extractor comparison"
+git commit -m "finished modifications to run MFCC , LFCC for feature extractor comparison , v2 with updated inference"
 
 # Push new branch to remote and set upstream
 git push -u origin Feature-Extractor-Comparison

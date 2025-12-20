@@ -201,7 +201,8 @@ def inference(config):
         max_dropout=config['model']['max_dropout'],
         depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
         conformer_layers=config['model']['conformer_layers'],
-        max_pooling_factor=config['model']['max_pooling_factor']
+        max_pooling_factor=config['model'].get('max_pooling_factor'),
+        use_max_pooling=config['model'].get('use_max_pooling', True)  # Add this line
     ).to(device)
 
     # Load model checkpoint

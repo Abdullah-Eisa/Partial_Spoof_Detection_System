@@ -439,17 +439,17 @@ class BinarySpoofingClassificationModel(nn.Module):
         
     def forward(self, x, lengths, dropout_prob):
         # Apply max pooling only if enabled
-        print(f"Input shape before max pooling: {x.size()}")
+        # print(f"Input shape before max pooling: {x.size()}")
         if self.max_pooling is not None:
             x = self.max_pooling(x)
             print(f"Input shape after max pooling: {x.size()}")
         # Apply Conformer model
         x, _ = self.conformer(x, lengths)
-        print(f"Conformer output shape: {x.size()}")
+        # print(f"Conformer output shape: {x.size()}")
         # Apply global pooling across the sequence dimension
         x = self.pooling(x)
-        print(f"Pooling output shape: {x.size()}")
-        
+        # print(f"Pooling output shape: {x.size()}")
+
         # Update the dropout probability dynamically
         self.fc_refinement[3].p = dropout_prob
         self.fc_refinement[7].p = dropout_prob

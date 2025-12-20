@@ -27,8 +27,8 @@ wandb_sweep:
 feature_extractor:
   # type: "wav2vec2"  # Options: "wav2vec2", "hubert", "mfcc", "lfcc"
   # type: "hubert"
-  type: "mfcc"
-  # type: "lfcc"
+  # type: "mfcc"
+  type: "lfcc"
 
   # SSL models (wav2vec2, hubert)
   ssl_checkpoint: "${BASE_DIR}/models/w2v_large_lv_fsh_swbd_cv.pt"
@@ -102,7 +102,9 @@ paths:
   model_save_dir: "${BASE_DIR}/models/back_end_models"
   wandb_key_file: "${BASE_DIR}/config/wandb_key.txt"
   # Add the PS model checkpoint path
-  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
+  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
+  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20251220_224243.pth"
+  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20251220_215841.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20251220_025509.pth"
 
 # Inference configuration
