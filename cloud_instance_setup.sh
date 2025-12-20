@@ -3,6 +3,12 @@ whoami
 apt update
 apt install sudo
 
+# install screen
+sudo apt update
+sudo apt install screen
+
+sudo apt update
+sudo apt install unzip
 
 wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
 
@@ -33,12 +39,6 @@ git restore --source HEAD~1 requirements.txt utils/__init__.py utils/config_mana
 echo "Running env_setup.sh ..."
 bash ./env_setup.sh
 
-# install screen
-sudo apt update
-sudo apt install screen
-
-sudo apt update
-sudo apt install unzip
 
 rm Miniconda3-latest-Linux-x86_64.sh
 echo "Done"

@@ -25,7 +25,7 @@ git checkout -b Feature-Extractor-Comparison
 git add .
 
 # Commit changes
-git commit -m "modify model.py for HuBERT feature extractor"
+git commit -m "trying to make some modifications to run MFCC , LFCC for feature extractor comparison"
 
 # Push new branch to remote and set upstream
 git push -u origin Feature-Extractor-Comparison

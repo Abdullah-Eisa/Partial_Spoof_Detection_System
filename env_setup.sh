@@ -47,6 +47,8 @@ if [ $retVal -ne 0 ]; then
     pip install transformers
     pip install wandb
     
+    pip install umap-learn
+
     # make empty folders if not available
     python -c "import os; os.makedirs('database', exist_ok=True)"
     python -c "import os; os.makedirs('models', exist_ok=True)"
