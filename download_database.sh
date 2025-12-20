@@ -8,6 +8,9 @@ echo "2) PartialSpoof"
 echo "3) ASVspoof2019 LA"
 read -p "Enter the number of your choice: " db_choice
 
+sudo apt update
+sudo apt install unzip
+
 case $db_choice in
     1)
         echo "You chose to download the RFP_database."

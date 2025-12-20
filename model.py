@@ -446,10 +446,10 @@ class BinarySpoofingClassificationModel(nn.Module):
         
     def forward(self, x, lengths, dropout_prob):
         # Apply max pooling if configured
-        print(f"Input shape before max pooling: {x.size()}")
+        # print(f"Input shape before max pooling: {x.size()}")
         if self.max_pooling is not None:
             x = self.max_pooling(x)
-            print(f"Input shape after max pooling: {x.size()}")
+            # print(f"Input shape after max pooling: {x.size()}")
 
             
             # Trim features if needed to make divisible by num_heads

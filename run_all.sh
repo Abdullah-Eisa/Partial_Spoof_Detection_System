@@ -25,7 +25,7 @@ git checkout -b Feature-Extractor-Comparison
 git add .
 
 # Commit changes
-git commit -m "add code for HuBERT feature extractor"
+git commit -m "modify model.py for HuBERT feature extractor"
 
 # Push new branch to remote and set upstream
 git push -u origin Feature-Extractor-Comparison
