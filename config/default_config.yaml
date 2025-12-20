@@ -10,7 +10,7 @@ training:
   max_grad_norm: 1.0
   gamma: 0.9
   monitor_dev_epoch: 0
-  use_wandb: false
+  use_wandb: true
 
 # WandB sweep configuration
 wandb_sweep:
@@ -25,9 +25,10 @@ wandb_sweep:
 
 # Feature Extractor configuration
 feature_extractor:
-  type: "wav2vec2"  # Options: "wav2vec2", "hubert", "mfcc", "lfcc"
+  # type: "wav2vec2"  # Options: "wav2vec2", "hubert", "mfcc", "lfcc"
   # type: "hubert"
-  # type: "mfcc"
+  type: "mfcc"
+  # type: "lfcc"
 
   # SSL models (wav2vec2, hubert)
   ssl_checkpoint: "${BASE_DIR}/models/w2v_large_lv_fsh_swbd_cv.pt"
@@ -39,11 +40,15 @@ feature_extractor:
   mfcc_sample_rate: 16000
   mfcc_n_fft: 400
   mfcc_hop_length: 160
-  mfcc_n_mels: 80
-  
+  # mfcc_n_mels: 80
+  mfcc_n_mels: 40
+
+
   # LFCC parameters
-  lfcc_n_filters: 20
-  lfcc_n_lfcc: 40
+  # lfcc_n_filters: 20
+  # lfcc_n_lfcc: 40
+  lfcc_n_filters: 80
+  lfcc_n_lfcc: 56
   lfcc_sample_rate: 16000
   lfcc_n_fft: 512
   lfcc_hop_length: 160
@@ -59,7 +64,7 @@ model:
   depthwise_conv_kernel_size: 31
   conformer_layers: 1
   max_pooling_factor: 3
-  # max_pooling_factor: 4
+  use_max_pooling: false  # Set to false for small feature dims like MFCC/LFCC
 
 # Data configuration
 data:
@@ -72,23 +77,23 @@ data:
   # eval_data_path: "${BASE_DIR}/database/PartialSpoof/database/eval/con_wav"
   # eval_labels_path: "${BASE_DIR}/database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json"
 
-  dataset_name: "RFP_Dataset"
-  base_path: "${BASE_DIR}/database"
-  train_data_path: "${BASE_DIR}/database/RFP/training"
-  train_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_train.trl.txt"
-  dev_data_path: "${BASE_DIR}/database/RFP/validation"
-  dev_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_dev.trl.txt"
-  eval_data_path: "${BASE_DIR}/database/RFP/testing"
-  eval_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_eval.trl.txt"
-
-  # dataset_name: "ASVspoof2019_LA_Dataset"
+  # dataset_name: "RFP_Dataset"
   # base_path: "${BASE_DIR}/database"
-  # train_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac"
-  # train_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt"
-  # dev_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_dev/flac"
-  # dev_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt"
-  # eval_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac"
-  # eval_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trl.txt"
+  # train_data_path: "${BASE_DIR}/database/RFP/training"
+  # train_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_train.trl.txt"
+  # dev_data_path: "${BASE_DIR}/database/RFP/validation"
+  # dev_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_dev.trl.txt"
+  # eval_data_path: "${BASE_DIR}/database/RFP/testing"
+  # eval_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_eval.trl.txt"
+
+  dataset_name: "ASVspoof2019_LA_Dataset"
+  base_path: "${BASE_DIR}/database"
+  train_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac"
+  train_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt"
+  dev_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_dev/flac"
+  dev_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt"
+  eval_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac"
+  eval_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trl.txt"
 
 
 # Model paths
@@ -97,8 +102,8 @@ paths:
   model_save_dir: "${BASE_DIR}/models/back_end_models"
   wandb_key_file: "${BASE_DIR}/config/wandb_key.txt"
   # Add the PS model checkpoint path
-  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
-  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20251220_025509.pth"
+  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
+  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20251220_025509.pth"
 
 # Inference configuration
 inference:

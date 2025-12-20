@@ -380,7 +380,7 @@ def get_feature_dim_from_config(config):
         raise ValueError(f"Unknown feature extractor type: {extractor_type}")
 
 
-def calculate_conformer_input_dim(base_feature_dim, max_pooling_factor, num_heads):
+def calculate_conformer_input_dim(base_feature_dim, max_pooling_factor, num_heads, use_max_pooling=True):
     """
     Calculate the conformer input dimension that is divisible by num_heads
     
@@ -388,16 +388,17 @@ def calculate_conformer_input_dim(base_feature_dim, max_pooling_factor, num_head
         base_feature_dim: Base feature dimension from extractor
         max_pooling_factor: Max pooling factor (or None)
         num_heads: Number of attention heads
+        use_max_pooling: If False, skip max pooling entirely
         
     Returns:
         conformer_input_dim: Adjusted dimension divisible by num_heads
     """
-    if max_pooling_factor is None:
+    if not use_max_pooling or max_pooling_factor is None:
         dim_after_pooling = base_feature_dim
     else:
         dim_after_pooling = base_feature_dim // max_pooling_factor
     
-    # Find the largest dimension <= dim_after_pooling that's divisible by num_heads
+    # Trim down to nearest multiple of num_heads (existing behavior)
     conformer_input_dim = (dim_after_pooling // num_heads) * num_heads
     
     return conformer_input_dim

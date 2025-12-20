@@ -323,38 +323,31 @@ class RotaryPositionalEmbeddings(nn.Module):
 
 class BinarySpoofingClassificationModel(nn.Module):
     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, 
-                 depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3):
+                 depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3,
+                 use_max_pooling=True):
         super(BinarySpoofingClassificationModel, self).__init__()
 
         self.max_pooling_factor = max_pooling_factor
-        self.base_feature_dim = feature_dim
+        self.feature_dim = feature_dim
         self.num_heads = num_heads
         self.max_dropout = max_dropout
+        self.use_max_pooling = use_max_pooling
 
-        # Calculate dimension after pooling
-        if self.max_pooling_factor is not None:
-            dim_after_pooling = feature_dim // self.max_pooling_factor
-            # Adjust to be divisible by num_heads
-            self.conformer_input_dim = (dim_after_pooling // num_heads) * num_heads
-            
-            # Calculate how much we need to trim
-            self.trim_size = dim_after_pooling - self.conformer_input_dim
-            
-            self.max_pooling = nn.MaxPool1d(
-                kernel_size=self.max_pooling_factor, 
-                stride=self.max_pooling_factor
-            )
+        # Only apply max pooling if enabled
+        if self.use_max_pooling and self.max_pooling_factor is not None:
+            self.max_pooling = nn.MaxPool1d(kernel_size=self.max_pooling_factor, stride=self.max_pooling_factor)
+            self.conformer_input_dim = feature_dim // self.max_pooling_factor
         else:
-            self.conformer_input_dim = feature_dim
-            self.trim_size = 0
             self.max_pooling = None
+            self.conformer_input_dim = feature_dim
+
+        # Ensure dimension is divisible by num_heads
+        self.conformer_input_dim = (self.conformer_input_dim // num_heads) * num_heads
         
-        print(f"base_feature_dim: {self.base_feature_dim}")
-        print(f"conformer_input_dim: {self.conformer_input_dim}")
-        print(f"num_heads: {self.num_heads}")
+        print(f"feature_dim: {self.feature_dim}")
+        print(f"use_max_pooling: {self.use_max_pooling}")
         print(f"max_pooling: {self.max_pooling}")
-        print(f"trim_size: {self.trim_size}")
-        print(f"dim_after_pooling: {dim_after_pooling}")
+        print(f"conformer_input_dim: {self.conformer_input_dim}")
         
         # Verify dimension is divisible by num_heads
         assert self.conformer_input_dim % num_heads == 0, \
@@ -445,24 +438,18 @@ class BinarySpoofingClassificationModel(nn.Module):
     #     return utt_score # Return the classification output
         
     def forward(self, x, lengths, dropout_prob):
-        # Apply max pooling if configured
-        # print(f"Input shape before max pooling: {x.size()}")
+        # Apply max pooling only if enabled
+        print(f"Input shape before max pooling: {x.size()}")
         if self.max_pooling is not None:
             x = self.max_pooling(x)
-            # print(f"Input shape after max pooling: {x.size()}")
-
-            
-            # Trim features if needed to make divisible by num_heads
-            if self.trim_size > 0:
-                print(f"Trimming features by {self.trim_size} to make divisible by num_heads")
-                x = x[:, :, :-self.trim_size]
-
+            print(f"Input shape after max pooling: {x.size()}")
         # Apply Conformer model
         x, _ = self.conformer(x, lengths)
-        
+        print(f"Conformer output shape: {x.size()}")
         # Apply global pooling across the sequence dimension
         x = self.pooling(x)
-
+        print(f"Pooling output shape: {x.size()}")
+        
         # Update the dropout probability dynamically
         self.fc_refinement[3].p = dropout_prob
         self.fc_refinement[7].p = dropout_prob
@@ -574,7 +561,8 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
     conformer_input_dim = calculate_conformer_input_dim(
         base_feature_dim=base_feature_dim,
         max_pooling_factor=config['model'].get('max_pooling_factor'),
-        num_heads=config['model']['num_heads']
+        num_heads=config['model']['num_heads'],
+        use_max_pooling=config['model'].get('use_max_pooling', True)
     )
     
     print(f"Feature Extractor Type: {config['feature_extractor']['type']}")
@@ -590,7 +578,8 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
         max_dropout=config['model']['max_dropout'],
         depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
         conformer_layers=config['model']['conformer_layers'],
-        max_pooling_factor=config['model'].get('max_pooling_factor')
+        max_pooling_factor=config['model'].get('max_pooling_factor'),
+        use_max_pooling=config['model'].get('use_max_pooling', True)
     ).to(DEVICE)
 
     # Freeze feature extractor if necessary
