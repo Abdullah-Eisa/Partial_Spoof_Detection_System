@@ -65,6 +65,26 @@ model:
   conformer_layers: 1
   max_pooling_factor: 3
   use_max_pooling: false  # Set to false for small feature dims like MFCC/LFCC
+  
+  # Pooling strategy configuration
+  # Options: "self_weighted", "max", "average", "attention", "strided_conv"
+  pooling_strategy: "self_weighted"  # Default pooling strategy
+  
+  # Average pooling parameters
+  average_pooling:
+    kernel_size: 3
+    stride: 3
+  
+  # Attention pooling (LearnedFeatureProjection) parameters
+  attention_pooling:
+    output_dim: 256  # Output dimension after attention projection
+  
+  # Strided convolution pooling parameters
+  strided_conv_pooling:
+    out_channels: 256
+    kernel_size: 3
+    stride: 3
+    padding: 0
 
 # Data configuration
 data:

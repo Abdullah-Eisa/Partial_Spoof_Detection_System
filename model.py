@@ -14,6 +14,167 @@ import torchaudio.models as tam
 
 import torch.nn.init as torch_init
 
+# ============================================================================================
+# Pooling Strategy Classes
+
+class LearnedFeatureProjection(nn.Module):
+    """
+    Attention Pooling: Projects features with learned attention weights.
+    Clean implementation for attention-based feature projection.
+    
+    Input: (batch, time, input_dim)  - e.g., (B, T, 768)
+    Output: (batch, output_dim) - projected and pooled features
+    """
+    def __init__(self, input_dim, output_dim):
+        super(LearnedFeatureProjection, self).__init__()
+        
+        self.input_dim = input_dim
+        self.output_dim = output_dim
+        
+        # Learnable attention matrix: each output feature attends to input features
+        self.attention_weights = nn.Parameter(
+            torch.Tensor(output_dim, input_dim),
+            requires_grad=True
+        )
+        torch_init.xavier_uniform_(self.attention_weights)
+    
+    def forward(self, inputs):
+        """
+        Input: (batch, time, input_dim)  - e.g., (B, T, 768)
+        Output: (batch, output_dim) - e.g., (B, 256)
+        """
+        # Compute attention weights (softmax over input dimension)
+        attention = F.softmax(self.attention_weights, dim=1)  # (output_dim, input_dim)
+        
+        # Apply weighted projection across time dimension
+        # inputs: (B, T, input_dim)
+        # attention.t(): (input_dim, output_dim)
+        # output: (B, T, output_dim)
+        projected = torch.matmul(inputs, attention.t())
+        
+        # Pool across time dimension (mean pooling)
+        output = torch.mean(projected, dim=1)  # (B, output_dim)
+        
+        return output
+
+
+class AveragePooling(nn.Module):
+    """
+    Average Pooling wrapper for downsampling features.
+    
+    Input: (batch, time, input_dim)
+    Output: (batch, downsampled_time, input_dim)
+    """
+    def __init__(self, kernel_size, stride):
+        super(AveragePooling, self).__init__()
+        self.pool = nn.AvgPool1d(kernel_size=kernel_size, stride=stride, padding=0)
+    
+    def forward(self, x):
+        """
+        Input: (batch, time, input_dim)
+        Output: (batch, downsampled_time, input_dim)
+        """
+        # Transpose to (batch, input_dim, time) for Conv1d-style operations
+        x = x.transpose(1, 2)
+        # Apply average pooling
+        x = self.pool(x)
+        # Transpose back to (batch, time, input_dim)
+        x = x.transpose(1, 2)
+        return x
+
+
+class StridedConvPooling(nn.Module):
+    """
+    Strided Convolution Pooling for downsampling features.
+    
+    Input: (batch, time, input_dim)  - e.g., (B, T, 768)
+    Output: (batch, downsampled_time, out_channels)
+    """
+    def __init__(self, in_channels, out_channels, kernel_size=3, stride=3, padding=0):
+        super(StridedConvPooling, self).__init__()
+        self.downsample = nn.Conv1d(
+            in_channels=in_channels,
+            out_channels=out_channels,
+            kernel_size=kernel_size,
+            stride=stride,
+            padding=padding,
+            bias=False
+        )
+    
+    def forward(self, x):
+        """
+        Input: (batch, time, input_dim)  - e.g., (B, T, 768)
+        Output: (batch, downsampled_time, out_channels)
+        """
+        # Transpose to (batch, input_dim, time) for Conv1d
+        x = x.transpose(1, 2)
+        # Apply strided convolution
+        x = self.downsample(x)
+        # Transpose back to (batch, time, out_channels)
+        x = x.transpose(1, 2)
+        return x
+
+
+class PoolingFactory:
+    """
+    Factory class for creating pooling strategies.
+    """
+    @staticmethod
+    def create_pooling(strategy, input_dim, config):
+        """
+        Create a pooling module based on the specified strategy.
+        
+        Args:
+            strategy: str, pooling strategy name
+            input_dim: int, input feature dimension
+            config: dict, configuration dictionary containing pooling parameters
+        
+        Returns:
+            tuple: (pooling_module, output_dim)
+        """
+        strategy = strategy.lower()
+        
+        if strategy == "average":
+            kernel_size = config['model']['average_pooling']['kernel_size']
+            stride = config['model']['average_pooling']['stride']
+            pooling = AveragePooling(kernel_size=kernel_size, stride=stride)
+            output_dim = input_dim
+            return pooling, output_dim
+        
+        elif strategy == "attention":
+            output_dim = config['model']['attention_pooling']['output_dim']
+            pooling = LearnedFeatureProjection(input_dim=input_dim, output_dim=output_dim)
+            # Note: attention pooling also applies global pooling (mean), so final output is just output_dim
+            return pooling, output_dim
+        
+        elif strategy == "strided_conv":
+            out_channels = config['model']['strided_conv_pooling']['out_channels']
+            kernel_size = config['model']['strided_conv_pooling']['kernel_size']
+            stride = config['model']['strided_conv_pooling']['stride']
+            padding = config['model']['strided_conv_pooling']['padding']
+            pooling = StridedConvPooling(
+                in_channels=input_dim,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding
+            )
+            output_dim = out_channels
+            return pooling, output_dim
+        
+        elif strategy == "self_weighted":
+            # SelfWeightedPooling will be handled separately in the model
+            return None, input_dim
+        
+        elif strategy == "max":
+            # Max pooling is handled separately in the model
+            return None, input_dim
+        
+        else:
+            raise ValueError(f"Unknown pooling strategy: {strategy}")
+
+
+# ============================================================================================
 # code adapted from: https://github.com/nii-yamagishilab/PartialSpoof/blob/847347aaec6f65c3c6d2f17c63515b826b94feb3/project-NN-Pytorch-scripts.202102/sandbox/block_nn.py#L709
 class SelfWeightedPooling(torch_nn.Module):
     """ SelfWeightedPooling module
@@ -324,7 +485,7 @@ class RotaryPositionalEmbeddings(nn.Module):
 class BinarySpoofingClassificationModel(nn.Module):
     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, 
                  depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3,
-                 use_max_pooling=True):
+                 use_max_pooling=True, pooling_strategy="self_weighted", config=None):
         super(BinarySpoofingClassificationModel, self).__init__()
 
         self.max_pooling_factor = max_pooling_factor
@@ -332,22 +493,62 @@ class BinarySpoofingClassificationModel(nn.Module):
         self.num_heads = num_heads
         self.max_dropout = max_dropout
         self.use_max_pooling = use_max_pooling
+        self.pooling_strategy = pooling_strategy.lower()
+        self.config = config
 
-        # Only apply max pooling if enabled
-        if self.use_max_pooling and self.max_pooling_factor is not None:
-            self.max_pooling = nn.MaxPool1d(kernel_size=self.max_pooling_factor, stride=self.max_pooling_factor)
-            self.conformer_input_dim = feature_dim // self.max_pooling_factor
+        # Initialize base conformer input dimension
+        self.conformer_input_dim = feature_dim
+        
+        # Apply downsampling strategies
+        if self.pooling_strategy == "average":
+            # Average pooling
+            kernel_size = config['model']['average_pooling']['kernel_size'] if config else 3
+            stride = config['model']['average_pooling']['stride'] if config else 3
+            self.downsample = AveragePooling(kernel_size=kernel_size, stride=stride)
+            self.conformer_input_dim = feature_dim  # Output dim same as input
+            
+        elif self.pooling_strategy == "attention":
+            # Attention pooling (LearnedFeatureProjection)
+            output_dim = config['model']['attention_pooling']['output_dim'] if config else 256
+            self.downsample = LearnedFeatureProjection(input_dim=feature_dim, output_dim=output_dim)
+            self.conformer_input_dim = output_dim
+            
+        elif self.pooling_strategy == "strided_conv":
+            # Strided convolution pooling
+            out_channels = config['model']['strided_conv_pooling']['out_channels'] if config else 256
+            kernel_size = config['model']['strided_conv_pooling']['kernel_size'] if config else 3
+            stride = config['model']['strided_conv_pooling']['stride'] if config else 3
+            padding = config['model']['strided_conv_pooling']['padding'] if config else 0
+            self.downsample = StridedConvPooling(
+                in_channels=feature_dim,
+                out_channels=out_channels,
+                kernel_size=kernel_size,
+                stride=stride,
+                padding=padding
+            )
+            self.conformer_input_dim = out_channels
+            
+        elif self.pooling_strategy == "max":
+            # Max pooling
+            if self.use_max_pooling and self.max_pooling_factor is not None:
+                self.downsample = nn.MaxPool1d(kernel_size=self.max_pooling_factor, stride=self.max_pooling_factor)
+                self.conformer_input_dim = feature_dim // self.max_pooling_factor
+            else:
+                self.downsample = None
+                
+        elif self.pooling_strategy == "self_weighted":
+            # Self-weighted pooling (no downsampling, pooling applied later)
+            self.downsample = None
         else:
-            self.max_pooling = None
-            self.conformer_input_dim = feature_dim
-
+            raise ValueError(f"Unknown pooling strategy: {self.pooling_strategy}")
+        
         # Ensure dimension is divisible by num_heads
         self.conformer_input_dim = (self.conformer_input_dim // num_heads) * num_heads
         
-        print(f"feature_dim: {self.feature_dim}")
-        print(f"use_max_pooling: {self.use_max_pooling}")
-        print(f"max_pooling: {self.max_pooling}")
-        print(f"conformer_input_dim: {self.conformer_input_dim}")
+        print(f"Pooling Strategy: {self.pooling_strategy}")
+        print(f"Feature Dim: {self.feature_dim}")
+        print(f"Conformer Input Dim: {self.conformer_input_dim}")
+        print(f"Num Heads: {self.num_heads}")
         
         # Verify dimension is divisible by num_heads
         assert self.conformer_input_dim % num_heads == 0, \
@@ -438,17 +639,56 @@ class BinarySpoofingClassificationModel(nn.Module):
     #     return utt_score # Return the classification output
         
     def forward(self, x, lengths, dropout_prob):
-        # Apply max pooling only if enabled
-        # print(f"Input shape before max pooling: {x.size()}")
-        if self.max_pooling is not None:
-            x = self.max_pooling(x)
-            print(f"Input shape after max pooling: {x.size()}")
+        """
+        Forward pass through the model with support for different pooling strategies.
+        
+        Args:
+            x: Input features (batch, time, feature_dim)
+            lengths: Lengths of sequences
+            dropout_prob: Dropout probability for the epoch
+        
+        Returns:
+            Output scores (batch, 1)
+        """
+        # Apply downsampling strategy
+        if self.pooling_strategy == "average":
+            # Average pooling
+            x = self.downsample(x)
+            # Update lengths after downsampling
+            kernel_size = self.config['model']['average_pooling']['kernel_size'] if self.config else 3
+            stride = self.config['model']['average_pooling']['stride'] if self.config else 3
+            lengths = ((lengths - kernel_size) // stride + 1).clamp(min=1)
+            
+        elif self.pooling_strategy == "attention":
+            # Attention pooling (LearnedFeatureProjection) - returns pooled features
+            x = self.downsample(x)  # Output is already pooled globally: (batch, output_dim)
+            # Need to reshape for conformer input if it processes sequences
+            # If attention pooling is used, we get (batch, output_dim) directly
+            # So we need to expand it to (batch, 1, output_dim) for conformer
+            x = x.unsqueeze(1)  # (batch, 1, output_dim)
+            lengths = torch.ones_like(lengths)  # All sequences have length 1 after global pooling
+            
+        elif self.pooling_strategy == "strided_conv":
+            # Strided convolution pooling
+            x = self.downsample(x)  # (batch, time, out_channels)
+            # Update lengths after strided convolution
+            kernel_size = self.config['model']['strided_conv_pooling']['kernel_size'] if self.config else 3
+            stride = self.config['model']['strided_conv_pooling']['stride'] if self.config else 3
+            padding = self.config['model']['strided_conv_pooling']['padding'] if self.config else 0
+            lengths = ((lengths + 2 * padding - kernel_size) // stride + 1).clamp(min=1)
+            
+        elif self.pooling_strategy == "max":
+            # Max pooling
+            if self.downsample is not None:
+                x = self.downsample(x)
+                # Update lengths after max pooling
+                lengths = ((lengths + self.max_pooling_factor - 1) // self.max_pooling_factor).clamp(min=1)
+        
         # Apply Conformer model
         x, _ = self.conformer(x, lengths)
-        # print(f"Conformer output shape: {x.size()}")
-        # Apply global pooling across the sequence dimension
+        
+        # Apply global pooling across the sequence dimension (SelfWeightedPooling)
         x = self.pooling(x)
-        # print(f"Pooling output shape: {x.size()}")
 
         # Update the dropout probability dynamically
         self.fc_refinement[3].p = dropout_prob
@@ -547,39 +787,35 @@ class BinarySpoofingClassificationModel(nn.Module):
 
 
 def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001, DEVICE='cpu'):
-    """Initialize the model, feature extractor, and optimizer"""
+    """Initialize the model, feature extractor, and optimizer with pooling strategy support"""
     from feature_extractors import FeatureExtractorFactory, get_feature_dim_from_config, calculate_conformer_input_dim
     
     # Create feature extractor based on config
     feature_extractor = FeatureExtractorFactory.create_extractor(config, DEVICE)
     
     # Get base feature dimension from config
-    # base_feature_dim = get_feature_dim_from_config(config)
     base_feature_dim = feature_extractor.get_feature_dim()
-
-    # Calculate conformer input dimension (after pooling and adjustment for num_heads)
-    conformer_input_dim = calculate_conformer_input_dim(
-        base_feature_dim=base_feature_dim,
-        max_pooling_factor=config['model'].get('max_pooling_factor'),
-        num_heads=config['model']['num_heads'],
-        use_max_pooling=config['model'].get('use_max_pooling', True)
-    )
+    
+    # Get pooling strategy from config
+    pooling_strategy = config['model'].get('pooling_strategy', 'self_weighted')
     
     print(f"Feature Extractor Type: {config['feature_extractor']['type']}")
     print(f"Base Feature Dim: {base_feature_dim}")
-    print(f"Conformer Input Dim: {conformer_input_dim}")
+    print(f"Pooling Strategy: {pooling_strategy}")
     print(f"feature_extractor: {feature_extractor}")
     
     # Initialize Binary Spoofing Classification Model
     PS_Model = BinarySpoofingClassificationModel(
-        feature_dim=base_feature_dim,  # Pass base feature dim
+        feature_dim=base_feature_dim,
         num_heads=config['model']['num_heads'],
         hidden_dim=config['model']['hidden_dim'],
         max_dropout=config['model']['max_dropout'],
         depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
         conformer_layers=config['model']['conformer_layers'],
         max_pooling_factor=config['model'].get('max_pooling_factor'),
-        use_max_pooling=config['model'].get('use_max_pooling', True)
+        use_max_pooling=config['model'].get('use_max_pooling', True),
+        pooling_strategy=pooling_strategy,
+        config=config
     ).to(DEVICE)
 
     # Freeze feature extractor if necessary
