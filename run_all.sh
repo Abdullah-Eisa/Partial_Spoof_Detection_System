@@ -25,7 +25,7 @@ git checkout -b Feature-Extractor-Comparison
 git add .
 
 # Commit changes
-git commit -m "adding code logic for different downsampling strategies"
+git commit -m "modify code logic for different downsampling strategies , to act on third dimension"
 
 # Push new branch to remote and set upstream
 git push -u origin Feature-Extractor-Comparison

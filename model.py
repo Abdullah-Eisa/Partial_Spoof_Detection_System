@@ -60,10 +60,10 @@ class LearnedFeatureProjection(nn.Module):
 
 class AveragePooling(nn.Module):
     """
-    Average Pooling wrapper for downsampling features.
+    Average Pooling wrapper for downsampling features across input_dim.
     
     Input: (batch, time, input_dim)
-    Output: (batch, downsampled_time, input_dim)
+    Output: (batch, time, downsampled_input_dim)
     """
     def __init__(self, kernel_size, stride):
         super(AveragePooling, self).__init__()
@@ -72,23 +72,34 @@ class AveragePooling(nn.Module):
     def forward(self, x):
         """
         Input: (batch, time, input_dim)
-        Output: (batch, downsampled_time, input_dim)
+        Output: (batch, time, downsampled_input_dim)
+        
+        Pool across the input_dim (feature) dimension, not the time dimension
         """
-        # Transpose to (batch, input_dim, time) for Conv1d-style operations
-        x = x.transpose(1, 2)
-        # Apply average pooling
-        x = self.pool(x)
-        # Transpose back to (batch, time, input_dim)
-        x = x.transpose(1, 2)
+        # Get dimensions
+        batch_size, time_steps, input_dim = x.size()
+        
+        # Reshape to (batch*time, 1, input_dim) for AvgPool1d
+        x_reshaped = x.reshape(batch_size * time_steps, 1, input_dim)
+        
+        # Apply average pooling on input_dim
+        x_pooled = self.pool(x_reshaped)
+        
+        # Get the output dimension after pooling
+        output_dim = x_pooled.size(2)
+        
+        # Reshape back to (batch, time, downsampled_input_dim)
+        x = x_pooled.reshape(batch_size, time_steps, output_dim)
+        
         return x
 
 
 class StridedConvPooling(nn.Module):
     """
-    Strided Convolution Pooling for downsampling features.
+    Strided Convolution Pooling for downsampling features across input_dim.
     
     Input: (batch, time, input_dim)  - e.g., (B, T, 768)
-    Output: (batch, downsampled_time, out_channels)
+    Output: (batch, time, out_channels)
     """
     def __init__(self, in_channels, out_channels, kernel_size=3, stride=3, padding=0):
         super(StridedConvPooling, self).__init__()
@@ -104,14 +115,24 @@ class StridedConvPooling(nn.Module):
     def forward(self, x):
         """
         Input: (batch, time, input_dim)  - e.g., (B, T, 768)
-        Output: (batch, downsampled_time, out_channels)
+        Output: (batch, time, out_channels)
+        
+        Apply strided convolution across the input_dim (feature) dimension
         """
-        # Transpose to (batch, input_dim, time) for Conv1d
-        x = x.transpose(1, 2)
-        # Apply strided convolution
-        x = self.downsample(x)
-        # Transpose back to (batch, time, out_channels)
-        x = x.transpose(1, 2)
+        batch_size, time_steps, input_dim = x.size()
+        
+        # Reshape to (batch*time, 1, input_dim) for Conv1d
+        x_reshaped = x.reshape(batch_size * time_steps, 1, input_dim)
+        
+        # Apply strided convolution on input_dim
+        x_conv = self.downsample(x_reshaped)
+        
+        # Get the output channels after convolution
+        out_channels = x_conv.size(1)
+        
+        # Reshape back to (batch, time, out_channels)
+        x = x_conv.reshape(batch_size, time_steps, out_channels)
+        
         return x
 
 
@@ -138,7 +159,8 @@ class PoolingFactory:
             kernel_size = config['model']['average_pooling']['kernel_size']
             stride = config['model']['average_pooling']['stride']
             pooling = AveragePooling(kernel_size=kernel_size, stride=stride)
-            output_dim = input_dim
+            # Calculate output dimension after average pooling on input_dim
+            output_dim = (input_dim - kernel_size) // stride + 1
             return pooling, output_dim
         
         elif strategy == "attention":
