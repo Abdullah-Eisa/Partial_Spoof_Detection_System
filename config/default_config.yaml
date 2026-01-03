@@ -64,7 +64,7 @@ model:
   depthwise_conv_kernel_size: 31
   conformer_layers: 1
   max_pooling_factor: 3
-  use_max_pooling: true  # Set to false for small feature dims like MFCC/LFCC
+  use_max_pooling: false  # Set to false for small feature dims like MFCC/LFCC
   
 
 

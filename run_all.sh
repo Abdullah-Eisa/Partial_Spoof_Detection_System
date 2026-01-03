@@ -19,13 +19,15 @@
 
 
 # Create and switch to a NEW branch
-git checkout -b Feature-Extractor-Comparison
+# git checkout -b Feature-Extractor-Comparison
+git checkout -b Sequence-Modeling-Alternatives
 
 # Stage changes
 git add .
 
 # Commit changes
-git commit -m "working sequence models alternative Options: 'conformer', 'lstm', 'transformer', 'cnn' , dummy test on the ASVSpoof19 database "
+git commit -m "add working sequence models alternative Options: 'conformer', 'lstm', 'transformer', 'cnn' , dummy test on the ASVSpoof19 database "
 
 # Push new branch to remote and set upstream
-git push -u origin Feature-Extractor-Comparison
+# git push -u origin Feature-Extractor-Comparison
+git push -u origin Sequence-Modeling-Alternatives
