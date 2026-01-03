@@ -1,8 +1,8 @@
 
 # Training configuration
 training:
-  # num_epochs: &num_epochs 30
-  num_epochs: &num_epochs 2
+  num_epochs: &num_epochs 30
+  # num_epochs: &num_epochs 15
   learning_rate: &learning_rate 0.00075
   batch_size: &batch_size 8
   save_interval: 5
@@ -10,7 +10,7 @@ training:
   max_grad_norm: 1.0
   gamma: 0.9
   monitor_dev_epoch: 0
-  use_wandb: false
+  use_wandb: true
 
 # WandB sweep configuration
 wandb_sweep:
@@ -25,9 +25,9 @@ wandb_sweep:
 
 # Feature Extractor configuration
 feature_extractor:
-  # type: "wav2vec2"  # Options: "wav2vec2", "hubert", "mfcc", "lfcc"
+  type: "wav2vec2"  # Options: "wav2vec2", "hubert", "mfcc", "lfcc"
   # type: "hubert"
-  type: "mfcc"
+  # type: "mfcc"
   # type: "lfcc"
 
   # SSL models (wav2vec2, hubert)
@@ -64,40 +64,63 @@ model:
   depthwise_conv_kernel_size: 31
   conformer_layers: 1
   max_pooling_factor: 3
-  use_max_pooling: true  # Set to false for small feature dims like MFCC/LFCC
+  use_max_pooling: false  # Set to false for small feature dims like MFCC/LFCC
   
-
-
-  # ====== NEW: Sequence Model Configuration ======
-  # Options: 'conformer', 'lstm', 'transformer', 'cnn', 'tcn'
-  sequence_model_type: 'conformer'
-  # sequence_model_type: 'cnn'
-  
-  # Additional sequence model configuration (optional)
-  # These settings override defaults for the selected sequence model
-  sequence_model_config:
-    # Common parameters (used by most models)
-    hidden_dim: 128
-    num_layers: 2
-    dropout: 0.2
-    
-    # CNN/TCN specific
-    kernel_size: 3
-    
-    # Transformer specific
-    num_heads: 8
-
-
-
   # Pooling strategy configuration
   # Options: "self_weighted", "max", "average", "attention", "strided_conv"
   # pooling_strategy: "self_weighted"  # Default pooling strategy
-  pooling_strategy: "max"  
+  pooling_strategy: "strided_conv"  
   
-  # Max pooling parameters
-  max_pooling:
-    kernel_size: 3
-    stride: 3
+  # ====== Sequence Model Configuration ======
+  # Options: 'conformer', 'lstm', 'transformer', 'cnn', 'tcn'
+  sequence_model_type: 'conformer'
+  
+  # Additional sequence model configuration (optional)
+  # If not specified, defaults will be used based on conformer_layers and hidden_dim
+  sequence_model_config: {}
+  
+  # ====== EXAMPLE CONFIGURATIONS FOR EACH MODEL TYPE ======
+  # Uncomment and modify the sequence_model_config section below for specific models
+  
+  # ===== CONFORMER CONFIG =====
+  # Best for: Balanced accuracy and efficiency (combines self-attention + convolution)
+  # sequence_model_config:
+  #   num_heads: 8                           # Number of attention heads
+  #   hidden_dim: 256                        # Feed-forward network dimension
+  #   num_layers: 4                          # Number of conformer layers
+  #   depthwise_conv_kernel_size: 31         # Kernel size for depthwise convolution
+  #   dropout: 0.2                           # Dropout rate
+  
+  # ===== LSTM CONFIG =====
+  # Best for: Sequence modeling with bidirectional context (RNN-based)
+  # sequence_model_config:
+  #   hidden_dim: 128                        # LSTM hidden dimension (output is 2x for bidirectional)
+  #   num_layers: 2                          # Number of LSTM layers
+  #   dropout: 0.2                           # LSTM dropout rate
+  
+  # ===== TRANSFORMER CONFIG =====
+  # Best for: Long-range dependencies and parallel processing (attention-only)
+  # sequence_model_config:
+  #   num_heads: 8                           # Number of attention heads
+  #   hidden_dim: 256                        # Feed-forward network dimension
+  #   num_layers: 4                          # Number of transformer layers
+  #   dropout: 0.2                           # Transformer dropout rate
+  
+  # ===== CNN CONFIG =====
+  # Best for: Local feature extraction and fast inference (convolutional)
+  # sequence_model_config:
+  #   hidden_dim: 256                        # CNN hidden dimension
+  #   num_layers: 4                          # Number of CNN layers
+  #   kernel_size: 3                         # Convolution kernel size
+  #   dropout: 0.2                           # CNN dropout rate
+  
+  # ===== TCN CONFIG =====
+  # Best for: Sequential processing with dilated convolutions (advanced CNN)
+  # sequence_model_config:
+  #   hidden_dim: 256                        # TCN hidden dimension
+  #   num_layers: 4                          # Number of TCN blocks (with increasing dilation)
+  #   kernel_size: 3                         # Convolution kernel size
+  #   dropout: 0.2                           # TCN dropout rate
   
   # Average pooling parameters
   average_pooling:
@@ -159,10 +182,10 @@ paths:
 # Inference configuration
 inference:
   use_cuda: true
-  batch_size: 16
-  # batch_size: 4
-  num_workers: 8
-  # num_workers: 2
+  # batch_size: 16
+  batch_size: 4
+  # num_workers: 8
+  num_workers: 2
   prefetch_factor: 2
   pin_memory: true
   apply_transform: false

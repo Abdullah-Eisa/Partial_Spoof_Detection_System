@@ -166,8 +166,77 @@ def inference_helper(model, feature_extractor,criterion,
 #     return results
 
 
+# def inference(config):
+#     """Run inference using configuration"""
+#     from feature_extractors import FeatureExtractorFactory
+    
+#     print("Starting inference...")
+    
+#     device = torch.device(config['system']['device'])
+    
+#     # Initialize data loader
+#     eval_data_loader = initialize_data_loader(
+#         dataset_name=config['data']['dataset_name'],
+#         data_path=config['data']['eval_data_path'],
+#         labels_path=config['data']['eval_labels_path'],
+#         BATCH_SIZE=config['inference'].get('batch_size', config['training']['batch_size']),
+#         shuffle=False,
+#         num_workers=config['inference'].get('num_workers', config['system']['num_workers']),
+#         prefetch_factor=config['inference'].get('prefetch_factor', config['system']['prefetch_factor']),
+#         pin_memory=config['inference'].get('pin_memory', config['system']['pin_memory'])
+#     )
+
+#     # Load feature extractor
+#     feature_extractor = FeatureExtractorFactory.create_extractor(config, device)
+#     feature_extractor.eval()
+
+#     # Get feature dimension
+#     from feature_extractors import get_feature_dim_from_config
+#     feature_dim = get_feature_dim_from_config(config)
+
+#     PS_Model = BinarySpoofingClassificationModel(
+#         feature_dim=feature_dim,
+#         num_heads=config['model']['num_heads'],
+#         hidden_dim=config['model']['hidden_dim'],
+#         max_dropout=config['model']['max_dropout'],
+#         depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
+#         conformer_layers=config['model']['conformer_layers'],
+#         max_pooling_factor=config['model'].get('max_pooling_factor'),
+#         use_max_pooling=config['model'].get('use_max_pooling', True),
+#         pooling_strategy=config['model'].get('pooling_strategy', 'self_weighted'),
+#         config=config
+#     ).to(device)
+
+#     # Load model checkpoint
+#     try:
+#         checkpoint = torch.load(config['paths']['ps_model_checkpoint'], map_location=device)
+#         PS_Model.load_state_dict(checkpoint['model_state_dict'])
+#         print(f"Loaded model checkpoint from {config['paths']['ps_model_checkpoint']}")
+#     except Exception as e:
+#         print(f"Error loading model checkpoint: {str(e)}")
+#         return
+
+#     PS_Model.eval()
+
+#     criterion = initialize_loss_function().to(device)
+    
+#     # Call inference helper function
+#     results = inference_helper(
+#         model=PS_Model,
+#         feature_extractor=feature_extractor,
+#         criterion=criterion,
+#         test_data_loader=eval_data_loader, 
+#         DEVICE=device
+#     )
+
+#     if device == 'cuda':
+#         torch.cuda.empty_cache()
+        
+#     return results
+
+
 def inference(config):
-    """Run inference using configuration"""
+    """Run inference using configuration with sequence model support"""
     from feature_extractors import FeatureExtractorFactory
     
     print("Starting inference...")
@@ -193,6 +262,12 @@ def inference(config):
     # Get feature dimension
     from feature_extractors import get_feature_dim_from_config
     feature_dim = get_feature_dim_from_config(config)
+    
+    # Get sequence model configuration
+    sequence_model_type = config['model'].get('sequence_model_type', 'conformer')
+    sequence_model_config = config['model'].get('sequence_model_config', None)
+
+    print(f"Loading model with sequence type: {sequence_model_type}")
 
     PS_Model = BinarySpoofingClassificationModel(
         feature_dim=feature_dim,
@@ -204,6 +279,8 @@ def inference(config):
         max_pooling_factor=config['model'].get('max_pooling_factor'),
         use_max_pooling=config['model'].get('use_max_pooling', True),
         pooling_strategy=config['model'].get('pooling_strategy', 'self_weighted'),
+        sequence_model_type=sequence_model_type,
+        sequence_model_config=sequence_model_config,
         config=config
     ).to(device)
 
@@ -233,7 +310,6 @@ def inference(config):
         torch.cuda.empty_cache()
         
     return results
-
 
 
 

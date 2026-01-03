@@ -8,17 +8,47 @@ import torch.nn.functional as torch_nn_func
 import os
 import torch.optim as optim
 import torchaudio.models as tam
+import sys
 
-# ============================================================================================
-
-# After line ~10 (after existing imports)
-# Import sequence models
-from sequence_models import (
-    LSTMSequenceModel,
-    TransformerSequenceModel,
-    CNNSequenceModel,
-    TCNSequenceModel,
-)
+# Import sequence models from sequence_models.py module (not the package)
+# We need to access the root-level sequence_models.py, not the sequence_models/ package
+if 'sequence_models' in sys.modules:
+    # If sequence_models package is already loaded, we need to import from the .py file directly
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("sequence_models_module", 
+                                                    os.path.join(os.path.dirname(__file__), "sequence_models.py"))
+    seq_models_module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(seq_models_module)
+    ConformerSequenceModel = seq_models_module.ConformerSequenceModel
+    LSTMSequenceModel = seq_models_module.LSTMSequenceModel
+    TransformerSequenceModel = seq_models_module.TransformerSequenceModel
+    CNNSequenceModel = seq_models_module.CNNSequenceModel
+    TCNSequenceModel = seq_models_module.TCNSequenceModel
+    PositionalEncoding = seq_models_module.PositionalEncoding
+else:
+    # Try direct import first
+    try:
+        from sequence_models import (
+            ConformerSequenceModel,
+            LSTMSequenceModel,
+            TransformerSequenceModel,
+            CNNSequenceModel,
+            TCNSequenceModel,
+            PositionalEncoding
+        )
+    except ImportError:
+        # If that fails, load from the .py file
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("sequence_models_module", 
+                                                        os.path.join(os.path.dirname(__file__), "sequence_models.py"))
+        seq_models_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(seq_models_module)
+        ConformerSequenceModel = seq_models_module.ConformerSequenceModel
+        LSTMSequenceModel = seq_models_module.LSTMSequenceModel
+        TransformerSequenceModel = seq_models_module.TransformerSequenceModel
+        CNNSequenceModel = seq_models_module.CNNSequenceModel
+        TCNSequenceModel = seq_models_module.TCNSequenceModel
+        PositionalEncoding = seq_models_module.PositionalEncoding
 
 # ============================================================================================
 # SAP = SelfWeightedPooling
@@ -533,15 +563,10 @@ class RotaryPositionalEmbeddings(nn.Module):
 # ============================================================================================
 
 class BinarySpoofingClassificationModel(nn.Module):
-#     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, 
-#                  depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3,
-#                  use_max_pooling=True, pooling_strategy="self_weighted", config=None):
-#         super(BinarySpoofingClassificationModel, self).__init__()
-
     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, 
-                depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3,
-                use_max_pooling=True, pooling_strategy="self_weighted", 
-                sequence_model_type='conformer', sequence_model_config=None, config=None):
+                 depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3,
+                 use_max_pooling=True, pooling_strategy="self_weighted", config=None,
+                 sequence_model_type='conformer', sequence_model_config=None):
         super(BinarySpoofingClassificationModel, self).__init__()
 
         self.max_pooling_factor = max_pooling_factor
@@ -551,7 +576,6 @@ class BinarySpoofingClassificationModel(nn.Module):
         self.use_max_pooling = use_max_pooling
         self.pooling_strategy = pooling_strategy.lower()
         self.config = config
-
         self.sequence_model_type = sequence_model_type.lower()
 
         # Initialize base conformer input dimension
@@ -601,24 +625,23 @@ class BinarySpoofingClassificationModel(nn.Module):
         else:
             raise ValueError(f"Unknown pooling strategy: {self.pooling_strategy}")
         
-        # Ensure dimension is divisible by num_heads
-        self.conformer_input_dim = (self.conformer_input_dim // num_heads) * num_heads
+        # Ensure dimension is divisible by num_heads for transformer models
+        if self.sequence_model_type in ['transformer', 'conformer']:
+            self.conformer_input_dim = (self.conformer_input_dim // num_heads) * num_heads
         
-       
-
         print(f"Sequence Model Type: {self.sequence_model_type}")
         print(f"Pooling Strategy: {self.pooling_strategy}")
         print(f"Feature Dim: {self.feature_dim}")
-        print(f"Conformer Input Dim: {self.conformer_input_dim}")
+        print(f"Sequence Model Input Dim: {self.conformer_input_dim}")
         print(f"Num Heads: {self.num_heads}")
         
-        # Verify dimension is divisible by num_heads
-        assert self.conformer_input_dim % num_heads == 0, \
-            f"conformer_input_dim ({self.conformer_input_dim}) must be divisible by num_heads ({num_heads})"
-        
-        # ====== NEW: Initialize sequence model based on type ======
+        # Initialize sequence model based on type
         if self.sequence_model_type == 'conformer':
-            # Original Conformer model
+            # Verify dimension is divisible by num_heads
+            assert self.conformer_input_dim % num_heads == 0, \
+                f"conformer_input_dim ({self.conformer_input_dim}) must be divisible by num_heads ({num_heads})"
+            
+            # Define the Conformer model from torchaudio
             self.sequence_model = tam.Conformer(
                 input_dim=self.conformer_input_dim,
                 num_heads=self.num_heads,
@@ -637,34 +660,27 @@ class BinarySpoofingClassificationModel(nn.Module):
             seq_config.setdefault('num_layers', conformer_layers)
             seq_config.setdefault('dropout', 0.2)
             
-            # Filter config to only include LSTM-supported parameters
-            lstm_params = {
-                'input_dim': self.conformer_input_dim,
-                'hidden_dim': seq_config.get('hidden_dim', hidden_dim),
-                'num_layers': seq_config.get('num_layers', conformer_layers),
-                'dropout': seq_config.get('dropout', 0.2)
-            }
-            
-            self.sequence_model = LSTMSequenceModel(**lstm_params)
+            self.sequence_model = LSTMSequenceModel(
+                input_dim=self.conformer_input_dim,
+                **seq_config
+            )
             self.sequence_output_dim = self.sequence_model.output_dim
             
         elif self.sequence_model_type == 'transformer':
+            # Verify dimension is divisible by num_heads
+            assert self.conformer_input_dim % num_heads == 0, \
+                f"transformer_input_dim ({self.conformer_input_dim}) must be divisible by num_heads ({num_heads})"
+            
             seq_config = sequence_model_config or {}
             seq_config.setdefault('num_heads', num_heads)
             seq_config.setdefault('hidden_dim', hidden_dim)
             seq_config.setdefault('num_layers', conformer_layers)
             seq_config.setdefault('dropout', 0.2)
             
-            # Filter config to only include Transformer-supported parameters
-            transformer_params = {
-                'input_dim': self.conformer_input_dim,
-                'num_heads': seq_config.get('num_heads', num_heads),
-                'hidden_dim': seq_config.get('hidden_dim', hidden_dim),
-                'num_layers': seq_config.get('num_layers', conformer_layers),
-                'dropout': seq_config.get('dropout', 0.2)
-            }
-            
-            self.sequence_model = TransformerSequenceModel(**transformer_params)
+            self.sequence_model = TransformerSequenceModel(
+                input_dim=self.conformer_input_dim,
+                **seq_config
+            )
             self.sequence_output_dim = self.sequence_model.output_dim
             
         elif self.sequence_model_type == 'cnn':
@@ -674,13 +690,9 @@ class BinarySpoofingClassificationModel(nn.Module):
             seq_config.setdefault('kernel_size', 3)
             seq_config.setdefault('dropout', 0.2)
             
-            # Filter out unsupported parameters for CNN
-            supported_params = {'hidden_dim', 'num_layers', 'kernel_size', 'dropout'}
-            cnn_config = {k: v for k, v in seq_config.items() if k in supported_params}
-            
             self.sequence_model = CNNSequenceModel(
                 input_dim=self.conformer_input_dim,
-                **cnn_config
+                **seq_config
             )
             self.sequence_output_dim = self.sequence_model.output_dim
             
@@ -691,13 +703,9 @@ class BinarySpoofingClassificationModel(nn.Module):
             seq_config.setdefault('kernel_size', 3)
             seq_config.setdefault('dropout', 0.2)
             
-            # Filter out unsupported parameters for TCN
-            supported_params = {'hidden_dim', 'num_layers', 'kernel_size', 'dropout'}
-            tcn_config = {k: v for k, v in seq_config.items() if k in supported_params}
-            
             self.sequence_model = TCNSequenceModel(
                 input_dim=self.conformer_input_dim,
-                **tcn_config
+                **seq_config
             )
             self.sequence_output_dim = self.sequence_model.output_dim
             
@@ -708,21 +716,6 @@ class BinarySpoofingClassificationModel(nn.Module):
             )
         
         print(f"Sequence model output dim: {self.sequence_output_dim}")
-        
-
-
-
-        # # Define the Conformer model from torchaudio
-        # self.conformer = tam.Conformer(
-        #     input_dim=self.conformer_input_dim,
-        #     num_heads=self.num_heads,
-        #     ffn_dim=hidden_dim,
-        #     num_layers=conformer_layers,
-        #     depthwise_conv_kernel_size=depthwise_conv_kernel_size,
-        #     dropout=0.2,
-        #     use_group_norm=False, 
-        #     convolution_first=False
-        # )
         
         # Global pooling layer (SelfWeightedPooling)
         self.pooling = SelfWeightedPooling(self.sequence_output_dim, mean_only=True)
@@ -777,60 +770,9 @@ class BinarySpoofingClassificationModel(nn.Module):
                 nn.init.constant_(m.bias, bias_value)
 
 
-    # def forward(self, x, lengths, dropout_prob):
-    #     """
-    #     Forward pass through the model with support for different pooling strategies.
-        
-    #     Args:
-    #         x: Input features (batch, time, feature_dim)
-    #         lengths: Lengths of sequences
-    #         dropout_prob: Dropout probability for the epoch
-        
-    #     Returns:
-    #         Output scores (batch, 1)
-    #     """
-    #     # Apply downsampling strategy
-    #     # NOTE: All pooling strategies below downsample the FEATURE DIMENSION only,
-    #     # NOT the time dimension. Therefore, lengths should NOT be updated.
-    #     if self.pooling_strategy == "average":
-    #         # Average pooling - downsamples feature dimension only
-    #         x = self.downsample(x)  # (batch, time, output_dim)
-    #         # print(f"After Pooling: {x.shape}")
-            
-    #     elif self.pooling_strategy == "attention":
-    #         # Attention pooling - downsamples feature dimension only
-    #         x = self.downsample(x)  # (batch, time, output_dim)
-    #         # print(f"After Pooling: {x.shape}")
-
-    #     elif self.pooling_strategy == "strided_conv":
-    #         # Strided convolution pooling - downsamples feature dimension only
-    #         x = self.downsample(x)  # (batch, time, output_dim)
-    #         # print(f"After Pooling: {x.shape}")
-
-    #     elif self.pooling_strategy == "max":
-    #         # Max pooling - downsamples feature dimension only
-    #         if self.downsample is not None:
-    #             x = self.downsample(x)  # (batch, time, output_dim)
-    #             # print(f"After Pooling: {x.shape}")
-
-    #     # Apply Conformer model
-    #     x, _ = self.conformer(x, lengths)
-        
-    #     # Apply global pooling across the sequence dimension (SelfWeightedPooling)
-    #     x = self.pooling(x)
-
-    #     # Update the dropout probability dynamically
-    #     self.fc_refinement[3].p = dropout_prob
-    #     self.fc_refinement[7].p = dropout_prob
-    #     self.fc_refinement[11].p = dropout_prob
-
-    #     # Refine features before classification
-    #     utt_score = self.fc_refinement(x)
-    #     return utt_score
-
     def forward(self, x, lengths, dropout_prob):
         """
-        Forward pass through the model with support for different sequence models.
+        Forward pass through the model with support for different pooling strategies and sequence models.
         
         Args:
             x: Input features (batch, time, feature_dim)
@@ -840,27 +782,46 @@ class BinarySpoofingClassificationModel(nn.Module):
         Returns:
             Output scores (batch, 1)
         """
-        # Apply downsampling strategy (feature dimension reduction)
-        if self.pooling_strategy in ["average", "attention", "strided_conv", "max"]:
+        # Apply downsampling strategy
+        # NOTE: All pooling strategies below downsample the FEATURE DIMENSION only,
+        # NOT the time dimension. Therefore, lengths should NOT be updated.
+        if self.pooling_strategy == "average":
+            # Average pooling - downsamples feature dimension only
+            x = self.downsample(x)  # (batch, time, output_dim)
+            # print(f"After Pooling: {x.shape}")
+            
+        elif self.pooling_strategy == "attention":
+            # Attention pooling - downsamples feature dimension only
+            x = self.downsample(x)  # (batch, time, output_dim)
+            # print(f"After Pooling: {x.shape}")
+
+        elif self.pooling_strategy == "strided_conv":
+            # Strided convolution pooling - downsamples feature dimension only
+            x = self.downsample(x)  # (batch, time, output_dim)
+            # print(f"After Pooling: {x.shape}")
+
+        elif self.pooling_strategy == "max":
+            # Max pooling - downsamples feature dimension only
             if self.downsample is not None:
-                x = self.downsample(x)
-        
-        # Apply sequence model
+                x = self.downsample(x)  # (batch, time, output_dim)
+                # print(f"After Pooling: {x.shape}")
+
+        # Apply sequence model (Conformer, LSTM, Transformer, CNN, or TCN)
         if self.sequence_model_type == 'conformer':
             x, _ = self.sequence_model(x, lengths)
         else:
-            # LSTM, Transformer, CNN, TCN
+            # Other models have consistent interface
             x, _ = self.sequence_model(x, lengths)
         
         # Apply global pooling across the sequence dimension (SelfWeightedPooling)
         x = self.pooling(x)
 
-        # Update the dropout probability dynamically in classification head
+        # Update the dropout probability dynamically
         self.fc_refinement[3].p = dropout_prob
         self.fc_refinement[7].p = dropout_prob
         self.fc_refinement[11].p = dropout_prob
 
-        # Classification
+        # Refine features before classification
         utt_score = self.fc_refinement(x)
         return utt_score
 
@@ -874,63 +835,9 @@ class BinarySpoofingClassificationModel(nn.Module):
 # ===========================================================================================================================
 # ===========================================================================================================================
 
-# def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001, DEVICE='cpu'):
-#     """Initialize the model, feature extractor, and optimizer with pooling strategy support"""
-#     from feature_extractors import FeatureExtractorFactory, get_feature_dim_from_config, calculate_conformer_input_dim
-    
-#     # Create feature extractor based on config
-#     feature_extractor = FeatureExtractorFactory.create_extractor(config, DEVICE)
-    
-#     # Get base feature dimension from config
-#     base_feature_dim = feature_extractor.get_feature_dim()
-    
-#     # Get pooling strategy from config
-#     pooling_strategy = config['model'].get('pooling_strategy', 'self_weighted')
-    
-#     print(f"Feature Extractor Type: {config['feature_extractor']['type']}")
-#     print(f"Base Feature Dim: {base_feature_dim}")
-#     print(f"Pooling Strategy: {pooling_strategy}")
-#     print(f"feature_extractor: {feature_extractor}")
-    
-#     # Initialize Binary Spoofing Classification Model
-#     PS_Model = BinarySpoofingClassificationModel(
-#         feature_dim=base_feature_dim,
-#         num_heads=config['model']['num_heads'],
-#         hidden_dim=config['model']['hidden_dim'],
-#         max_dropout=config['model']['max_dropout'],
-#         depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
-#         conformer_layers=config['model']['conformer_layers'],
-#         max_pooling_factor=config['model'].get('max_pooling_factor'),
-#         use_max_pooling=config['model'].get('use_max_pooling', True),
-#         pooling_strategy=pooling_strategy,
-#         config=config
-#     ).to(DEVICE)
-
-#     # Freeze feature extractor if necessary
-#     if save_feature_extractor and hasattr(feature_extractor, 'model'):
-#         for name, param in feature_extractor.model.named_parameters():
-#             if 'final_proj' not in name:
-#                 param.requires_grad = False
-#             else:
-#                 param.requires_grad = True
-    
-#     # Optimizer setup
-#     if save_feature_extractor and hasattr(feature_extractor, 'parameters'):
-#         optimizer = optim.AdamW(
-#             [{'params': feature_extractor.parameters(), 'lr': 0.00005},
-#              {'params': PS_Model.parameters()}], 
-#             lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
-#     else:
-#         optimizer = optim.AdamW(
-#             PS_Model.parameters(), 
-#             lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
-
-#     return PS_Model, feature_extractor, optimizer
-
-
 def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001, DEVICE='cpu'):
-    """Initialize the model, feature extractor, and optimizer with sequence model support"""
-    from feature_extractors import FeatureExtractorFactory
+    """Initialize the model, feature extractor, and optimizer with sequence model and pooling strategy support"""
+    from feature_extractors import FeatureExtractorFactory, get_feature_dim_from_config, calculate_conformer_input_dim
     
     # Create feature extractor based on config
     feature_extractor = FeatureExtractorFactory.create_extractor(config, DEVICE)
@@ -941,13 +848,13 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
     # Get pooling strategy and sequence model type from config
     pooling_strategy = config['model'].get('pooling_strategy', 'self_weighted')
     sequence_model_type = config['model'].get('sequence_model_type', 'conformer')
-    sequence_model_config = config['model'].get('sequence_model_config', None)
+    sequence_model_config = config['model'].get('sequence_model_config', {})
     
     print(f"Feature Extractor Type: {config['feature_extractor']['type']}")
     print(f"Base Feature Dim: {base_feature_dim}")
     print(f"Pooling Strategy: {pooling_strategy}")
     print(f"Sequence Model Type: {sequence_model_type}")
-    print(f"Feature Extractor: {feature_extractor}")
+    print(f"feature_extractor: {feature_extractor}")
     
     # Initialize Binary Spoofing Classification Model
     PS_Model = BinarySpoofingClassificationModel(
@@ -960,9 +867,9 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
         max_pooling_factor=config['model'].get('max_pooling_factor'),
         use_max_pooling=config['model'].get('use_max_pooling', True),
         pooling_strategy=pooling_strategy,
+        config=config,
         sequence_model_type=sequence_model_type,
-        sequence_model_config=sequence_model_config,
-        config=config
+        sequence_model_config=sequence_model_config
     ).to(DEVICE)
 
     # Freeze feature extractor if necessary
@@ -985,6 +892,7 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
             lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
 
     return PS_Model, feature_extractor, optimizer
+
 
 
 

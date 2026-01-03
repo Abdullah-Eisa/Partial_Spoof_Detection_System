@@ -25,7 +25,7 @@ git checkout -b Feature-Extractor-Comparison
 git add .
 
 # Commit changes
-git commit -m "modify code logic for different downsampling strategies"
+git commit -m "working sequence models alternative Options: 'conformer', 'lstm', 'transformer', 'cnn' , dummy test on the ASVSpoof19 database "
 
 # Push new branch to remote and set upstream
 git push -u origin Feature-Extractor-Comparison

@@ -253,6 +253,14 @@ def train(config=None):
         initialize_wandb()
         config = wandb.config
     
+    # ====== NEW: Log sequence model information ======
+    sequence_model_type = config['model'].get('sequence_model_type', 'conformer')
+    print(f"\n{'='*80}")
+    print(f"Training with {sequence_model_type.upper()} sequence model")
+    print(f"{'='*80}\n")
+    # ====== END NEW ======
+
+
     train_model(
         config=config,  # Pass the full config
         dataset_name=config['data']['dataset_name'],
