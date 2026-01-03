@@ -17,6 +17,302 @@ import torch.nn.init as torch_init
 # ============================================================================================
 # Pooling Strategy Classes
 
+# class LearnedFeatureProjection(nn.Module):
+#     """
+#     Attention Pooling: Projects features with learned attention weights.
+#     Clean implementation for attention-based feature projection.
+    
+#     Input: (batch, time, input_dim)  - e.g., (B, T, 768)
+#     Output: (batch, output_dim) - projected and pooled features
+#     """
+#     def __init__(self, input_dim, output_dim):
+#         super(LearnedFeatureProjection, self).__init__()
+        
+#         self.input_dim = input_dim
+#         self.output_dim = output_dim
+        
+#         # Learnable attention matrix: each output feature attends to input features
+#         self.attention_weights = nn.Parameter(
+#             torch.Tensor(output_dim, input_dim),
+#             requires_grad=True
+#         )
+#         torch_init.xavier_uniform_(self.attention_weights)
+    
+#     def forward(self, inputs):
+#         """
+#         Input: (batch, time, input_dim)  - e.g., (B, T, 768)
+#         Output: (batch, output_dim) - e.g., (B, 256)
+#         """
+#         # Compute attention weights (softmax over input dimension)
+#         attention = F.softmax(self.attention_weights, dim=1)  # (output_dim, input_dim)
+        
+#         # Apply weighted projection across time dimension
+#         # inputs: (B, T, input_dim)
+#         # attention.t(): (input_dim, output_dim)
+#         # output: (B, T, output_dim)
+#         projected = torch.matmul(inputs, attention.t())
+        
+#         # Pool across time dimension (mean pooling)
+#         output = torch.mean(projected, dim=1)  # (B, output_dim)
+        
+#         return output
+
+
+# class AveragePooling(nn.Module):
+#     """
+#     Average Pooling wrapper for downsampling features across input_dim.
+    
+#     Input: (batch, time, input_dim)
+#     Output: (batch, time, downsampled_input_dim)
+#     """
+#     def __init__(self, kernel_size, stride):
+#         super(AveragePooling, self).__init__()
+#         self.pool = nn.AvgPool1d(kernel_size=kernel_size, stride=stride, padding=0)
+    
+#     def forward(self, x):
+#         """
+#         Input: (batch, time, input_dim)
+#         Output: (batch, time, downsampled_input_dim)
+        
+#         Pool across the input_dim (feature) dimension, not the time dimension
+#         """
+#         # Get dimensions
+#         batch_size, time_steps, input_dim = x.size()
+        
+#         # Reshape to (batch*time, 1, input_dim) for AvgPool1d
+#         x_reshaped = x.reshape(batch_size * time_steps, 1, input_dim)
+        
+#         # Apply average pooling on input_dim
+#         x_pooled = self.pool(x_reshaped)
+        
+#         # Get the output dimension after pooling
+#         output_dim = x_pooled.size(2)
+        
+#         # Reshape back to (batch, time, downsampled_input_dim)
+#         x = x_pooled.reshape(batch_size, time_steps, output_dim)
+        
+#         return x
+
+
+# class StridedConvPooling(nn.Module):
+#     """
+#     Strided Convolution Pooling for downsampling features across input_dim.
+    
+#     Input: (batch, time, input_dim)  - e.g., (B, T, 768)
+#     Output: (batch, time, out_channels)
+#     """
+#     def __init__(self, in_channels, out_channels, kernel_size=3, stride=3, padding=0):
+#         super(StridedConvPooling, self).__init__()
+#         self.downsample = nn.Conv1d(
+#             in_channels=in_channels,
+#             out_channels=out_channels,
+#             kernel_size=kernel_size,
+#             stride=stride,
+#             padding=padding,
+#             bias=False
+#         )
+    
+#     def forward(self, x):
+#         """
+#         Input: (batch, time, input_dim)  - e.g., (B, T, 768)
+#         Output: (batch, time, out_channels)
+        
+#         Apply strided convolution across the input_dim (feature) dimension
+#         """
+#         batch_size, time_steps, input_dim = x.size()
+        
+#         # Reshape to (batch*time, 1, input_dim) for Conv1d
+#         x_reshaped = x.reshape(batch_size * time_steps, 1, input_dim)
+        
+#         # Apply strided convolution on input_dim
+#         x_conv = self.downsample(x_reshaped)
+        
+#         # Get the output channels after convolution
+#         out_channels = x_conv.size(1)
+        
+#         # Reshape back to (batch, time, out_channels)
+#         x = x_conv.reshape(batch_size, time_steps, out_channels)
+        
+#         return x
+
+
+
+
+# class LearnedFeatureProjection(nn.Module):
+#     """
+#     Attention Pooling: Projects features with learned attention weights.
+    
+#     Input: (batch, time, input_dim)  - e.g., (B, T, 768)
+#     Output: (batch, time, output_dim) - e.g., (B, T, 256)
+#     """
+#     def __init__(self, input_dim, output_dim):
+#         super(LearnedFeatureProjection, self).__init__()
+        
+#         self.input_dim = input_dim
+#         self.output_dim = output_dim
+        
+#         # Linear projection layer instead of attention weights
+#         self.projection = nn.Linear(input_dim, output_dim)
+    
+#     def forward(self, inputs):
+#         """
+#         Input: (batch, time, input_dim)  - e.g., (B, T, 768)
+#         Output: (batch, time, output_dim) - e.g., (B, T, 256)
+#         """
+#         # Apply linear projection across feature dimension
+#         # inputs: (B, T, input_dim)
+#         # output: (B, T, output_dim)
+#         output = self.projection(inputs)
+        
+#         return output
+
+
+# class AveragePooling(nn.Module):
+#     """
+#     Average Pooling for downsampling features across input_dim.
+    
+#     Input: (batch, time, input_dim)
+#     Output: (batch, time, downsampled_input_dim)
+#     """
+#     def __init__(self, kernel_size, stride):
+#         super(AveragePooling, self).__init__()
+#         self.kernel_size = kernel_size
+#         self.stride = stride
+#         self.pool = nn.AvgPool1d(kernel_size=kernel_size, stride=stride, padding=0)
+    
+#     def forward(self, x):
+#         """
+#         Input: (batch, time, input_dim)
+#         Output: (batch, time, downsampled_input_dim)
+        
+#         Pool across the input_dim (feature) dimension, keeping time dimension intact
+#         """
+#         # Get dimensions
+#         batch_size, time_steps, input_dim = x.size()
+        
+#         # Reshape to (batch*time, 1, input_dim) to pool along feature dimension
+#         # Each timestep is treated independently
+#         x_reshaped = x.reshape(batch_size * time_steps, 1, input_dim)
+        
+#         # Apply average pooling on feature dimension
+#         x_pooled = self.pool(x_reshaped)  # (batch*time, 1, downsampled_input_dim)
+        
+#         # Get the output dimension after pooling
+#         output_dim = x_pooled.size(2)
+        
+#         # Reshape back to (batch, time, downsampled_input_dim)
+#         x = x_pooled.reshape(batch_size, time_steps, output_dim)
+        
+#         return x
+
+
+# class StridedConvPooling(nn.Module):
+#     """
+#     Strided Convolution Pooling for downsampling features across input_dim.
+    
+#     Input: (batch, time, input_dim)  - e.g., (B, T, 768)
+#     Output: (batch, time, out_channels)
+#     """
+#     def __init__(self, in_channels, out_channels, kernel_size=3, stride=3, padding=0):
+#         super(StridedConvPooling, self).__init__()
+#         self.downsample = nn.Conv1d(
+#             in_channels=in_channels,
+#             out_channels=out_channels,
+#             kernel_size=kernel_size,
+#             stride=stride,
+#             padding=padding,
+#             bias=False
+#         )
+    
+#     def forward(self, x):
+#         """
+#         Input: (batch, time, input_dim)  - e.g., (B, T, 768)
+#         Output: (batch, time, out_channels)
+        
+#         Apply strided convolution across the input_dim (feature) dimension,
+#         keeping time dimension intact
+#         """
+#         batch_size, time_steps, input_dim = x.size()
+        
+#         # Reshape to (batch*time, in_channels, 1) to apply Conv1d on feature dimension
+#         # Each timestep is treated independently
+#         x_reshaped = x.reshape(batch_size * time_steps, input_dim, 1)
+        
+#         # Apply strided convolution on feature dimension
+#         x_conv = self.downsample(x_reshaped)  # (batch*time, out_channels, 1)
+        
+#         # Get the output channels
+#         out_channels = x_conv.size(1)
+        
+#         # Reshape back to (batch, time, out_channels)
+#         x = x_conv.reshape(batch_size, time_steps, out_channels)
+        
+#         return x
+
+
+# class PoolingFactory:
+#     """
+#     Factory class for creating pooling strategies.
+#     """
+#     @staticmethod
+#     def create_pooling(strategy, input_dim, config):
+#         """
+#         Create a pooling module based on the specified strategy.
+        
+#         Args:
+#             strategy: str, pooling strategy name
+#             input_dim: int, input feature dimension
+#             config: dict, configuration dictionary containing pooling parameters
+        
+#         Returns:
+#             tuple: (pooling_module, output_dim)
+#         """
+#         strategy = strategy.lower()
+        
+#         if strategy == "average":
+#             kernel_size = config['model']['average_pooling']['kernel_size']
+#             stride = config['model']['average_pooling']['stride']
+#             pooling = AveragePooling(kernel_size=kernel_size, stride=stride)
+#             # Calculate output dimension after average pooling on input_dim
+#             output_dim = (input_dim - kernel_size) // stride + 1
+#             return pooling, output_dim
+        
+#         elif strategy == "attention":
+#             output_dim = config['model']['attention_pooling']['output_dim']
+#             pooling = LearnedFeatureProjection(input_dim=input_dim, output_dim=output_dim)
+#             # Note: attention pooling also applies global pooling (mean), so final output is just output_dim
+#             return pooling, output_dim
+        
+#         elif strategy == "strided_conv":
+#             out_channels = config['model']['strided_conv_pooling']['out_channels']
+#             kernel_size = config['model']['strided_conv_pooling']['kernel_size']
+#             stride = config['model']['strided_conv_pooling']['stride']
+#             padding = config['model']['strided_conv_pooling']['padding']
+#             pooling = StridedConvPooling(
+#                 in_channels=input_dim,
+#                 out_channels=out_channels,
+#                 kernel_size=kernel_size,
+#                 stride=stride,
+#                 padding=padding
+#             )
+#             output_dim = out_channels
+#             return pooling, output_dim
+        
+#         elif strategy == "self_weighted":
+#             # SelfWeightedPooling will be handled separately in the model
+#             return None, input_dim
+        
+#         elif strategy == "max":
+#             # Max pooling is handled separately in the model
+#             return None, input_dim
+        
+#         else:
+#             raise ValueError(f"Unknown pooling strategy: {strategy}")
+
+
+
+
+
 
 import torch
 import torch.nn as nn
@@ -520,6 +816,63 @@ class RotaryPositionalEmbeddings(nn.Module):
 
 # ============================================================================================
 # ============================================================================================
+# binary classification model with Rotary Positional Encoding and max pooling after feature extractor
+
+# class BinarySpoofingClassificationModel(nn.Module):
+#     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3):
+#         super(BinarySpoofingClassificationModel, self).__init__()
+
+#         self.max_pooling_factor = max_pooling_factor
+#         self.feature_dim = feature_dim
+#         self.num_heads = num_heads
+#         self.max_dropout=max_dropout
+
+#         if self.max_pooling_factor is not None:
+#             self.max_pooling = nn.MaxPool1d(kernel_size=self.max_pooling_factor, stride=self.max_pooling_factor)
+#             self.feature_dim=feature_dim//self.max_pooling_factor
+#         else:
+#             self.max_pooling = None
+        
+#         print(f"self.feature_dim= {self.feature_dim} , self.max_pooling= {self.max_pooling}")
+#         # Define the Conformer model from torchaudio
+#         self.conformer = tam.Conformer(
+#             input_dim=self.feature_dim,
+#             num_heads=self.num_heads,
+#             ffn_dim=hidden_dim,  # Feed-forward network dimension (for consistency)
+#             num_layers=conformer_layers,  # Example, adjust as needed
+#             depthwise_conv_kernel_size=depthwise_conv_kernel_size,  # Set the kernel size for depthwise convolution
+#             dropout=0.2, # Dropout initialized with 0.2 for conformer block
+#             use_group_norm= False, 
+#             convolution_first= False
+#         )
+        
+#         # Global pooling layer (SelfWeightedPooling)
+#         self.pooling = SelfWeightedPooling(self.feature_dim , mean_only=True)  # Pool across sequence dimension
+        
+#         # Add a feedforward block for feature refinement before classification
+#         self.fc_refinement = nn.Sequential(
+#             nn.Linear(self.feature_dim, hidden_dim),  # Refined hidden dimension for classification
+#             nn.LayerNorm(hidden_dim),
+#             nn.GELU(),
+#             nn.Dropout(0.2),  # Dropout for regularization
+
+#             nn.Linear(hidden_dim, hidden_dim//2),  # Refined hidden dimension for classification
+#             nn.LayerNorm(hidden_dim//2),
+#             nn.GELU(),
+#             nn.Dropout(0.2),  # Dropout for regularization
+
+#             nn.Linear(hidden_dim//2, hidden_dim//4),  # Refined hidden dimension for classification
+#             nn.LayerNorm(hidden_dim//4),
+#             nn.GELU(),
+#             nn.Dropout(0.2),  # Dropout for regularization
+
+#             nn.Linear(hidden_dim//4, 1),  # Final output layer
+#             # nn.Sigmoid(),
+#         )
+
+
+#         self.apply(self.initialize_weights)
+
 
 class BinarySpoofingClassificationModel(nn.Module):
     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, 
@@ -554,27 +907,26 @@ class BinarySpoofingClassificationModel(nn.Module):
             
         elif self.pooling_strategy == "strided_conv":
             # Strided convolution pooling
-            output_dim = config['model']['strided_conv_pooling']['out_channels'] if config else 256
+            out_channels = config['model']['strided_conv_pooling']['out_channels'] if config else 256
             kernel_size = config['model']['strided_conv_pooling']['kernel_size'] if config else 3
             stride = config['model']['strided_conv_pooling']['stride'] if config else 3
             padding = config['model']['strided_conv_pooling']['padding'] if config else 0
             self.downsample = StridedConvPooling(
-                input_dim=feature_dim,
-                output_dim=output_dim,
+                in_channels=feature_dim,
+                out_channels=out_channels,
                 kernel_size=kernel_size,
                 stride=stride,
                 padding=padding
             )
-            self.conformer_input_dim = output_dim
+            self.conformer_input_dim = out_channels
             
         elif self.pooling_strategy == "max":
-            # Max pooling - downsample feature dimension
-            kernel_size = config['model']['max_pooling']['kernel_size'] if config else 3
-            stride = config['model']['max_pooling']['stride'] if config else 3
-            self.downsample = MaxPooling(kernel_size=kernel_size, stride=stride)
-            # Calculate output dimension after max pooling
-            output_dim = (feature_dim - kernel_size) // stride + 1
-            self.conformer_input_dim = output_dim
+            # Max pooling
+            if self.use_max_pooling and self.max_pooling_factor is not None:
+                self.downsample = nn.MaxPool1d(kernel_size=self.max_pooling_factor, stride=self.max_pooling_factor)
+                self.conformer_input_dim = feature_dim // self.max_pooling_factor
+            else:
+                self.downsample = None
                 
         elif self.pooling_strategy == "self_weighted":
             # Self-weighted pooling (no downsampling, pooling applied later)
@@ -691,29 +1043,39 @@ class BinarySpoofingClassificationModel(nn.Module):
             Output scores (batch, 1)
         """
         # Apply downsampling strategy
-        # NOTE: All pooling strategies below downsample the FEATURE DIMENSION only,
-        # NOT the time dimension. Therefore, lengths should NOT be updated.
         if self.pooling_strategy == "average":
-            # Average pooling - downsamples feature dimension only
-            x = self.downsample(x)  # (batch, time, output_dim)
-            # print(f"After Pooling: {x.shape}")
+            # Average pooling
+            x = self.downsample(x)
+            # Update lengths after downsampling
+            kernel_size = self.config['model']['average_pooling']['kernel_size'] if self.config else 3
+            stride = self.config['model']['average_pooling']['stride'] if self.config else 3
+            lengths = ((lengths - kernel_size) // stride + 1).clamp(min=1)
             
         elif self.pooling_strategy == "attention":
-            # Attention pooling - downsamples feature dimension only
-            x = self.downsample(x)  # (batch, time, output_dim)
-            # print(f"After Pooling: {x.shape}")
-
+            # Attention pooling (LearnedFeatureProjection) - returns pooled features
+            x = self.downsample(x)  # Output is already pooled globally: (batch, output_dim)
+            # Need to reshape for conformer input if it processes sequences
+            # If attention pooling is used, we get (batch, output_dim) directly
+            # So we need to expand it to (batch, 1, output_dim) for conformer
+            x = x.unsqueeze(1)  # (batch, 1, output_dim)
+            lengths = torch.ones_like(lengths)  # All sequences have length 1 after global pooling
+            
         elif self.pooling_strategy == "strided_conv":
-            # Strided convolution pooling - downsamples feature dimension only
-            x = self.downsample(x)  # (batch, time, output_dim)
-            # print(f"After Pooling: {x.shape}")
-
+            # Strided convolution pooling
+            x = self.downsample(x)  # (batch, time, out_channels)
+            # Update lengths after strided convolution
+            kernel_size = self.config['model']['strided_conv_pooling']['kernel_size'] if self.config else 3
+            stride = self.config['model']['strided_conv_pooling']['stride'] if self.config else 3
+            padding = self.config['model']['strided_conv_pooling']['padding'] if self.config else 0
+            lengths = ((lengths + 2 * padding - kernel_size) // stride + 1).clamp(min=1)
+            
         elif self.pooling_strategy == "max":
-            # Max pooling - downsamples feature dimension only
+            # Max pooling
             if self.downsample is not None:
-                x = self.downsample(x)  # (batch, time, output_dim)
-                # print(f"After Pooling: {x.shape}")
-
+                x = self.downsample(x)
+                # Update lengths after max pooling
+                lengths = ((lengths + self.max_pooling_factor - 1) // self.max_pooling_factor).clamp(min=1)
+        
         # Apply Conformer model
         x, _ = self.conformer(x, lengths)
         
@@ -738,6 +1100,83 @@ class BinarySpoofingClassificationModel(nn.Module):
 
 # ===========================================================================================================================
 # ===========================================================================================================================
+
+# def initialize_models(ssl_ckpt_path, save_feature_extractor=False,
+#                       feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0.2, depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3, 
+#                       LEARNING_RATE=0.0001,DEVICE='cpu'):
+#     """Initialize the model, feature extractor, and optimizer"""
+#     # Initialize feature extractor
+#     if os.path.exists(ssl_ckpt_path):
+#         feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
+#     else:
+#         ssl_ckpt_path = os.path.join(os.getcwd(), 'models/w2v_large_lv_fsh_swbd_cv.pt')
+#         feature_extractor = torch.hub.load('s3prl/s3prl', 'wav2vec2', model_path=ssl_ckpt_path).to(DEVICE)
+
+#     # Initialize Binary Spoofing Classification Model
+#     PS_Model = BinarySpoofingClassificationModel(feature_dim, num_heads, hidden_dim, max_dropout, depthwise_conv_kernel_size, conformer_layers, max_pooling_factor).to(DEVICE)
+
+#     # Freeze feature extractor if necessary
+#     if save_feature_extractor:
+#         for name, param in feature_extractor.named_parameters():
+#             if 'final_proj' not in name:
+#                 param.requires_grad = False
+#             else:
+#                 param.requires_grad = True
+    
+#     # Optimizer setup
+#     optimizer = optim.AdamW(
+#         [{'params': feature_extractor.parameters(), 'lr': 0.00005},
+#          {'params': PS_Model.parameters()}], 
+#         lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8) if save_feature_extractor else optim.AdamW(PS_Model.parameters(), lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+
+#     return PS_Model, feature_extractor, optimizer
+
+
+
+
+
+# def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001, DEVICE='cpu'):
+#     """Initialize the model, feature extractor, and optimizer"""
+#     from feature_extractors import FeatureExtractorFactory, get_feature_dim_from_config
+    
+#     # Create feature extractor based on config
+#     feature_extractor = FeatureExtractorFactory.create_extractor(config, DEVICE)
+    
+#     # Get feature dimension from config
+#     feature_dim = get_feature_dim_from_config(config)
+    
+#     # Initialize Binary Spoofing Classification Model
+#     PS_Model = BinarySpoofingClassificationModel(
+#         feature_dim=feature_dim,
+#         num_heads=config['model']['num_heads'],
+#         hidden_dim=config['model']['hidden_dim'],
+#         max_dropout=config['model']['max_dropout'],
+#         depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
+#         conformer_layers=config['model']['conformer_layers'],
+#         max_pooling_factor=config['model']['max_pooling_factor']
+#     ).to(DEVICE)
+
+#     # Freeze feature extractor if necessary
+#     if save_feature_extractor and hasattr(feature_extractor, 'model'):
+#         for name, param in feature_extractor.model.named_parameters():
+#             if 'final_proj' not in name:
+#                 param.requires_grad = False
+#             else:
+#                 param.requires_grad = True
+    
+#     # Optimizer setup
+#     if save_feature_extractor and hasattr(feature_extractor, 'parameters'):
+#         optimizer = optim.AdamW(
+#             [{'params': feature_extractor.parameters(), 'lr': 0.00005},
+#              {'params': PS_Model.parameters()}], 
+#             lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+#     else:
+#         optimizer = optim.AdamW(
+#             PS_Model.parameters(), 
+#             lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
+
+#     return PS_Model, feature_extractor, optimizer
+
 
 def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001, DEVICE='cpu'):
     """Initialize the model, feature extractor, and optimizer with pooling strategy support"""

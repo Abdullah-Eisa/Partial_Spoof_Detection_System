@@ -1,8 +1,8 @@
 
 # Training configuration
 training:
-  # num_epochs: &num_epochs 30
-  num_epochs: &num_epochs 15
+  num_epochs: &num_epochs 30
+  # num_epochs: &num_epochs 15
   learning_rate: &learning_rate 0.00075
   batch_size: &batch_size 8
   save_interval: 5
@@ -25,10 +25,10 @@ wandb_sweep:
 
 # Feature Extractor configuration
 feature_extractor:
-  # type: "wav2vec2"  # Options: "wav2vec2", "hubert", "mfcc", "lfcc"
+  type: "wav2vec2"  # Options: "wav2vec2", "hubert", "mfcc", "lfcc"
   # type: "hubert"
   # type: "mfcc"
-  type: "lfcc"
+  # type: "lfcc"
 
   # SSL models (wav2vec2, hubert)
   ssl_checkpoint: "${BASE_DIR}/models/w2v_large_lv_fsh_swbd_cv.pt"
@@ -68,7 +68,8 @@ model:
   
   # Pooling strategy configuration
   # Options: "self_weighted", "max", "average", "attention", "strided_conv"
-  pooling_strategy: "self_weighted"  # Default pooling strategy
+  # pooling_strategy: "self_weighted"  # Default pooling strategy
+  pooling_strategy: "strided_conv"  
   
   # Average pooling parameters
   average_pooling:
@@ -123,15 +124,17 @@ paths:
   wandb_key_file: "${BASE_DIR}/config/wandb_key.txt"
   # Add the PS model checkpoint path
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
-  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20251220_224243.pth"
-  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20251220_215841.pth"
-  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20251220_025509.pth"
+  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20260102_162234.pth"
+  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20260102_200317.pth"
+
 
 # Inference configuration
 inference:
   use_cuda: true
-  batch_size: 16
-  num_workers: 8
+  # batch_size: 16
+  batch_size: 4
+  # num_workers: 8
+  num_workers: 2
   prefetch_factor: 2
   pin_memory: true
   apply_transform: false
