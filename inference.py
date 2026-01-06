@@ -19,6 +19,14 @@ from utils.utils import *
 from preprocess import *
 from model import *
 
+from utils.parameter_counter import (
+    count_parameters, 
+    print_inference_model_info,
+    quick_param_count,
+    get_model_size_mb
+)
+
+
 def inference_helper(model, feature_extractor,criterion,
                   test_data_loader, DEVICE='cpu'):
     """Evaluate the model on the test set"""
@@ -235,7 +243,7 @@ def inference_helper(model, feature_extractor,criterion,
 #     return results
 
 
-def inference(config):
+def inference(config, show_model_info: bool = True, save_model_info: bool = False):
     """Run inference using configuration with sequence model support"""
     from feature_extractors import FeatureExtractorFactory
     
@@ -295,6 +303,37 @@ def inference(config):
 
     PS_Model.eval()
 
+
+    # ====== NEW: Display model parameter information ======
+    if show_model_info:
+        # Print comprehensive model information
+        model_stats = print_inference_model_info(
+            model=PS_Model,
+            feature_extractor=feature_extractor,
+            show_breakdown=True
+        )
+        
+        # Save to file if requested
+        if save_model_info:
+            save_model_info_to_file(
+                model=PS_Model,
+                feature_extractor=feature_extractor,
+                config=config,
+                stats=model_stats,
+                output_dir='outputs'
+            )
+    else:
+        # Just print a quick summary
+        print("\nModel Summary:")
+        backend_total, backend_train, _ = quick_param_count(PS_Model)
+        fe_total, fe_train, _ = quick_param_count(feature_extractor)
+        print(f"  Backend Model:      {backend_train:>12,} trainable params")
+        print(f"  Feature Extractor:  {fe_train:>12,} trainable params")
+        print(f"  Total System:       {backend_train + fe_train:>12,} trainable params")
+        print(f"  Memory (float32):   {get_model_size_mb(PS_Model) + get_model_size_mb(feature_extractor):>11.2f} MB\n")
+    # ====== END NEW ======
+
+
     criterion = initialize_loss_function().to(device)
     
     # Call inference helper function
@@ -311,6 +350,73 @@ def inference(config):
         
     return results
 
+
+
+def save_model_info_to_file(model, feature_extractor, config, stats, output_dir='outputs'):
+    """
+    Save detailed model information to a text file.
+    
+    Args:
+        model: Backend classification model
+        feature_extractor: Feature extraction model
+        config: Configuration dictionary
+        stats: Statistics dictionary from print_inference_model_info
+        output_dir: Directory to save the output file
+    """
+    import sys
+    from io import StringIO
+    
+    # Create output directory if it doesn't exist
+    os.makedirs(output_dir, exist_ok=True)
+    
+    # Generate filename with timestamp
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    dataset_name = config['data']['dataset_name']
+    sequence_type = config['model'].get('sequence_model_type', 'conformer')
+    filename = f"inference_model_info_{dataset_name}_{sequence_type}_{timestamp}.txt"
+    filepath = os.path.join(output_dir, filename)
+    
+    # Redirect stdout to capture print statements
+    old_stdout = sys.stdout
+    sys.stdout = StringIO()
+    
+    # Print all information
+    print("="*80)
+    print("INFERENCE MODEL INFORMATION")
+    print("="*80)
+    print(f"\nTimestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Dataset: {dataset_name}")
+    print(f"Sequence Model: {sequence_type}")
+    print(f"Checkpoint: {config['paths']['ps_model_checkpoint']}")
+    print(f"Device: {config['system']['device']}")
+    
+    # Print model architecture details
+    print("\n" + "="*80)
+    print_inference_model_info(model, feature_extractor, show_breakdown=True)
+    
+    # Print configuration summary
+    print("\n" + "="*80)
+    print("CONFIGURATION SUMMARY")
+    print("="*80)
+    print(f"Feature Extractor Type:    {config['feature_extractor']['type']}")
+    print(f"Pooling Strategy:          {config['model'].get('pooling_strategy', 'self_weighted')}")
+    print(f"Number of Heads:           {config['model']['num_heads']}")
+    print(f"Hidden Dimension:          {config['model']['hidden_dim']}")
+    print(f"Conformer Layers:          {config['model']['conformer_layers']}")
+    print(f"Max Dropout:               {config['model']['max_dropout']}")
+    print(f"Batch Size (Inference):    {config['inference'].get('batch_size', 'N/A')}")
+    print("="*80 + "\n")
+    
+    # Get captured output
+    output = sys.stdout.getvalue()
+    sys.stdout = old_stdout
+    
+    # Save to file
+    with open(filepath, 'w') as f:
+        f.write(output)
+    
+    print(f"\n✓ Model information saved to: {filepath}")
+    print(f"  File size: {os.path.getsize(filepath) / 1024:.2f} KB")
 
 
 def dev_one_epoch(model, feature_extractor,criterion,
@@ -402,13 +508,35 @@ if __name__ == "__main__":
     config = ConfigManager()
     start_time = datetime.now()
     
+    # try:
+    #     results = inference(config)
+    #     if results:
+    #         print("Inference results:", results)
+    # except Exception as e:
+    #     print(f"Error during inference: {str(e)}")
+    
     try:
-        results = inference(config)
+        # Run inference with model info display and save to file
+        results = inference(
+            config, 
+            show_model_info=True,  # Set to False to skip detailed display
+            save_model_info=True   # Set to False to skip saving to file
+        )
+        
         if results:
-            print("Inference results:", results)
+            print("\n" + "="*80)
+            print("INFERENCE RESULTS: ",results)
+            print("="*80)
+            print(f"Utterance EER:           {results['utterance_eer']:.4f}")
+            print(f"Utterance EER Threshold: {results['utterance_eer_threshold']:.4f}")
+            print(f"Epoch Loss:              {results['epoch_loss']:.4f}")
+            print("="*80 + "\n")
     except Exception as e:
         print(f"Error during inference: {str(e)}")
-    
+        import traceback
+        traceback.print_exc()
+
+
     end_time = datetime.now()
     total_time = end_time - start_time
     hours, remainder = divmod(total_time.total_seconds(), 3600)

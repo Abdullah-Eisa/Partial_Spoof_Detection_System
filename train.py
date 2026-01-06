@@ -72,6 +72,22 @@ def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion
     return epoch_loss, utterance_predictions, utterance_labels, files_names, nan_count
 
 # ===========================================================================================================================
+
+# def load_checkpoint(checkpoint_path, model, optimizer, DEVICE='cpu'):
+#     """Load model and optimizer state from checkpoint"""
+#     if not os.path.exists(checkpoint_path):
+#         print(f"Checkpoint not found at {checkpoint_path}")
+#         return 0
+    
+#     checkpoint = torch.load(checkpoint_path, map_location=DEVICE)
+#     model.load_state_dict(checkpoint['model_state_dict'])
+#     optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+#     epoch = checkpoint.get('epoch', 0)
+    
+#     print(f"✓ Checkpoint loaded from epoch {epoch}")
+#     return epoch
+
+
 # def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, dev_labels_path, ssl_ckpt_path,apply_transform,
 #                 save_feature_extractor=False,feature_dim=768, num_heads=8, hidden_dim=128, max_dropout=0.2,
 #                 depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3,LEARNING_RATE=0.0001,
@@ -114,6 +130,11 @@ def train_model(config, dataset_name, train_data_path, train_labels_path,
     LR_SCHEDULER = initialize_lr_scheduler(optimizer)
 
     wandb.watch(PS_Model, log_freq=100,log='all')
+
+    # # checkpoint_full_path = os.path.join(model_save_path, resume_from_checkpoint)
+    # checkpoint_full_path = "/root/Partial_Spoof_Detection_System/models/back_end_models/RFP_Dataset_model_epochs30_batch8_lr0.00075_20260104_054502.pth"
+    # start_epoch = load_checkpoint(checkpoint_full_path, PS_Model, optimizer, DEVICE)
+
     # Set model to train
     PS_Model.train()
     total_train_nan_counter=0

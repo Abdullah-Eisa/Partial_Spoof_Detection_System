@@ -26,7 +26,7 @@ git checkout -b Sequence-Modeling-Alternatives
 git add .
 
 # Commit changes
-git commit -m "add working sequence models alternative Options: 'conformer', 'lstm', 'transformer', 'cnn' , dummy test on the ASVSpoof19 database "
+git commit -m " add save_model_info_to_file , add utils/parameter_counter.py "
 
 # Push new branch to remote and set upstream
 # git push -u origin Feature-Extractor-Comparison
