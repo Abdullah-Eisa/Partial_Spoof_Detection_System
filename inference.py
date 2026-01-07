@@ -23,7 +23,10 @@ from utils.parameter_counter import (
     count_parameters, 
     print_inference_model_info,
     quick_param_count,
-    get_model_size_mb
+    get_model_size_mb,
+    get_block_parameter_breakdown,
+    print_block_parameter_breakdown,
+    print_comprehensive_model_analysis
 )
 
 
@@ -264,6 +267,10 @@ def inference(config, show_model_info: bool = True, save_model_info: bool = Fals
     )
 
     # Load feature extractor
+    finetuned_checkpoint = config['feature_extractor'].get('finetuned_checkpoint', None)
+    if finetuned_checkpoint:
+        print(f"Loading feature extractor with finetuned weights from config: {finetuned_checkpoint}")
+    
     feature_extractor = FeatureExtractorFactory.create_extractor(config, device)
     feature_extractor.eval()
 
@@ -306,12 +313,35 @@ def inference(config, show_model_info: bool = True, save_model_info: bool = Fals
 
     # ====== NEW: Display model parameter information ======
     if show_model_info:
-        # Print comprehensive model information
+        # Print comprehensive model information with block breakdown
         model_stats = print_inference_model_info(
             model=PS_Model,
             feature_extractor=feature_extractor,
             show_breakdown=True
         )
+        
+        # Display block-wise parameter breakdown for backend model
+        print("\n" + "="*120)
+        print("BACKEND MODEL - BLOCK-WISE PARAMETER ANALYSIS")
+        print("="*120)
+        backend_blocks = get_block_parameter_breakdown(
+            PS_Model,
+            block_patterns={
+                'Downsampling': ['downsample', 'pooling_layer', 'feature_projection'],
+                'Sequence_Model': ['sequence_model', 'conformer', 'lstm', 'transformer', 'cnn', 'tcn'],
+                'Pooling': ['pooling', 'sap', 'self_weighted'],
+                'FC_Refinement': ['fc_refinement', 'classification']
+            },
+            verbose=True
+        )
+        
+        # Display comprehensive analysis if feature extractor is provided
+        if feature_extractor is not None:
+            print_comprehensive_model_analysis(
+                model=PS_Model,
+                feature_extractor=feature_extractor,
+                config=config
+            )
         
         # Save to file if requested
         if save_model_info:
@@ -320,6 +350,7 @@ def inference(config, show_model_info: bool = True, save_model_info: bool = Fals
                 feature_extractor=feature_extractor,
                 config=config,
                 stats=model_stats,
+                backend_blocks=backend_blocks,
                 output_dir='outputs'
             )
     else:
@@ -352,7 +383,7 @@ def inference(config, show_model_info: bool = True, save_model_info: bool = Fals
 
 
 
-def save_model_info_to_file(model, feature_extractor, config, stats, output_dir='outputs'):
+def save_model_info_to_file(model, feature_extractor, config, stats, backend_blocks=None, output_dir='outputs'):
     """
     Save detailed model information to a text file.
     
@@ -361,6 +392,7 @@ def save_model_info_to_file(model, feature_extractor, config, stats, output_dir=
         feature_extractor: Feature extraction model
         config: Configuration dictionary
         stats: Statistics dictionary from print_inference_model_info
+        backend_blocks: Block-wise parameter breakdown from get_block_parameter_breakdown
         output_dir: Directory to save the output file
     """
     import sys
@@ -394,6 +426,13 @@ def save_model_info_to_file(model, feature_extractor, config, stats, output_dir=
     print("\n" + "="*80)
     print_inference_model_info(model, feature_extractor, show_breakdown=True)
     
+    # Print block-wise breakdown if provided
+    if backend_blocks:
+        print("\n" + "="*80)
+        print("BACKEND MODEL - BLOCK-WISE PARAMETER BREAKDOWN")
+        print("="*80)
+        print_block_parameter_breakdown(backend_blocks)
+    
     # Print configuration summary
     print("\n" + "="*80)
     print("CONFIGURATION SUMMARY")
@@ -406,6 +445,7 @@ def save_model_info_to_file(model, feature_extractor, config, stats, output_dir=
     print(f"Max Dropout:               {config['model']['max_dropout']}")
     print(f"Batch Size (Inference):    {config['inference'].get('batch_size', 'N/A')}")
     print("="*80 + "\n")
+
     
     # Get captured output
     output = sys.stdout.getvalue()

@@ -22,15 +22,20 @@ class FeatureExtractorFactory:
         """
         extractor_type = config['feature_extractor']['type'].lower()
         
+        # Get finetuned checkpoint path if available
+        finetuned_checkpoint = config['feature_extractor'].get('finetuned_checkpoint', None)
+        
         if extractor_type == 'wav2vec2':
             return Wav2Vec2Extractor(
                 checkpoint_path=config['feature_extractor']['ssl_checkpoint'],
-                device=device
+                device=device,
+                finetuned_checkpoint=finetuned_checkpoint
             )
         elif extractor_type == 'hubert':
             return HuBERTExtractor(
                 checkpoint_path=config['feature_extractor']['ssl_checkpoint'],
-                device=device
+                device=device,
+                finetuned_checkpoint=finetuned_checkpoint
             )
         elif extractor_type == 'mfcc':
             return MFCCExtractor(
@@ -51,27 +56,47 @@ class FeatureExtractorFactory:
 class Wav2Vec2Extractor(nn.Module):
     """Wav2Vec 2.0 feature extractor"""
     
-    def __init__(self, checkpoint_path, device='cpu'):
+    def __init__(self, checkpoint_path, device='cpu', finetuned_checkpoint=None):
         super().__init__()
         self.device = device
+        self.checkpoint_path = checkpoint_path
+        self.finetuned_checkpoint = finetuned_checkpoint
+        
+        # Load base pretrained model
         self.model = torch.hub.load('s3prl/s3prl', 'wav2vec2', 
                                     model_path=checkpoint_path).to(device)
         self.model.eval()
         
-    # def forward(self, waveforms):
-    #     """
-    #     Extract features from waveforms
-        
-    #     Args:
-    #         waveforms: (batch_size, time) tensor
-            
-    #     Returns:
-    #         features: (batch_size, time_frames, feature_dim) tensor
-    #     """
-    #     with torch.no_grad():
-    #         features = self.model(waveforms)['hidden_states'][-1]
-    #     return features
+        # Load finetuned weights if provided
+        if finetuned_checkpoint is not None:
+            self._load_finetuned_weights(finetuned_checkpoint, device)
     
+    def _load_finetuned_weights(self, finetuned_checkpoint, device):
+        """Load finetuned feature extractor weights"""
+        import os
+        
+        # Expand path variables if needed
+        expanded_path = os.path.expandvars(finetuned_checkpoint)
+        
+        if not os.path.exists(expanded_path):
+            print(f"Warning: Finetuned checkpoint not found at {expanded_path}")
+            print(f"Using base pretrained model from {self.checkpoint_path}")
+            return
+        
+        try:
+            # Load the finetuned model
+            finetuned_model = torch.hub.load('s3prl/s3prl', 'wav2vec2', 
+                                            model_path=expanded_path).to(device)
+            
+            # Copy the state dict from finetuned model to this model
+            self.model.load_state_dict(finetuned_model.state_dict())
+            
+            print(f"✓ Loaded finetuned feature extractor from {expanded_path}")
+        except Exception as e:
+            print(f"Warning: Failed to load finetuned weights from {expanded_path}")
+            print(f"Error: {str(e)}")
+            print(f"Using base pretrained model from {self.checkpoint_path}")
+        
     def forward(self, waveforms):
         """
         Extract features from waveforms
@@ -92,8 +117,6 @@ class Wav2Vec2Extractor(nn.Module):
                 output = {'hidden_states': [output]}
                 
         return output    
-
-
 
     def get_feature_dim(self):
         # return 1024  # Wav2Vec 2.0 large has 1024 dims
@@ -127,13 +150,20 @@ class Wav2Vec2Extractor(nn.Module):
 #         return self.get_feature_dim() // max_pooling_factor
 
 class HuBERTExtractor(nn.Module):
-    def __init__(self, checkpoint_path, device='cpu'):
+    def __init__(self, checkpoint_path, device='cpu', finetuned_checkpoint=None):
         super().__init__()
         self.device = device
         self.checkpoint_path = checkpoint_path
+        self.finetuned_checkpoint = finetuned_checkpoint
+        
         print(f"Loading HuBERT model from: {checkpoint_path} on {device}")
         self.model = torch.hub.load('s3prl/s3prl', 'hubert', model_path=checkpoint_path).to(device)
         self.model.eval()
+        
+        # Load finetuned weights if provided
+        if finetuned_checkpoint is not None:
+            self._load_finetuned_weights(finetuned_checkpoint, device)
+        
         # infer feature dim from a tiny dummy input
         with torch.no_grad():
             try:
@@ -148,6 +178,32 @@ class HuBERTExtractor(nn.Module):
                 print("Warning: cannot infer HuBERT feature dim, defaulting to 1024:", e)
                 self._feature_dim = 768
         print(f"HuBERT inferred feature_dim = {self._feature_dim}")
+    
+    def _load_finetuned_weights(self, finetuned_checkpoint, device):
+        """Load finetuned feature extractor weights"""
+        import os
+        
+        # Expand path variables if needed
+        expanded_path = os.path.expandvars(finetuned_checkpoint)
+        
+        if not os.path.exists(expanded_path):
+            print(f"Warning: Finetuned checkpoint not found at {expanded_path}")
+            print(f"Using base pretrained model from {self.checkpoint_path}")
+            return
+        
+        try:
+            # Load the finetuned model
+            finetuned_model = torch.hub.load('s3prl/s3prl', 'hubert', 
+                                            model_path=expanded_path).to(device)
+            
+            # Copy the state dict from finetuned model to this model
+            self.model.load_state_dict(finetuned_model.state_dict())
+            
+            print(f"✓ Loaded finetuned feature extractor from {expanded_path}")
+        except Exception as e:
+            print(f"Warning: Failed to load finetuned weights from {expanded_path}")
+            print(f"Error: {str(e)}")
+            print(f"Using base pretrained model from {self.checkpoint_path}")
 
     def get_feature_dim(self):
         return self._feature_dim

@@ -943,6 +943,11 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
     sequence_model_type = config['model'].get('sequence_model_type', 'conformer')
     sequence_model_config = config['model'].get('sequence_model_config', None)
     
+    # Log feature extractor loading info
+    finetuned_checkpoint = config['feature_extractor'].get('finetuned_checkpoint', None)
+    if finetuned_checkpoint:
+        print(f"Feature Extractor: Loading with finetuned weights from {finetuned_checkpoint}")
+    
     print(f"Feature Extractor Type: {config['feature_extractor']['type']}")
     print(f"Base Feature Dim: {base_feature_dim}")
     print(f"Pooling Strategy: {pooling_strategy}")

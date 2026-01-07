@@ -35,6 +35,14 @@ feature_extractor:
   ssl_checkpoint: "${BASE_DIR}/models/w2v_large_lv_fsh_swbd_cv.pt"
   # ssl_checkpoint: "${BASE_DIR}/models/hubert-large-ls960-ft"
   
+  # Path to finetuned feature extractor checkpoint (optional)
+  # If save_feature_extractor=true during training, use the saved finetuned checkpoint here
+  # Set to null to use the original pretrained model
+  finetuned_checkpoint: null
+  # finetuned_checkpoint: "${BASE_DIR}/models/w2v_large_lv_fsh_swbd_cv_20260106_130514.pt"
+  # finetuned_checkpoint: "${BASE_DIR}/models/w2v_large_lv_fsh_swbd_cv_20260107_052842.pt"
+  # Example: "${BASE_DIR}/models/back_end_models/w2v_large_lv_fsh_swbd_cv_20260106_130514.pt"
+  
   # MFCC parameters
   mfcc_n_mfcc: 40
   mfcc_log_mels: true
@@ -73,8 +81,8 @@ model:
 
   # ====== NEW: Sequence Model Configuration ======
   # Options: 'conformer', 'lstm', 'transformer', 'cnn', 'tcn'
-  # sequence_model_type: 'conformer'
-  sequence_model_type: 'cnn'
+  sequence_model_type: 'conformer'
+  # sequence_model_type: 'cnn'
   
   # Additional sequence model configuration (optional)
   # These settings override defaults for the selected sequence model
@@ -156,7 +164,7 @@ paths:
   # Add the PS model checkpoint path
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20260102_162234.pth"
-  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/RFP_Dataset_model_epochs30_batch8_lr0.0006_20260106_070655.pth"
+  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/RFP_Dataset_model_epochs30_batch8_lr0.0006_20260107_052842.pth"
 
 
 # Inference configuration
@@ -178,4 +186,5 @@ system:
   device: "cuda"  # Will be overridden based on availability
   apply_transform: false
   save_feature_extractor: false
+  # save_feature_extractor: true
 

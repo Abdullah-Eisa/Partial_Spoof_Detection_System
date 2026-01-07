@@ -299,4 +299,268 @@ def print_inference_model_info(model: nn.Module,
     return combined_stats
 
 
+def get_block_parameter_breakdown(model: nn.Module,
+                                  block_patterns: Optional[Dict[str, List[str]]] = None,
+                                  verbose: bool = True) -> Dict[str, Dict]:
+    """
+    Calculate parameters for logical blocks/components in a model.
+    
+    This function is generic and works with any model architecture by:
+    1. Using predefined block patterns that match module names
+    2. Allowing custom block patterns to be provided
+    3. Handling cases where components are replaced or modified
+    
+    Args:
+        model (nn.Module): PyTorch model to analyze
+        block_patterns (Dict[str, List[str]], optional): Dictionary mapping block names
+            to lists of module name patterns. If None, uses default patterns.
+            Example: {
+                'Feature_Extractor': ['feature_extractor', 'embedding'],
+                'Sequence_Model': ['sequence_model', 'conformer', 'lstm', 'transformer'],
+                'Pooling': ['pooling', 'sap'],
+                'FC_Layers': ['fc', 'refinement', 'classification']
+            }
+        verbose (bool): If True, print formatted table
+    
+    Returns:
+        dict: Dictionary with structure:
+            {
+                'block_name': {
+                    'total': int,
+                    'trainable': int,
+                    'non_trainable': int,
+                    'trainable_pct': float,
+                    'memory_mb': float,
+                    'modules': List[str]  # Module names matching this block
+                },
+                ...
+            }
+    
+    Example:
+        >>> from utils.parameter_counter import get_block_parameter_breakdown
+        >>> blocks = get_block_parameter_breakdown(PS_Model)
+        >>> for block_name, stats in blocks.items():
+        >>>     print(f"{block_name}: {stats['trainable']:,} trainable params")
+    """
+    
+    # Default block patterns (generic, works across different architectures)
+    if block_patterns is None:
+        block_patterns = {
+            'Feature_Extractor': [
+                'feature_extractor', 'wav2vec', 'embeddings', 'encoder',
+                'hubert', 'ssl_model', 'mfcc', 'lfcc'
+            ],
+            'Downsampling': [
+                'downsample', 'pooling_layer', 'feature_projection',
+                'strided_conv', 'attention_pool'
+            ],
+            'Sequence_Model': [
+                'sequence_model', 'conformer', 'lstm', 'transformer',
+                'cnn', 'tcn', 'rnn', 'gru'
+            ],
+            'Pooling': [
+                'pooling', 'global_pool', 'sap', 'self_weighted',
+                'attention_pooling', 'mean_pool'
+            ],
+            'FC_Layers': [
+                'fc', 'refinement', 'classification', 'linear',
+                'head', 'decoder', 'output'
+            ]
+        }
+    
+    # Initialize block statistics
+    block_stats = OrderedDict()
+    assigned_modules = set()
+    
+    # Get all modules with parameters
+    all_modules = {name: module for name, module in model.named_modules() 
+                   if name != '' and sum(p.numel() for p in module.parameters(recurse=False)) > 0}
+    
+    # Process each block pattern
+    for block_name, patterns in block_patterns.items():
+        block_stats[block_name] = {
+            'total': 0,
+            'trainable': 0,
+            'non_trainable': 0,
+            'trainable_pct': 0.0,
+            'memory_mb': 0.0,
+            'modules': []
+        }
+        
+        # Find modules matching this block's patterns
+        for module_name, module in all_modules.items():
+            if module_name in assigned_modules:
+                continue
+            
+            # Check if module name matches any pattern (case-insensitive, partial match)
+            module_name_lower = module_name.lower()
+            for pattern in patterns:
+                if pattern.lower() in module_name_lower:
+                    # Count parameters for this module
+                    trainable = sum(p.numel() for p in module.parameters(recurse=False) 
+                                   if p.requires_grad)
+                    non_trainable = sum(p.numel() for p in module.parameters(recurse=False) 
+                                       if not p.requires_grad)
+                    total = trainable + non_trainable
+                    
+                    if total > 0:
+                        block_stats[block_name]['trainable'] += trainable
+                        block_stats[block_name]['non_trainable'] += non_trainable
+                        block_stats[block_name]['total'] += total
+                        block_stats[block_name]['modules'].append(module_name)
+                        assigned_modules.add(module_name)
+                    break
+    
+    # Handle unassigned modules (not matching any pattern)
+    unassigned_stats = {
+        'total': 0,
+        'trainable': 0,
+        'non_trainable': 0,
+        'trainable_pct': 0.0,
+        'memory_mb': 0.0,
+        'modules': []
+    }
+    
+    for module_name, module in all_modules.items():
+        if module_name not in assigned_modules:
+            trainable = sum(p.numel() for p in module.parameters(recurse=False) 
+                           if p.requires_grad)
+            non_trainable = sum(p.numel() for p in module.parameters(recurse=False) 
+                               if not p.requires_grad)
+            total = trainable + non_trainable
+            
+            if total > 0:
+                unassigned_stats['trainable'] += trainable
+                unassigned_stats['non_trainable'] += non_trainable
+                unassigned_stats['total'] += total
+                unassigned_stats['modules'].append(module_name)
+    
+    if unassigned_stats['total'] > 0:
+        block_stats['Other'] = unassigned_stats
+    
+    # Calculate percentages and memory for each block
+    total_params = sum(stats['total'] for stats in block_stats.values())
+    
+    for block_name, stats in block_stats.items():
+        if stats['total'] > 0:
+            stats['trainable_pct'] = (stats['trainable'] / stats['total']) * 100
+            stats['memory_mb'] = (stats['total'] * 4) / (1024 ** 2)
+        else:
+            stats['trainable_pct'] = 0.0
+            stats['memory_mb'] = 0.0
+    
+    if verbose:
+        print_block_parameter_breakdown(block_stats)
+    
+    return block_stats
+
+
+def print_block_parameter_breakdown(block_stats: Dict[str, Dict]) -> None:
+    """
+    Print block parameter breakdown in a formatted table.
+    
+    Args:
+        block_stats (Dict): Dictionary from get_block_parameter_breakdown()
+    """
+    print("\n" + "="*120)
+    print("BLOCK-WISE PARAMETER BREAKDOWN")
+    print("="*120)
+    print(f"{'Block Name':<25} {'Total Params':>15} {'Trainable':>15} {'Non-train':>15} "
+          f"{'Train %':>10} {'Memory (MB)':>15} {'Modules':>20}")
+    print("-"*120)
+    
+    total_all = sum(stats['total'] for stats in block_stats.values())
+    
+    for block_name, stats in block_stats.items():
+        modules_count = len(stats['modules'])
+        module_names = ', '.join(stats['modules'][:2])  # Show first 2 module names
+        if modules_count > 2:
+            module_names += f" (+{modules_count-2} more)"
+        
+        print(f"{block_name:<25} {stats['total']:>15,} {stats['trainable']:>15,} "
+              f"{stats['non_trainable']:>15,} {stats['trainable_pct']:>9.1f}% "
+              f"{stats['memory_mb']:>14.2f} MB  {module_names:>20}")
+    
+    print("-"*120)
+    print(f"{'TOTAL':<25} {total_all:>15,} "
+          f"{sum(s['trainable'] for s in block_stats.values()):>15,} "
+          f"{sum(s['non_trainable'] for s in block_stats.values()):>15,} "
+          f"{sum(s['trainable'] for s in block_stats.values())/total_all*100 if total_all > 0 else 0:>9.1f}% "
+          f"{sum(s['memory_mb'] for s in block_stats.values()):>14.2f} MB")
+    print("="*120 + "\n")
+
+
+def print_comprehensive_model_analysis(model: nn.Module,
+                                       feature_extractor: Optional[nn.Module] = None,
+                                       block_patterns: Optional[Dict[str, List[str]]] = None,
+                                       config: Optional[Dict] = None) -> None:
+    """
+    Print comprehensive model analysis including total parameters and block breakdown.
+    
+    Args:
+        model (nn.Module): Backend classification model
+        feature_extractor (nn.Module, optional): Feature extractor model
+        block_patterns (Dict, optional): Custom block patterns for breakdown
+        config (Dict, optional): Configuration dictionary for additional info
+    
+    Example:
+        >>> from utils.parameter_counter import print_comprehensive_model_analysis
+        >>> print_comprehensive_model_analysis(PS_Model, feature_extractor, config=config)
+    """
+    print("\n" + "="*120)
+    print("COMPREHENSIVE MODEL PARAMETER ANALYSIS")
+    print("="*120)
+    
+    # Overall statistics
+    backend_total, backend_train, backend_non_train = quick_param_count(model)
+    print("\nBACKEND MODEL PARAMETERS:")
+    print(f"  Total:         {backend_total:>15,}")
+    print(f"  Trainable:     {backend_train:>15,}  ({backend_train/backend_total*100:.2f}%)")
+    print(f"  Non-trainable: {backend_non_train:>15,}")
+    print(f"  Memory (MB):   {get_model_size_mb(model):>14.2f}")
+    
+    # Block breakdown for backend model
+    print("\nBACKEND MODEL - BLOCK BREAKDOWN:")
+    backend_blocks = get_block_parameter_breakdown(model, block_patterns=block_patterns, verbose=True)
+    
+    # Feature extractor analysis if provided
+    if feature_extractor is not None:
+        fe_total, fe_train, fe_non_train = quick_param_count(feature_extractor)
+        print("\nFEATURE EXTRACTOR PARAMETERS:")
+        print(f"  Total:         {fe_total:>15,}")
+        print(f"  Trainable:     {fe_train:>15,}  ({fe_train/fe_total*100:.2f}%)")
+        print(f"  Non-trainable: {fe_non_train:>15,}")
+        print(f"  Memory (MB):   {get_model_size_mb(feature_extractor):>14.2f}")
+        
+        # Feature extractor block breakdown
+        print("\nFEATURE EXTRACTOR - BLOCK BREAKDOWN:")
+        fe_blocks = get_block_parameter_breakdown(feature_extractor, block_patterns=block_patterns, verbose=True)
+        
+        # Combined system summary
+        print("\n" + "="*120)
+        print("COMBINED SYSTEM SUMMARY")
+        print("="*120)
+        combined_total = backend_total + fe_total
+        combined_train = backend_train + fe_train
+        combined_memory = get_model_size_mb(model) + get_model_size_mb(feature_extractor)
+        
+        print(f"{'Component':<40} {'Total Params':>20} {'Trainable Params':>20} {'Memory (MB)':>18}")
+        print("-"*120)
+        print(f"{'Backend Model':<40} {backend_total:>20,} {backend_train:>20,} {get_model_size_mb(model):>17.2f}")
+        print(f"{'Feature Extractor':<40} {fe_total:>20,} {fe_train:>20,} {get_model_size_mb(feature_extractor):>17.2f}")
+        print("-"*120)
+        print(f"{'TOTAL SYSTEM':<40} {combined_total:>20,} {combined_train:>20,} {combined_memory:>17.2f}")
+        print("="*120 + "\n")
+    
+    # Configuration summary if provided
+    if config:
+        print("\nCONFIGURATION INFO:")
+        if 'model' in config:
+            model_cfg = config['model']
+            print(f"  Sequence Model Type:  {model_cfg.get('sequence_model_type', 'N/A')}")
+            print(f"  Pooling Strategy:     {model_cfg.get('pooling_strategy', 'N/A')}")
+            print(f"  Num Heads:            {model_cfg.get('num_heads', 'N/A')}")
+            print(f"  Hidden Dim:           {model_cfg.get('hidden_dim', 'N/A')}")
+            print(f"  Conformer Layers:     {model_cfg.get('conformer_layers', 'N/A')}")
+        print()
     

@@ -26,7 +26,7 @@ git checkout -b Sequence-Modeling-Alternatives
 git add .
 
 # Commit changes
-git commit -m " add save_model_info_to_file , add utils/parameter_counter.py "
+git commit -m " update save_model_info_to_file , add utils/parameter_counter.py to try to include number of parameters for each block still incorrect/failed "
 
 # Push new branch to remote and set upstream
 # git push -u origin Feature-Extractor-Comparison
