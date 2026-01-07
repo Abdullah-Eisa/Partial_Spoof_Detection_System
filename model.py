@@ -1016,11 +1016,36 @@ def adjust_dropout_prob(model, epoch, NUM_EPOCHS):
 
 
 
-def initialize_lr_scheduler(optimizer):
-    """Initialize the learning rate scheduler"""
-    factor = 4/5
-    patience = 5   # Number of epochs with no improvement after which learning rate will be reduced
-    threshold=0.009
-    min_lr = 0.00001
+def initialize_lr_scheduler(optimizer, config=None, use_scheduler=True):
+    """
+    Initialize the learning rate scheduler.
+    
+    Args:
+        optimizer: PyTorch optimizer
+        config: Configuration dictionary (optional)
+        use_scheduler: Whether to use learning rate scheduler. If False, returns None
+    
+    Returns:
+        Learning rate scheduler object or None if use_scheduler=False
+    """
+    if not use_scheduler:
+        return None
+    
+    # Use config if provided, otherwise use default values
+    if config and 'training' in config and 'lr_scheduler' in config['training']:
+        scheduler_config = config['training']['lr_scheduler']
+        factor = scheduler_config.get('factor', 0.8)
+        patience = scheduler_config.get('patience', 5)
+        threshold = scheduler_config.get('threshold', 0.009)
+        min_lr = scheduler_config.get('min_lr', 0.00001)
+    else:
+        # Default values
+        factor = 0.8
+        patience = 5
+        threshold = 0.009
+        min_lr = 0.00001
 
-    return torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=factor, patience=patience, threshold=threshold, min_lr=min_lr)
+    return torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode='min', factor=factor, patience=patience, 
+        threshold=threshold, min_lr=min_lr
+    )

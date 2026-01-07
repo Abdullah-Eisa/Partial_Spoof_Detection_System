@@ -4,9 +4,24 @@ from datetime import datetime
 import wandb
 from utils.config_manager import ConfigManager
 from train import train
+import random
+import numpy as np
+import torch
+
+def set_seed(seed=42):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
 
 def main():
     """Main execution function"""
+
+    set_seed(seed=42)
+    
     # Load configuration
     config = ConfigManager()
     print(f"✨✨✨✨✨ config['training']['use_wandb']= {config['training']['use_wandb']}")

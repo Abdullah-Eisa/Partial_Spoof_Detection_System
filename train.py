@@ -126,8 +126,15 @@ def train_model(config, dataset_name, train_data_path, train_labels_path,
 
     # Initialize data loader
     train_loader = initialize_data_loader(dataset_name,train_data_path, train_labels_path,BATCH_SIZE, True, num_workers, prefetch_factor,pin_memory,apply_transform)
-    # initialize learning rate scheduler
-    LR_SCHEDULER = initialize_lr_scheduler(optimizer)
+    
+    # Initialize learning rate scheduler (if enabled)
+    use_lr_scheduler = config['training'].get('use_lr_scheduler', True)
+    if use_lr_scheduler:
+        LR_SCHEDULER = initialize_lr_scheduler(optimizer, config=config, use_scheduler=True)
+        print(f"✓ Learning rate scheduler enabled: ReduceLROnPlateau")
+    else:
+        LR_SCHEDULER = None
+        print(f"✓ Using fixed learning rate: {LEARNING_RATE}")
 
     wandb.watch(PS_Model, log_freq=100,log='all')
 
@@ -174,7 +181,9 @@ def train_model(config, dataset_name, train_data_path, train_labels_path,
             else:
                 log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold,optimizer.param_groups[0]['lr'], 0,dropout_prob, dev_metrics_dict)               # Log metrics to W&B
 
-            LR_SCHEDULER.step(dev_metrics_dict['utterance_eer'])
+            # Update learning rate scheduler if enabled
+            if LR_SCHEDULER is not None:
+                LR_SCHEDULER.step(dev_metrics_dict['utterance_eer'])
             
             # Early stopping check
             early_stopping(dev_metrics_dict['utterance_eer'], PS_Model)
@@ -188,7 +197,10 @@ def train_model(config, dataset_name, train_data_path, train_labels_path,
             else:       # Log metrics to W&B
                 log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, optimizer.param_groups[0]['lr'], 0, dropout_prob, dev_metrics_dict= None)    
                      # Log metrics to W&B
-            LR_SCHEDULER.step()
+            
+            # Update learning rate scheduler if enabled
+            if LR_SCHEDULER is not None:
+                LR_SCHEDULER.step()
 
 
     # Generate a unique filename based on hyperparameters

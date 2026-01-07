@@ -26,7 +26,7 @@ git checkout -b Sequence-Modeling-Alternatives
 git add .
 
 # Commit changes
-git commit -m " update save_model_info_to_file , add utils/parameter_counter.py to try to include number of parameters for each block still incorrect/failed "
+git commit -m " add flag and logic to either use LR scheduler or not"
 
 # Push new branch to remote and set upstream
 # git push -u origin Feature-Extractor-Comparison

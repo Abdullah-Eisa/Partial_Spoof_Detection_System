@@ -2,8 +2,8 @@
 # Training configuration
 training:
   num_epochs: &num_epochs 30
-  # num_epochs: &num_epochs 13
-  learning_rate: &learning_rate 0.0006
+  # num_epochs: &num_epochs 2
+  learning_rate: &learning_rate 0.00075
   batch_size: &batch_size 8
   save_interval: 5
   patience: 30
@@ -12,6 +12,19 @@ training:
   monitor_dev_epoch: 0
   use_wandb: true
   # use_wandb: false
+  
+  # Learning rate scheduler configuration
+  # use_lr_scheduler: true  # Set to false to use fixed learning rate
+  use_lr_scheduler: false  # Set to false to use fixed learning rate
+  lr_scheduler:
+    # Scheduler type: 'reduce_on_plateau', 'cosine', 'step', 'exponential'
+    type: 'reduce_on_plateau'
+    
+    # ReduceLROnPlateau parameters
+    factor: 0.8  # Multiplicative factor for LR reduction
+    patience: 5  # Epochs with no improvement before LR reduction
+    threshold: 0.009  # Minimum change to qualify as improvement
+    min_lr: 0.00001  # Minimum learning rate
 
 # WandB sweep configuration
 wandb_sweep:
@@ -164,7 +177,7 @@ paths:
   # Add the PS model checkpoint path
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20260102_162234.pth"
-  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/RFP_Dataset_model_epochs30_batch8_lr0.0006_20260107_052842.pth"
+  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs30_batch8_lr0.00075_20260107_105034.pth"
 
 
 # Inference configuration
