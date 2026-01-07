@@ -26,7 +26,7 @@ git checkout -b Sequence-Modeling-Alternatives
 git add .
 
 # Commit changes
-git commit -m " add flag and logic to either use LR scheduler or not"
+git commit -m " add average pooling logic across the time dimension as an alternative to self-weighted pooling in model.py , update default_config.yaml to include time pooling strategy option "
 
 # Push new branch to remote and set upstream
 # git push -u origin Feature-Extractor-Comparison

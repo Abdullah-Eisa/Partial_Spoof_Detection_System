@@ -14,8 +14,8 @@ training:
   # use_wandb: false
   
   # Learning rate scheduler configuration
-  # use_lr_scheduler: true  # Set to false to use fixed learning rate
-  use_lr_scheduler: false  # Set to false to use fixed learning rate
+  use_lr_scheduler: true  # Set to false to use fixed learning rate
+  # use_lr_scheduler: false  # Set to false to use fixed learning rate
   lr_scheduler:
     # Scheduler type: 'reduce_on_plateau', 'cosine', 'step', 'exponential'
     type: 'reduce_on_plateau'
@@ -113,7 +113,15 @@ model:
 
 
 
-  # Pooling strategy configuration
+  # ====== NEW: Time Dimension Pooling Strategy ======
+  # Options: "self_weighted", "average"
+  # "self_weighted": Uses attention-based pooling (SelfWeightedPooling)
+  # "average": Uses simple global average pooling across time dimension
+  # time_pooling_strategy: "self_weighted"
+  time_pooling_strategy: "average"
+  # ====== END NEW ======
+
+  # Pooling strategy configuration (for feature dimension reduction)
   # Options: "self_weighted", "max", "average", "attention", "strided_conv"
   # pooling_strategy: "self_weighted"  # Default pooling strategy
   pooling_strategy: "max"  
@@ -150,23 +158,23 @@ data:
   # eval_data_path: "${BASE_DIR}/database/PartialSpoof/database/eval/con_wav"
   # eval_labels_path: "${BASE_DIR}/database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json"
 
-  dataset_name: "RFP_Dataset"
-  base_path: "${BASE_DIR}/database"
-  train_data_path: "${BASE_DIR}/database/RFP/training"
-  train_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_train.trl.txt"
-  dev_data_path: "${BASE_DIR}/database/RFP/validation"
-  dev_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_dev.trl.txt"
-  eval_data_path: "${BASE_DIR}/database/RFP/testing"
-  eval_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_eval.trl.txt"
-
-  # dataset_name: "ASVspoof2019_LA_Dataset"
+  # dataset_name: "RFP_Dataset"
   # base_path: "${BASE_DIR}/database"
-  # train_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac"
-  # train_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt"
-  # dev_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_dev/flac"
-  # dev_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt"
-  # eval_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac"
-  # eval_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trl.txt"
+  # train_data_path: "${BASE_DIR}/database/RFP/training"
+  # train_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_train.trl.txt"
+  # dev_data_path: "${BASE_DIR}/database/RFP/validation"
+  # dev_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_dev.trl.txt"
+  # eval_data_path: "${BASE_DIR}/database/RFP/testing"
+  # eval_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_eval.trl.txt"
+
+  dataset_name: "ASVspoof2019_LA_Dataset"
+  base_path: "${BASE_DIR}/database"
+  train_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac"
+  train_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt"
+  dev_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_dev/flac"
+  dev_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt"
+  eval_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac"
+  eval_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trl.txt"
 
 
 # Model paths

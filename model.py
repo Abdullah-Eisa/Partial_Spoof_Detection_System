@@ -282,6 +282,39 @@ class PoolingFactory:
 
 
 # ============================================================================================
+# Global Pooling across Time Dimension
+
+class AveragePoolingTime(torch_nn.Module):
+    """
+    Average pooling across the time dimension.
+    
+    Reduces: [batch_size, time_steps, feature_dim] -> [batch_size, feature_dim]
+    
+    This performs global average pooling by averaging features across all time steps.
+    """
+    def __init__(self, feature_dim):
+        """
+        Args:
+            feature_dim: Dimension of features (only used for compatibility)
+        """
+        super(AveragePoolingTime, self).__init__()
+        self.feature_dim = feature_dim
+    
+    def forward(self, inputs):
+        """
+        Args:
+            inputs: Tensor of shape (batch_size, time_steps, feature_dim)
+        
+        Returns:
+            Tensor of shape (batch_size, feature_dim)
+        """
+        # Average across the time dimension (dim=1)
+        # inputs: (batch, time, feature_dim)
+        # output: (batch, feature_dim)
+        return torch.mean(inputs, dim=1)
+
+
+# ============================================================================================
 # code adapted from: https://github.com/nii-yamagishilab/PartialSpoof/blob/847347aaec6f65c3c6d2f17c63515b826b94feb3/project-NN-Pytorch-scripts.202102/sandbox/block_nn.py#L709
 class SelfWeightedPooling(torch_nn.Module):
     """ SelfWeightedPooling module
@@ -553,6 +586,11 @@ class BinarySpoofingClassificationModel(nn.Module):
         self.config = config
 
         self.sequence_model_type = sequence_model_type.lower()
+        
+        # ====== NEW: Time dimension pooling strategy ======
+        # Options: "self_weighted", "average"
+        self.time_pooling_strategy = config['model'].get('time_pooling_strategy', 'self_weighted').lower() if config else 'self_weighted'
+        # ====== END NEW ======
 
         # Initialize base conformer input dimension
         self.conformer_input_dim = feature_dim
@@ -608,8 +646,7 @@ class BinarySpoofingClassificationModel(nn.Module):
 
         print(f"Sequence Model Type: {self.sequence_model_type}")
         print(f"Pooling Strategy: {self.pooling_strategy}")
-        print(f"Feature Dim: {self.feature_dim}")
-        print(f"Conformer Input Dim: {self.conformer_input_dim}")
+        print(f"Time Pooling Strategy: {self.time_pooling_strategy}")
         print(f"Num Heads: {self.num_heads}")
         
         # Verify dimension is divisible by num_heads
@@ -724,8 +761,16 @@ class BinarySpoofingClassificationModel(nn.Module):
         #     convolution_first=False
         # )
         
-        # Global pooling layer (SelfWeightedPooling)
-        self.pooling = SelfWeightedPooling(self.sequence_output_dim, mean_only=True)
+        # ====== NEW: Global pooling layer across time dimension ======
+        # Choose pooling strategy for time dimension
+        if self.time_pooling_strategy == "average":
+            self.pooling = AveragePoolingTime(self.sequence_output_dim)
+        elif self.time_pooling_strategy == "self_weighted":
+            self.pooling = SelfWeightedPooling(self.sequence_output_dim, mean_only=True)
+        else:
+            raise ValueError(f"Unknown time_pooling_strategy: {self.time_pooling_strategy}. "
+                           f"Supported: 'self_weighted', 'average'")
+        # ====== END NEW ======
         
         # Add a feedforward block for feature refinement before classification
         self.fc_refinement = nn.Sequential(
@@ -853,7 +898,9 @@ class BinarySpoofingClassificationModel(nn.Module):
             x, _ = self.sequence_model(x, lengths)
         
         # Apply global pooling across the sequence dimension (SelfWeightedPooling)
+        # print(f"Before Global Pooling: {x.shape}")
         x = self.pooling(x)
+        # print(f"After Global Pooling: {x.shape}")
 
         # Update the dropout probability dynamically in classification head
         self.fc_refinement[3].p = dropout_prob
