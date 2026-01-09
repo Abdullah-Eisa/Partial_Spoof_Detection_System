@@ -93,10 +93,32 @@ model:
   
 
   # Dropout configuration
-  # Options: 'fixed' (constant dropout) or 'scheduled' (dynamic cosine annealing)
-  dropout_mode: 'fixed'  # Use 'fixed' for constant dropout or 'scheduled' for epoch-based scheduling
-  # dropout_mode: 'scheduled'  # Use 'fixed' for constant dropout or 'scheduled' for epoch-based scheduling
-  fixed_dropout: 0.35  # Dropout probability when dropout_mode is 'fixed'
+  # Options: 'fixed' (constant dropout), 'cosine' (cosine annealing), 'linear' (linear annealing), 'step' (step decay)
+  # dropout_mode: 'fixed'  # Use 'fixed' for constant dropout, 'cosine'/'linear'/'step' for epoch-based scheduling
+  # dropout_mode: 'cosine'  # Cosine annealing
+  # dropout_mode: 'linear'  # Linear annealing
+  dropout_mode: 'step'  # Step decay
+  
+  # Fixed dropout probability (used when dropout_mode is 'fixed')
+  fixed_dropout: 0.35
+  
+  # Dropout scheduler configuration (used when dropout_mode is 'cosine', 'linear', or 'step')
+  dropout_scheduler:
+    # Cosine annealing parameters
+    cosine:
+      initial_dropout: 0.35  # Starting dropout rate
+      final_dropout: 0.0  # Minimum dropout rate
+    
+    # Linear annealing parameters
+    linear:
+      initial_dropout: 0.35  # Starting dropout rate
+      final_dropout: 0.0  # Ending dropout rate
+    
+    # Step decay parameters
+    step:
+      initial_dropout: 0.35  # Starting dropout rate
+      step_size: 5  # Number of epochs for each step
+      gamma: 0.8  # Multiplicative decay factor per step (new_dropout = current_dropout * gamma)
 
 
   # ====== NEW: Sequence Model Configuration ======

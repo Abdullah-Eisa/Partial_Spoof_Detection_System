@@ -563,19 +563,14 @@ class RotaryPositionalEmbeddings(nn.Module):
 
 
 # ============================================================================================
-# ============================================================================================
 
 class BinarySpoofingClassificationModel(nn.Module):
-#     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, 
-#                  depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3,
-#                  use_max_pooling=True, pooling_strategy="self_weighted", config=None):
-#         super(BinarySpoofingClassificationModel, self).__init__()
 
     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, 
                 depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3,
                 use_max_pooling=True, pooling_strategy="self_weighted", 
                 sequence_model_type='conformer', sequence_model_config=None, config=None,
-                dropout_mode='scheduled', fixed_dropout=0.2):
+                dropout_mode='fixed', fixed_dropout=0.2, dropout_scheduler_config=None):
         super(BinarySpoofingClassificationModel, self).__init__()
 
         self.max_pooling_factor = max_pooling_factor
@@ -589,6 +584,7 @@ class BinarySpoofingClassificationModel(nn.Module):
         # Dropout configuration
         self.dropout_mode = dropout_mode.lower()
         self.fixed_dropout = fixed_dropout
+        self.dropout_scheduler_config = dropout_scheduler_config or {}
 
         self.sequence_model_type = sequence_model_type.lower()
         
@@ -751,21 +747,6 @@ class BinarySpoofingClassificationModel(nn.Module):
         
         print(f"Sequence model output dim: {self.sequence_output_dim}")
         
-
-
-
-        # # Define the Conformer model from torchaudio
-        # self.conformer = tam.Conformer(
-        #     input_dim=self.conformer_input_dim,
-        #     num_heads=self.num_heads,
-        #     ffn_dim=hidden_dim,
-        #     num_layers=conformer_layers,
-        #     depthwise_conv_kernel_size=depthwise_conv_kernel_size,
-        #     dropout=0.2,
-        #     use_group_norm=False, 
-        #     convolution_first=False
-        # )
-        
         # ====== NEW: Global pooling layer across time dimension ======
         # Choose pooling strategy for time dimension
         if self.time_pooling_strategy == "average":
@@ -827,57 +808,6 @@ class BinarySpoofingClassificationModel(nn.Module):
                 nn.init.constant_(m.bias, bias_value)
 
 
-    # def forward(self, x, lengths, dropout_prob):
-    #     """
-    #     Forward pass through the model with support for different pooling strategies.
-        
-    #     Args:
-    #         x: Input features (batch, time, feature_dim)
-    #         lengths: Lengths of sequences
-    #         dropout_prob: Dropout probability for the epoch
-        
-    #     Returns:
-    #         Output scores (batch, 1)
-    #     """
-    #     # Apply downsampling strategy
-    #     # NOTE: All pooling strategies below downsample the FEATURE DIMENSION only,
-    #     # NOT the time dimension. Therefore, lengths should NOT be updated.
-    #     if self.pooling_strategy == "average":
-    #         # Average pooling - downsamples feature dimension only
-    #         x = self.downsample(x)  # (batch, time, output_dim)
-    #         # print(f"After Pooling: {x.shape}")
-            
-    #     elif self.pooling_strategy == "attention":
-    #         # Attention pooling - downsamples feature dimension only
-    #         x = self.downsample(x)  # (batch, time, output_dim)
-    #         # print(f"After Pooling: {x.shape}")
-
-    #     elif self.pooling_strategy == "strided_conv":
-    #         # Strided convolution pooling - downsamples feature dimension only
-    #         x = self.downsample(x)  # (batch, time, output_dim)
-    #         # print(f"After Pooling: {x.shape}")
-
-    #     elif self.pooling_strategy == "max":
-    #         # Max pooling - downsamples feature dimension only
-    #         if self.downsample is not None:
-    #             x = self.downsample(x)  # (batch, time, output_dim)
-    #             # print(f"After Pooling: {x.shape}")
-
-    #     # Apply Conformer model
-    #     x, _ = self.conformer(x, lengths)
-        
-    #     # Apply global pooling across the sequence dimension (SelfWeightedPooling)
-    #     x = self.pooling(x)
-
-    #     # Update the dropout probability dynamically
-    #     self.fc_refinement[3].p = dropout_prob
-    #     self.fc_refinement[7].p = dropout_prob
-    #     self.fc_refinement[11].p = dropout_prob
-
-    #     # Refine features before classification
-    #     utt_score = self.fc_refinement(x)
-    #     return utt_score
-
     def forward(self, x, lengths, dropout_prob):
         """
         Forward pass through the model with support for different sequence models.
@@ -921,8 +851,14 @@ class BinarySpoofingClassificationModel(nn.Module):
         """
         Adjust dropout probability based on dropout mode.
         
+        Supported modes:
+        - 'fixed': Returns fixed dropout probability
+        - 'cosine': Cosine annealing from initial_dropout to final_dropout
+        - 'linear': Linear annealing from initial_dropout to final_dropout
+        - 'step': Step decay with multiplicative factor every step_size epochs
+        
         Args:
-            epoch: Current epoch number
+            epoch: Current epoch number (0-indexed)
             total_epochs: Total number of epochs
             
         Returns:
@@ -931,70 +867,55 @@ class BinarySpoofingClassificationModel(nn.Module):
         if self.dropout_mode == 'fixed':
             # Return fixed dropout probability
             return self.fixed_dropout
-        elif self.dropout_mode == 'scheduled':
-            # Cosine annealing for dropout probability
-            return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
+        
+        elif self.dropout_mode == 'cosine':
+            # Cosine annealing: smoothly decrease from initial to final dropout
+            scheduler_cfg = self.dropout_scheduler_config.get('cosine', {})
+            initial_dropout = scheduler_cfg.get('initial_dropout', self.max_dropout)
+            final_dropout = scheduler_cfg.get('final_dropout', 0.0)
+            
+            # Cosine annealing formula
+            # Starts at initial_dropout, ends at final_dropout
+            cosine_factor = (1 + math.cos(math.pi * epoch / total_epochs)) / 2
+            current_dropout = final_dropout + (initial_dropout - final_dropout) * cosine_factor
+            return current_dropout
+        
+        elif self.dropout_mode == 'linear':
+            # Linear annealing: linearly decrease from initial to final dropout
+            scheduler_cfg = self.dropout_scheduler_config.get('linear', {})
+            initial_dropout = scheduler_cfg.get('initial_dropout', self.max_dropout)
+            final_dropout = scheduler_cfg.get('final_dropout', 0.0)
+            
+            # Linear annealing formula
+            progress = epoch / total_epochs
+            current_dropout = initial_dropout + (final_dropout - initial_dropout) * progress
+            return current_dropout
+        
+        elif self.dropout_mode == 'step':
+            # Step decay: multiply dropout by gamma every step_size epochs
+            scheduler_cfg = self.dropout_scheduler_config.get('step', {})
+            initial_dropout = scheduler_cfg.get('initial_dropout', self.max_dropout)
+            step_size = scheduler_cfg.get('step_size', 5)
+            gamma = scheduler_cfg.get('gamma', 0.8)
+            
+            # Calculate number of decay steps
+            num_steps = epoch // step_size
+            current_dropout = initial_dropout * (gamma ** num_steps)
+            return current_dropout
+        
         else:
-            # Default to scheduled if mode is invalid
-            return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
+            # Default to cosine annealing if mode is invalid
+            print(f"Warning: Unknown dropout_mode '{self.dropout_mode}', defaulting to cosine annealing")
+            scheduler_cfg = self.dropout_scheduler_config.get('cosine', {})
+            initial_dropout = scheduler_cfg.get('initial_dropout', self.max_dropout)
+            final_dropout = scheduler_cfg.get('final_dropout', 0.0)
+            cosine_factor = (1 + math.cos(math.pi * epoch / total_epochs)) / 2
+            current_dropout = final_dropout + (initial_dropout - final_dropout) * cosine_factor
+            return current_dropout
 
 
 
 # ===========================================================================================================================
-# ===========================================================================================================================
-
-# def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001, DEVICE='cpu'):
-#     """Initialize the model, feature extractor, and optimizer with pooling strategy support"""
-#     from feature_extractors import FeatureExtractorFactory, get_feature_dim_from_config, calculate_conformer_input_dim
-    
-#     # Create feature extractor based on config
-#     feature_extractor = FeatureExtractorFactory.create_extractor(config, DEVICE)
-    
-#     # Get base feature dimension from config
-#     base_feature_dim = feature_extractor.get_feature_dim()
-    
-#     # Get pooling strategy from config
-#     pooling_strategy = config['model'].get('pooling_strategy', 'self_weighted')
-    
-#     print(f"Feature Extractor Type: {config['feature_extractor']['type']}")
-#     print(f"Base Feature Dim: {base_feature_dim}")
-#     print(f"Pooling Strategy: {pooling_strategy}")
-#     print(f"feature_extractor: {feature_extractor}")
-    
-#     # Initialize Binary Spoofing Classification Model
-#     PS_Model = BinarySpoofingClassificationModel(
-#         feature_dim=base_feature_dim,
-#         num_heads=config['model']['num_heads'],
-#         hidden_dim=config['model']['hidden_dim'],
-#         max_dropout=config['model']['max_dropout'],
-#         depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
-#         conformer_layers=config['model']['conformer_layers'],
-#         max_pooling_factor=config['model'].get('max_pooling_factor'),
-#         use_max_pooling=config['model'].get('use_max_pooling', True),
-#         pooling_strategy=pooling_strategy,
-#         config=config
-#     ).to(DEVICE)
-
-#     # Freeze feature extractor if necessary
-#     if save_feature_extractor and hasattr(feature_extractor, 'model'):
-#         for name, param in feature_extractor.model.named_parameters():
-#             if 'final_proj' not in name:
-#                 param.requires_grad = False
-#             else:
-#                 param.requires_grad = True
-    
-#     # Optimizer setup
-#     if save_feature_extractor and hasattr(feature_extractor, 'parameters'):
-#         optimizer = optim.AdamW(
-#             [{'params': feature_extractor.parameters(), 'lr': 0.00005},
-#              {'params': PS_Model.parameters()}], 
-#             lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
-#     else:
-#         optimizer = optim.AdamW(
-#             PS_Model.parameters(), 
-#             lr=LEARNING_RATE, betas=(0.9, 0.999), eps=1e-8)
-
-#     return PS_Model, feature_extractor, optimizer
 
 
 def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001, DEVICE='cpu'):
@@ -1013,8 +934,9 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
     sequence_model_config = config['model'].get('sequence_model_config', None)
     
     # Get dropout configuration
-    dropout_mode = config['model'].get('dropout_mode', 'scheduled')
+    dropout_mode = config['model'].get('dropout_mode', 'fixed')
     fixed_dropout = config['model'].get('fixed_dropout', config['model']['max_dropout'])
+    dropout_scheduler_config = config['model'].get('dropout_scheduler', {})
     
     # Log feature extractor loading info
     finetuned_checkpoint = config['feature_extractor'].get('finetuned_checkpoint', None)
@@ -1029,8 +951,15 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
     print(f"Dropout Mode: {dropout_mode}")
     if dropout_mode == 'fixed':
         print(f"Fixed Dropout: {fixed_dropout}")
-    else:
-        print(f"Max Dropout (Scheduled): {config['model']['max_dropout']}")
+    elif dropout_mode == 'cosine':
+        cosine_cfg = dropout_scheduler_config.get('cosine', {})
+        print(f"Cosine Annealing - Initial: {cosine_cfg.get('initial_dropout', config['model']['max_dropout'])}, Final: {cosine_cfg.get('final_dropout', 0.0)}")
+    elif dropout_mode == 'linear':
+        linear_cfg = dropout_scheduler_config.get('linear', {})
+        print(f"Linear Annealing - Initial: {linear_cfg.get('initial_dropout', config['model']['max_dropout'])}, Final: {linear_cfg.get('final_dropout', 0.0)}")
+    elif dropout_mode == 'step':
+        step_cfg = dropout_scheduler_config.get('step', {})
+        print(f"Step Decay - Initial: {step_cfg.get('initial_dropout', config['model']['max_dropout'])}, Step Size: {step_cfg.get('step_size', 5)}, Gamma: {step_cfg.get('gamma', 0.8)}")
 
     print(f"Feature Extractor: {feature_extractor}")
     
@@ -1049,6 +978,7 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
         sequence_model_config=sequence_model_config,
         dropout_mode=dropout_mode,
         fixed_dropout=fixed_dropout,
+        dropout_scheduler_config=dropout_scheduler_config,
         config=config
     ).to(DEVICE)
 
