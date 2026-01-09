@@ -1,10 +1,11 @@
 
 # Training configuration
 training:
-  num_epochs: &num_epochs 30
+  num_epochs: &num_epochs 15
   # num_epochs: &num_epochs 2
   learning_rate: &learning_rate 0.00075
-  batch_size: &batch_size 8
+  # batch_size: &batch_size 8
+  batch_size: &batch_size 4
   save_interval: 5
   patience: 30
   max_grad_norm: 1.0
@@ -91,6 +92,12 @@ model:
   # use_max_pooling: false  # Set to false for small feature dims like MFCC/LFCC
   
 
+  # Dropout configuration
+  # Options: 'fixed' (constant dropout) or 'scheduled' (dynamic cosine annealing)
+  dropout_mode: 'fixed'  # Use 'fixed' for constant dropout or 'scheduled' for epoch-based scheduling
+  # dropout_mode: 'scheduled'  # Use 'fixed' for constant dropout or 'scheduled' for epoch-based scheduling
+  fixed_dropout: 0.35  # Dropout probability when dropout_mode is 'fixed'
+
 
   # ====== NEW: Sequence Model Configuration ======
   # Options: 'conformer', 'lstm', 'transformer', 'cnn', 'tcn'
@@ -117,8 +124,8 @@ model:
   # Options: "self_weighted", "average"
   # "self_weighted": Uses attention-based pooling (SelfWeightedPooling)
   # "average": Uses simple global average pooling across time dimension
-  # time_pooling_strategy: "self_weighted"
-  time_pooling_strategy: "average"
+  time_pooling_strategy: "self_weighted"
+  # time_pooling_strategy: "average"
   # ====== END NEW ======
 
   # Pooling strategy configuration (for feature dimension reduction)
@@ -185,16 +192,16 @@ paths:
   # Add the PS model checkpoint path
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20260102_162234.pth"
-  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs30_batch8_lr0.00075_20260107_105034.pth"
+  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/RFP_Dataset_model_epochs30_batch4_lr0.00075_20260108_222434.pth"
 
 
 # Inference configuration
 inference:
   use_cuda: true
-  batch_size: 16
-  # batch_size: 4
-  num_workers: 8
-  # num_workers: 2
+  # batch_size: 16
+  batch_size: 4
+  # num_workers: 8
+  num_workers: 2
   prefetch_factor: 2
   pin_memory: true
   apply_transform: false

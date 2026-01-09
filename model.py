@@ -574,7 +574,8 @@ class BinarySpoofingClassificationModel(nn.Module):
     def __init__(self, feature_dim, num_heads, hidden_dim, max_dropout=0.2, 
                 depthwise_conv_kernel_size=31, conformer_layers=1, max_pooling_factor=3,
                 use_max_pooling=True, pooling_strategy="self_weighted", 
-                sequence_model_type='conformer', sequence_model_config=None, config=None):
+                sequence_model_type='conformer', sequence_model_config=None, config=None,
+                dropout_mode='scheduled', fixed_dropout=0.2):
         super(BinarySpoofingClassificationModel, self).__init__()
 
         self.max_pooling_factor = max_pooling_factor
@@ -584,6 +585,10 @@ class BinarySpoofingClassificationModel(nn.Module):
         self.use_max_pooling = use_max_pooling
         self.pooling_strategy = pooling_strategy.lower()
         self.config = config
+        
+        # Dropout configuration
+        self.dropout_mode = dropout_mode.lower()
+        self.fixed_dropout = fixed_dropout
 
         self.sequence_model_type = sequence_model_type.lower()
         
@@ -913,8 +918,25 @@ class BinarySpoofingClassificationModel(nn.Module):
 
 
     def adjust_dropout(self, epoch, total_epochs):
-        # Cosine annealing for dropout probability
-        return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
+        """
+        Adjust dropout probability based on dropout mode.
+        
+        Args:
+            epoch: Current epoch number
+            total_epochs: Total number of epochs
+            
+        Returns:
+            Dropout probability for the current epoch
+        """
+        if self.dropout_mode == 'fixed':
+            # Return fixed dropout probability
+            return self.fixed_dropout
+        elif self.dropout_mode == 'scheduled':
+            # Cosine annealing for dropout probability
+            return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
+        else:
+            # Default to scheduled if mode is invalid
+            return self.max_dropout * (1 + math.cos(math.pi * epoch / total_epochs)) / 2
 
 
 
@@ -990,6 +1012,10 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
     sequence_model_type = config['model'].get('sequence_model_type', 'conformer')
     sequence_model_config = config['model'].get('sequence_model_config', None)
     
+    # Get dropout configuration
+    dropout_mode = config['model'].get('dropout_mode', 'scheduled')
+    fixed_dropout = config['model'].get('fixed_dropout', config['model']['max_dropout'])
+    
     # Log feature extractor loading info
     finetuned_checkpoint = config['feature_extractor'].get('finetuned_checkpoint', None)
     if finetuned_checkpoint:
@@ -999,6 +1025,13 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
     print(f"Base Feature Dim: {base_feature_dim}")
     print(f"Pooling Strategy: {pooling_strategy}")
     print(f"Sequence Model Type: {sequence_model_type}")
+
+    print(f"Dropout Mode: {dropout_mode}")
+    if dropout_mode == 'fixed':
+        print(f"Fixed Dropout: {fixed_dropout}")
+    else:
+        print(f"Max Dropout (Scheduled): {config['model']['max_dropout']}")
+
     print(f"Feature Extractor: {feature_extractor}")
     
     # Initialize Binary Spoofing Classification Model
@@ -1014,6 +1047,8 @@ def initialize_models(config, save_feature_extractor=False, LEARNING_RATE=0.0001
         pooling_strategy=pooling_strategy,
         sequence_model_type=sequence_model_type,
         sequence_model_config=sequence_model_config,
+        dropout_mode=dropout_mode,
+        fixed_dropout=fixed_dropout,
         config=config
     ).to(DEVICE)
 
