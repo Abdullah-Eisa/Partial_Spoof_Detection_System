@@ -30,9 +30,9 @@ from utils.parameter_counter import (
 )
 
 
-def inference_helper(model, feature_extractor,criterion,
+def inference_helper(model, feature_extractor, criterion,
                   test_data_loader, DEVICE='cpu'):
-    """Evaluate the model on the test set"""
+    """Evaluate the model on the test set and compute Precision, Recall, F1 metrics"""
 
     # testing phase
     model.eval()  # Set the model to evaluation mode
@@ -43,21 +43,19 @@ def inference_helper(model, feature_extractor,criterion,
         print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
 
     # Initialize variables
-    files_names=[]
+    files_names = []
 
     epoch_loss = 0
-    utterance_predictions=[]
-    utterance_labels=[]
-    dropout_prob=0
-    nan_count=0 # To count the number of NaNs in the loss
+    utterance_predictions = []
+    utterance_labels = []
+    dropout_prob = 0
+    nan_count = 0 # To count the number of NaNs in the loss
+    
     with torch.no_grad():
         for batch in tqdm(test_data_loader, desc="Test Batches", leave=False):
             waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
             labels = labels.unsqueeze(1).float()   # Converts labels from shape [batch_size] to [batch_size, 1]
-
-            # Forward pass through wav2vec2 for feature extraction
-            # features = feature_extractor(waveforms)['hidden_states'][-1] 
 
             # Forward pass through feature extractor
             features_output = feature_extractor(waveforms)
@@ -67,7 +65,6 @@ def inference_helper(model, feature_extractor,criterion,
                 features = features_output['hidden_states'][-1]
             else:
                 features = features_output
-
 
             # lengths should be the number of non-padded frames in each sequence
             lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
@@ -79,10 +76,10 @@ def inference_helper(model, feature_extractor,criterion,
             loss = criterion(outputs, labels) 
             if torch.isnan(loss).any(): 
                 print(f"NaN detected in test loop loss") 
-                nan_count+=torch.isnan(loss).sum().item()
+                nan_count += torch.isnan(loss).sum().item()
                 print(f"loss value: {loss.item()}")
                 print(f"batch['file_name']: {batch['file_name']}")
-                print(f"in train_one_epoch batch, nan_count: {nan_count}")
+                print(f"in inference_helper batch, nan_count: {nan_count}")
                 continue
 
             epoch_loss += loss.item()
@@ -92,11 +89,13 @@ def inference_helper(model, feature_extractor,criterion,
                 utterance_labels.extend(labels)
                 files_names.extend(batch['file_name'])
 
-
         # Get Average Utterance EER for the epoch
         utterance_labels = torch.cat(utterance_labels)
         utterance_predictions = torch.cat(utterance_predictions)
-        utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions,utterance_labels)
+        utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions, utterance_labels)
+        
+        # Compute Precision, Recall, and F1
+        precision, recall, f1 = compute_precision_recall_f1(utterance_predictions, utterance_labels)
 
         # Average loss for the epoch
         epoch_loss /= len(test_data_loader)
@@ -105,12 +104,10 @@ def inference_helper(model, feature_extractor,criterion,
     # Print epoch testing results
     print(f'Testing/Inference Complete. Test Loss: {epoch_loss:.4f},\n'
                f'Average Test Utterance EER: {utterance_eer:.4f}, Average Test Utterance EER Threshold: {utterance_eer_threshold:.4f}')
-    # print(f'Testing/Inference Complete. Test Loss: {epoch_loss:.4f},\n'
-    #            f'Average Test Utterance EER: {utterance_eer:.4f}, Average Test Utterance EER Threshold: {utterance_eer_threshold:.4f}')
     print("===================================================")
     print(f'In Test loop, Total loss NAN count: {nan_count}')
 
-    return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss)
+    return create_metrics_dict(utterance_eer, utterance_eer_threshold, epoch_loss, precision, recall, f1)
 
 
 
@@ -459,9 +456,9 @@ def save_model_info_to_file(model, feature_extractor, config, stats, backend_blo
     print(f"  File size: {os.path.getsize(filepath) / 1024:.2f} KB")
 
 
-def dev_one_epoch(model, feature_extractor,criterion,
-                  dev_data_loader,dropout_prob=0,DEVICE='cpu'):
-    """Evaluate the model on the development set"""
+def dev_one_epoch(model, feature_extractor, criterion,
+                  dev_data_loader, dropout_prob=0, DEVICE='cpu'):
+    """Evaluate the model on the development set and compute Precision, Recall, F1 metrics"""
 
     # Validation phase
     model.eval()  # Set the model to evaluation mode
@@ -472,21 +469,19 @@ def dev_one_epoch(model, feature_extractor,criterion,
         print("Parallelizing model on ", torch.cuda.device_count(), "GPUs!")
 
     # Initialize variables
-    files_names=[]
+    files_names = []
 
     epoch_loss = 0
-    utterance_eer, utterance_eer_threshold=0,0
-    utterance_predictions=[]
-    utterance_labels=[]
-    nan_count=0 # To count the number of NaNs in the loss
+    utterance_eer, utterance_eer_threshold = 0, 0
+    utterance_predictions = []
+    utterance_labels = []
+    nan_count = 0 # To count the number of NaNs in the loss
+    
     with torch.no_grad():
         for batch in tqdm(dev_data_loader, desc="Dev Batches", leave=False):
             waveforms = batch['waveform'].to(DEVICE)
             labels = batch['label'].to(DEVICE)
             labels = labels.unsqueeze(1).float()   # Converts labels from shape [batch_size] to [batch_size, 1]
-
-            # Forward pass through wav2vec2 for feature extraction
-            # features = feature_extractor(waveforms)['hidden_states'][-1] 
 
             # Forward pass through feature extractor
             features_output = feature_extractor(waveforms)
@@ -496,7 +491,6 @@ def dev_one_epoch(model, feature_extractor,criterion,
                 features = features_output['hidden_states'][-1]
             else:
                 features = features_output
-
 
             # lengths should be the number of non-padded frames in each sequence
             lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16).to(DEVICE)  # (batch_size,)
@@ -508,8 +502,7 @@ def dev_one_epoch(model, feature_extractor,criterion,
             loss = criterion(outputs, labels) 
             if torch.isnan(loss).any(): 
                 print(f"NaN detected in loss during development loop")
-                # c+=1
-                nan_count+=torch.isnan(loss).sum().item()
+                nan_count += torch.isnan(loss).sum().item()
                 print(f"loss value: {loss.item()}")
                 print(f"batch['file_name']: {batch['file_name']}")
                 print(f"in dev_one_epoch batch, nan_count: {nan_count}")
@@ -518,28 +511,26 @@ def dev_one_epoch(model, feature_extractor,criterion,
             epoch_loss += loss.item()
 
             with torch.no_grad():
-                utterance_predictions.extend(outputs)                 # Calculate utterance predictions
+                utterance_predictions.extend(outputs)
                 utterance_labels.extend(labels)
-                files_names.extend(batch['file_name'])                 # Accumulate files names
-
+                files_names.extend(batch['file_name'])
 
         # Get Average Utterance EER for the epoch
         utterance_labels = torch.cat(utterance_labels)
         utterance_predictions = torch.cat(utterance_predictions)
-        utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions,utterance_labels)
+        utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions, utterance_labels)
+        
+        # Compute Precision, Recall, and F1
+        precision, recall, f1 = compute_precision_recall_f1(utterance_predictions, utterance_labels)
 
         # Average loss for the epoch
         epoch_loss /= len(dev_data_loader)
 
-
     # Print epoch dev progress
-    # print(f'Epoch [{epoch + 1}] Complete. Validation Loss: {epoch_loss:.4f},\n'
-    #            f'Average Validation Segment EER: {segment_eer:.4f}, Average Validation Segment EER Threshold: {segment_eer_threshold:.4f},\n'
-    #            f'Average Validation Utterance EER: {utterance_eer:.4f}, Average Validation Utterance EER Threshold: {utterance_eer_threshold:.4f}')
     print("===================================================")
     print(f'In Dev loop, Total loss NAN count: {nan_count}')
     
-    return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss), nan_count
+    return create_metrics_dict(utterance_eer, utterance_eer_threshold, epoch_loss, precision, recall, f1), nan_count
 
 
 
@@ -547,13 +538,6 @@ if __name__ == "__main__":
 
     config = ConfigManager()
     start_time = datetime.now()
-    
-    # try:
-    #     results = inference(config)
-    #     if results:
-    #         print("Inference results:", results)
-    # except Exception as e:
-    #     print(f"Error during inference: {str(e)}")
     
     try:
         # Run inference with model info display and save to file
@@ -565,11 +549,14 @@ if __name__ == "__main__":
         
         if results:
             print("\n" + "="*80)
-            print("INFERENCE RESULTS: ",results)
+            print("INFERENCE RESULTS")
             print("="*80)
             print(f"Utterance EER:           {results['utterance_eer']:.4f}")
             print(f"Utterance EER Threshold: {results['utterance_eer_threshold']:.4f}")
             print(f"Epoch Loss:              {results['epoch_loss']:.4f}")
+            print(f"Precision:               {results.get('precision', 'N/A'):.4f}" if 'precision' in results else f"Precision:               N/A")
+            print(f"Recall:                  {results.get('recall', 'N/A'):.4f}" if 'recall' in results else f"Recall:                  N/A")
+            print(f"F1 Score:                {results.get('f1', 'N/A'):.4f}" if 'f1' in results else f"F1 Score:                N/A")
             print("="*80 + "\n")
     except Exception as e:
         print(f"Error during inference: {str(e)}")

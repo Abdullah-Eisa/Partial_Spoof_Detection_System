@@ -26,7 +26,7 @@ git checkout -b Sequence-Modeling-Alternatives
 git add .
 
 # Commit changes
-git commit -m " add dropout logic for 'fixed' (constant dropout), 'cosine' (cosine annealing), 'linear' (linear annealing), 'step' (step decay) "
+git commit -m " modify the code to also log precision , recall , F1-score "
 
 # Push new branch to remote and set upstream
 # git push -u origin Feature-Extractor-Comparison

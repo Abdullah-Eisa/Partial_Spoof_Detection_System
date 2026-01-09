@@ -95,9 +95,9 @@ model:
   # Dropout configuration
   # Options: 'fixed' (constant dropout), 'cosine' (cosine annealing), 'linear' (linear annealing), 'step' (step decay)
   # dropout_mode: 'fixed'  # Use 'fixed' for constant dropout, 'cosine'/'linear'/'step' for epoch-based scheduling
-  # dropout_mode: 'cosine'  # Cosine annealing
+  dropout_mode: 'cosine'  # Cosine annealing
   # dropout_mode: 'linear'  # Linear annealing
-  dropout_mode: 'step'  # Step decay
+  # dropout_mode: 'step'  # Step decay
   
   # Fixed dropout probability (used when dropout_mode is 'fixed')
   fixed_dropout: 0.35
@@ -159,6 +159,8 @@ model:
   max_pooling:
     kernel_size: 3
     stride: 3
+    # kernel_size: 6
+    # stride: 6
   
   # Average pooling parameters
   average_pooling:
@@ -214,16 +216,16 @@ paths:
   # Add the PS model checkpoint path
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20260102_162234.pth"
-  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/RFP_Dataset_model_epochs30_batch4_lr0.00075_20260108_222434.pth"
+  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch4_lr0.00075_20260109_102803__pooling_factor_reduce_to_128.pth"
 
 
 # Inference configuration
 inference:
   use_cuda: true
-  # batch_size: 16
-  batch_size: 4
-  # num_workers: 8
-  num_workers: 2
+  batch_size: 16
+  # batch_size: 4
+  num_workers: 8
+  # num_workers: 2
   prefetch_factor: 2
   pin_memory: true
   apply_transform: false
