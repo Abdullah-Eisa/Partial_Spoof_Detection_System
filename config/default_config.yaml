@@ -1,11 +1,11 @@
 
 # Training configuration
 training:
-  num_epochs: &num_epochs 15
-  # num_epochs: &num_epochs 2
+  # num_epochs: &num_epochs 15
+  num_epochs: &num_epochs 1
   learning_rate: &learning_rate 0.00075
-  # batch_size: &batch_size 8
-  batch_size: &batch_size 4
+  batch_size: &batch_size 8
+  # batch_size: &batch_size 4
   save_interval: 5
   patience: 30
   max_grad_norm: 1.0
@@ -198,14 +198,41 @@ data:
   # eval_data_path: "${BASE_DIR}/database/RFP/testing"
   # eval_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_eval.trl.txt"
 
-  dataset_name: "ASVspoof2019_LA_Dataset"
+  # dataset_name: "_2F4R_Dataset"
+  dataset_name: "PF_Detection_by_Segment_Location_Dataset"
   base_path: "${BASE_DIR}/database"
-  train_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac"
-  train_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt"
-  dev_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_dev/flac"
-  dev_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt"
-  eval_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac"
-  eval_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trl.txt"
+  # group 1
+  # train_data_path: "${BASE_DIR}/database/Rfp_Test/2F4R/training"
+  # train_labels_path: "${BASE_DIR}/database/Rfp_Test/2F4R/labels/2F4R__training_subset_labels.txt"
+  # dev_data_path: "${BASE_DIR}/database/Rfp_Test/2F4R/validation"
+  # dev_labels_path: "${BASE_DIR}/database/Rfp_Test/2F4R/labels/2F4R__validation_subset_labels.txt"
+  # eval_data_path: "${BASE_DIR}/database/Rfp_Test/2F4R/testing"
+  # eval_labels_path: "${BASE_DIR}/database/Rfp_Test/2F4R/labels/2F4R__testing_subset_labels.txt"
+  # group 2
+  train_data_path: "${BASE_DIR}/database/Rfp_Test/4R2F/training"
+  train_labels_path: "${BASE_DIR}/database/Rfp_Test/4R2F/labels/4R2F__training_subset_labels.txt"
+  dev_data_path: "${BASE_DIR}/database/Rfp_Test/4R2F/validation"
+  dev_labels_path: "${BASE_DIR}/database/Rfp_Test/4R2F/labels/4R2F__validation_subset_labels.txt"
+  eval_data_path: "${BASE_DIR}/database/Rfp_Test/4R2F/testing"
+  eval_labels_path: "${BASE_DIR}/database/Rfp_Test/4R2F/labels/4R2F__testing_subset_labels.txt"
+  # group 3
+  # train_data_path: "${BASE_DIR}/database/Rfp_Test/2R2F2R/training"
+  # train_labels_path: "${BASE_DIR}/database/Rfp_Test/2R2F2R/labels/2R2F2R__training_subset_labels.txt"
+  # dev_data_path: "${BASE_DIR}/database/Rfp_Test/2R2F2R/validation"
+  # dev_labels_path: "${BASE_DIR}/database/Rfp_Test/2R2F2R/labels/2R2F2R__validation_subset_labels.txt"
+  # eval_data_path: "${BASE_DIR}/database/Rfp_Test/2R2F2R/testing"
+  # eval_labels_path: "${BASE_DIR}/database/Rfp_Test/2R2F2R/labels/2R2F2R__testing_subset_labels.txt"
+
+
+
+  # dataset_name: "ASVspoof2019_LA_Dataset"
+  # base_path: "${BASE_DIR}/database"
+  # train_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac"
+  # train_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt"
+  # dev_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_dev/flac"
+  # dev_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt"
+  # eval_data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_eval/flac"
+  # eval_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trl.txt"
 
 
 # Model paths
@@ -216,7 +243,10 @@ paths:
   # Add the PS model checkpoint path
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20260102_162234.pth"
-  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch4_lr0.00075_20260109_102803__pooling_factor_reduce_to_128.pth"
+  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/PF_Detection_by_Segment_Location_Dataset_model_epochs1_batch8_lr0.00075_20260110_065924.pth"
+  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/2F4R/PF_Detection_by_Segment_Location_Dataset_model_epochs5_batch8_lr0.00075_20260110_063430.pth"
+  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/2R2F2R/PF_Detection_by_Segment_Location_Dataset_model_epochs5_batch8_lr0.00075_20260110_065104.pth"
+  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/4R2F/PF_Detection_by_Segment_Location_Dataset_model_epochs1_batch8_lr0.00075_20260110_065924.pth"
 
 
 # Inference configuration

@@ -314,6 +314,98 @@ class RFP_Dataset(Dataset):
     #     return default_collate(samples)
 
 
+# PF_Detection_by_Segment_Location_Dataset class
+class PF_Detection_by_Segment_Location_Dataset(Dataset):
+    def __init__(self, data_path,labels_path, transform=None,normalize=True, label_map = {"spoof": 1, "genuine": 0}):
+        super(PF_Detection_by_Segment_Location_Dataset, self).__init__()
+
+        self.data_path = data_path
+        self.labels_path = labels_path
+        self.transform = transform
+        self.normalize = normalize
+        self.label_map = label_map
+
+        self.all_files = librosa.util.find_files(self.data_path)
+        # self.all_files = librosa.util.find_files(self.data_path)[:1000]
+        self.all_labels= self._get_labels()
+
+
+    def __len__(self):
+        return len(self.all_files)
+
+    def _get_label(self, file_name):
+        # return self.label_map[file_name.split("_")[1]]
+        return self.label_map[file_name]
+    
+    def _get_labels(self):
+        labels_path= self.labels_path 
+            
+        labels_dict = dict()
+        with open(labels_path, 'r') as f:
+            file_lines = f.readlines()
+        for line in file_lines:
+            line = line.strip()
+            if not line:continue  # Skip empty lines
+
+            try:
+                key , label = line.split(' ')
+                labels_dict[key] = self._get_label(label)
+            except ValueError:
+                print(f"Warning: Skipping malformed line: {line}")
+        
+        return labels_dict
+
+
+    def _normalize_waveform(self, waveform):
+        """
+        Normalize the waveform by scaling it to [-1, 1] or applying Z-score normalization.
+        Args: waveform (Tensor): The input waveform tensor.
+        Returns: Tensor: The normalized waveform.
+        """
+        # Method 1: Normalize to [-1, 1]
+        waveform = waveform / waveform.abs().max()
+        # Method 2: Z-score normalization (mean=0, std=1)
+        # waveform = (waveform - waveform.mean()) / waveform.std()
+        return waveform
+    
+    def __getitem__(self, idx):
+        file_path = self.all_files[idx]
+        base_name = os.path.basename(file_path)
+        file_name = base_name.split(".")[0]
+
+        try:
+            waveform, sample_rate = torchaudio.load(file_path, normalize=False)
+        except Exception as e:
+            print(f"Error loading audio file {file_path}: {e}")
+            return None
+        
+        # Normalize waveform if needed
+        if self.normalize:
+            waveform = self._normalize_waveform(waveform)
+
+        # Apply any other transformations if provided
+        if self.transform:
+            waveform = self.transform(waveform)
+
+        # # label = self.all_labels.get(file_name,0)
+        # label = self.all_labels.get(file_name)
+        try:
+            # label = self.all_labels.get(file_name, 0)
+            label = self.all_labels.get(file_name)
+        except Exception as e:
+            print(f"Error while processing file: {file_name}")
+            print(f"Exception: {e}")
+            label = self.all_labels.get(file_name, 0)   # or whatever fallback value you prefer
+
+
+        label = torch.tensor(label)
+
+        return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
+    
+    # def collate_fn(self, samples):
+    #     return default_collate(samples)
+
+
 
 
 # ============================================================================================
@@ -361,6 +453,10 @@ def initialize_data_loader(dataset_name,data_path, labels_path,BATCH_SIZE=32, sh
     elif dataset_name == "ASVspoof2019_LA_Dataset":
         print("You selected ASVspoof2019_LA_Dataset.")
         audio_dataset = ASVspoof2019(data_path, labels_path)
+
+    elif dataset_name == "PF_Detection_by_Segment_Location_Dataset":
+        print("You selected PF_Detection_by_Segment_Location_Dataset.")
+        audio_dataset = PF_Detection_by_Segment_Location_Dataset(data_path, labels_path)
 
     else:
         print("Invalid dataset name selected.")

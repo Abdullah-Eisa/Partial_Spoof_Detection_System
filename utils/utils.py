@@ -332,3 +332,45 @@ class EarlyStopping:
             if self.counter >= self.patience:
                 self.early_stop = True
                 print("Early stopping triggered.")
+
+
+
+# ===========================================================================================================================
+
+# from huggingface_hub import snapshot_download
+
+# snapshot_download(
+#     repo_id="alsuhba/Rfp_Test",
+#     repo_type="dataset",
+#     local_dir="./database/Rfp_Test",
+#     local_dir_use_symlinks=False
+# )
+
+
+# import os
+
+# # directory = "/root/Partial_Spoof_Detection_System/database/Rfp_Test/2F4R/testing"  # change this
+# # output_file = "2F4R__testing_subset_labels.txt"
+# # directory = "/root/Partial_Spoof_Detection_System/database/Rfp_Test/2F4R/training"  # change this
+# # output_file = "2F4R__training_subset_labels.txt"
+# directory = "/root/Partial_Spoof_Detection_System/database/Rfp_Test/2F4R/validation"  # change this
+# output_file = "2F4R__validation_subset_labels.txt"
+
+
+# with open(output_file, "w") as f:
+#     for filename in sorted(os.listdir(directory)):
+#         filepath = os.path.join(directory, filename)
+
+#         # Only process files
+#         if os.path.isfile(filepath):
+#             name, _ = os.path.splitext(filename)  # remove extension
+
+#             if name.startswith("RFP_PF"):
+#                 label = "spoof"
+#             else:
+#                 label = "genuine"
+
+#             f.write(f"{name} {label}\n")
+
+# print(f"Saved labels to {output_file}")
+
