@@ -26,7 +26,7 @@ git checkout -b Sequence-Modeling-Alternatives
 git add .
 
 # Commit changes
-git commit -m " add logic for PF_Detection_by_Segment_Location_Dataset"
+git commit -m " add relevant logic for Performance by Audio Type experiments"
 
 # Push new branch to remote and set upstream
 # git push -u origin Feature-Extractor-Comparison

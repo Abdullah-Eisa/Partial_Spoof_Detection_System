@@ -550,6 +550,7 @@ if __name__ == "__main__":
         if results:
             print("\n" + "="*80)
             print("INFERENCE RESULTS")
+            print(results)
             print("="*80)
             print(f"Utterance EER:           {results['utterance_eer']:.4f}")
             print(f"Utterance EER Threshold: {results['utterance_eer_threshold']:.4f}")

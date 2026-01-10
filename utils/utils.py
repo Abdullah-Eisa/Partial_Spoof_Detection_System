@@ -347,16 +347,35 @@ class EarlyStopping:
 # )
 
 
+
+# ================================================================================
+# directory = "/root/Partial_Spoof_Detection_System/database/Rfp_Test/TTS_AWS/testing"  # change this
+# output_file = "TTS_AWS__testing_subset_labels.txt"
+# directory = "/root/Partial_Spoof_Detection_System/database/Rfp_Test/TTS_AWS/training"  # change this
+# output_file = "TTS_AWS__training_subset_labels.txt"
+# directory = "/root/Partial_Spoof_Detection_System/database/Rfp_Test/TTS_AWS/validation"  # change this
+# output_file = "TTS_AWS__validation_subset_labels.txt"
+
+# cp /root/Partial_Spoof_Detection_System/database/Rfp_Test/Real/testing/* /root/Partial_Spoof_Detection_System/database/Rfp_Test/TTS_AWS/testing
+# cp /root/Partial_Spoof_Detection_System/database/Rfp_Test/Real/training/* /root/Partial_Spoof_Detection_System/database/Rfp_Test/TTS_AWS/training
+# cp /root/Partial_Spoof_Detection_System/database/Rfp_Test/Real/validation/* /root/Partial_Spoof_Detection_System/database/Rfp_Test/TTS_AWS/validation
+# ================================================================================
+
+# directory = "/root/Partial_Spoof_Detection_System/database/Rfp_Test/TTS_Azure/testing"  # change this
+# output_file = "TTS_Azure__testing_subset_labels.txt"
+# directory = "/root/Partial_Spoof_Detection_System/database/Rfp_Test/TTS_Azure/training"  # change this
+# output_file = "TTS_Azure__training_subset_labels.txt"
+# directory = "/root/Partial_Spoof_Detection_System/database/Rfp_Test/TTS_Azure/validation"  # change this
+# output_file = "TTS_Azure__validation_subset_labels.txt"
+
+
+# cp /root/Partial_Spoof_Detection_System/database/Rfp_Test/Real/testing/* /root/Partial_Spoof_Detection_System/database/Rfp_Test/TTS_Azure/testing
+# cp /root/Partial_Spoof_Detection_System/database/Rfp_Test/Real/training/* /root/Partial_Spoof_Detection_System/database/Rfp_Test/TTS_Azure/training
+# cp /root/Partial_Spoof_Detection_System/database/Rfp_Test/Real/validation/* /root/Partial_Spoof_Detection_System/database/Rfp_Test/TTS_Azure/validation
+
+
+
 # import os
-
-# # directory = "/root/Partial_Spoof_Detection_System/database/Rfp_Test/2F4R/testing"  # change this
-# # output_file = "2F4R__testing_subset_labels.txt"
-# # directory = "/root/Partial_Spoof_Detection_System/database/Rfp_Test/2F4R/training"  # change this
-# # output_file = "2F4R__training_subset_labels.txt"
-# directory = "/root/Partial_Spoof_Detection_System/database/Rfp_Test/2F4R/validation"  # change this
-# output_file = "2F4R__validation_subset_labels.txt"
-
-
 # with open(output_file, "w") as f:
 #     for filename in sorted(os.listdir(directory)):
 #         filepath = os.path.join(directory, filename)
