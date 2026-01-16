@@ -189,18 +189,18 @@ data:
   # eval_data_path: "${BASE_DIR}/database/PartialSpoof/database/eval/con_wav"
   # eval_labels_path: "${BASE_DIR}/database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json"
 
-  # dataset_name: "RFP_Dataset"
-  # base_path: "${BASE_DIR}/database"
-  # train_data_path: "${BASE_DIR}/database/RFP/training"
-  # train_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_train.trl.txt"
-  # dev_data_path: "${BASE_DIR}/database/RFP/validation"
-  # dev_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_dev.trl.txt"
-  # eval_data_path: "${BASE_DIR}/database/RFP/testing"
-  # eval_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_eval.trl.txt"
+  dataset_name: "RFP_Dataset"
+  base_path: "${BASE_DIR}/database"
+  train_data_path: "${BASE_DIR}/database/RFP/training"
+  train_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_train.trl.txt"
+  dev_data_path: "${BASE_DIR}/database/RFP/validation"
+  dev_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_dev.trl.txt"
+  eval_data_path: "${BASE_DIR}/database/RFP/testing"
+  eval_labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_eval.trl.txt"
 
   # dataset_name: "_2F4R_Dataset"
-  dataset_name: "PF_Detection_by_Segment_Location_Dataset"
-  base_path: "${BASE_DIR}/database"
+  # dataset_name: "PF_Detection_by_Segment_Location_Dataset"
+  # base_path: "${BASE_DIR}/database"
   # group 1
   # train_data_path: "${BASE_DIR}/database/Rfp_Test/2F4R/training"
   # train_labels_path: "${BASE_DIR}/database/Rfp_Test/2F4R/labels/2F4R__training_subset_labels.txt"
@@ -224,12 +224,12 @@ data:
   # eval_labels_path: "${BASE_DIR}/database/Rfp_Test/2R2F2R/labels/2R2F2R__testing_subset_labels.txt"
   
   # group 4
-  train_data_path: "${BASE_DIR}/database/Rfp_Test/TTS_AWS/training"
-  train_labels_path: "${BASE_DIR}/database/Rfp_Test/TTS_AWS/labels/TTS_AWS__training_subset_labels.txt"
-  dev_data_path: "${BASE_DIR}/database/Rfp_Test/TTS_AWS/validation"
-  dev_labels_path: "${BASE_DIR}/database/Rfp_Test/TTS_AWS/labels/TTS_AWS__validation_subset_labels.txt"
-  eval_data_path: "${BASE_DIR}/database/Rfp_Test/TTS_AWS/testing"
-  eval_labels_path: "${BASE_DIR}/database/Rfp_Test/TTS_AWS/labels/TTS_AWS__testing_subset_labels.txt"
+  # train_data_path: "${BASE_DIR}/database/Rfp_Test/TTS_AWS/training"
+  # train_labels_path: "${BASE_DIR}/database/Rfp_Test/TTS_AWS/labels/TTS_AWS__training_subset_labels.txt"
+  # dev_data_path: "${BASE_DIR}/database/Rfp_Test/TTS_AWS/validation"
+  # dev_labels_path: "${BASE_DIR}/database/Rfp_Test/TTS_AWS/labels/TTS_AWS__validation_subset_labels.txt"
+  # eval_data_path: "${BASE_DIR}/database/Rfp_Test/TTS_AWS/testing"
+  # eval_labels_path: "${BASE_DIR}/database/Rfp_Test/TTS_AWS/labels/TTS_AWS__testing_subset_labels.txt"
 
 
 
@@ -251,7 +251,7 @@ paths:
   # Add the PS model checkpoint path
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20260102_162234.pth"
-  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/PF_Detection_by_Segment_Location_Dataset_model_epochs5_batch8_lr0.00075_20260110_122011__TTS_AWS.pth"
+  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/RFP_Dataset_model_epochs30_batch8_lr0.0006_20251201_001017.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/2F4R/PF_Detection_by_Segment_Location_Dataset_model_epochs5_batch8_lr0.00075_20260110_063430.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/2R2F2R/PF_Detection_by_Segment_Location_Dataset_model_epochs5_batch8_lr0.00075_20260110_065104.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/4R2F/PF_Detection_by_Segment_Location_Dataset_model_epochs1_batch8_lr0.00075_20260110_065924.pth"
