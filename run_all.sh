@@ -9,7 +9,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " update preprocess.py to handle fallback with zero value when loading dataset , update README.md to include run training with logs cmd "
+git commit -m " git add statistical testing files (not working yet) "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 
