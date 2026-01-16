@@ -26,7 +26,7 @@ git checkout -b Sequence-Modeling-Alternatives
 git add .
 
 # Commit changes
-git commit -m " adding non-working logic for statistical testing"
+git commit -m " adding non-working logic for statistical testing (v2)"
 
 # Push new branch to remote and set upstream
 # git push -u origin Feature-Extractor-Comparison

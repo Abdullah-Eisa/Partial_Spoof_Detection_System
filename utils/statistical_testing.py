@@ -260,6 +260,11 @@ if __name__ == "__main__":
     print("Example: Bootstrap Confidence Intervals")
     print("-" * 60)
     
+
+# /root/Partial_Spoof_Detection_System/models/back_end_models/RFP_Dataset_model_epochs30_batch8_lr0.00075_20260108_011645__dropout_mode_fixed.pth
+# /root/Partial_Spoof_Detection_System/models/back_end_models/RFP_Dataset_model_epochs30_batch8_lr0.00075_20260109_015502__fixed_learning_rate.pth
+
+
     # Simulate predictions and labels
     np.random.seed(42)
     predictions = np.random.rand(1000)

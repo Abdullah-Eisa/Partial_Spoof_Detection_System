@@ -67,6 +67,38 @@ class AttentionExtractor:
                     )
                     self.hooks.append(hook)
     
+    # def extract_attention(
+    #     self, 
+    #     waveform: torch.Tensor,
+    #     feature_extractor: nn.Module
+    # ) -> Dict[str, torch.Tensor]:
+    #     """
+    #     Extract attention weights for a single audio sample.
+        
+    #     Args:
+    #         waveform: Audio waveform (1, time)
+    #         feature_extractor: Feature extraction model
+        
+    #     Returns:
+    #         Dictionary of attention weights
+    #     """
+    #     self.attention_weights = {}
+        
+    #     with torch.no_grad():
+    #         # Extract features
+    #         features_output = feature_extractor(waveform)
+    #         if isinstance(features_output, dict):
+    #             features = features_output['hidden_states'][-1]
+    #         else:
+    #             features = features_output
+            
+    #         # Forward through model
+    #         lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16)
+    #         _ = self.model(features, lengths, dropout_prob=0.0)
+        
+    #     return self.attention_weights
+    
+
     def extract_attention(
         self, 
         waveform: torch.Tensor,
@@ -84,6 +116,9 @@ class AttentionExtractor:
         """
         self.attention_weights = {}
         
+        # Get device from model
+        device = next(self.model.parameters()).device
+        
         with torch.no_grad():
             # Extract features
             features_output = feature_extractor(waveform)
@@ -92,12 +127,16 @@ class AttentionExtractor:
             else:
                 features = features_output
             
+            # Move features to same device as model
+            features = features.to(device)
+            
             # Forward through model
-            lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16)
+            lengths = torch.full((features.size(0),), features.size(1), dtype=torch.int16, device=device)
             _ = self.model(features, lengths, dropout_prob=0.0)
         
         return self.attention_weights
-    
+
+
     def remove_hooks(self):
         """Remove all registered hooks."""
         for hook in self.hooks:
