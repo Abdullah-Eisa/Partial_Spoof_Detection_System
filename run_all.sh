@@ -9,11 +9,10 @@ git init
 git add *
 
 # Commit your changes
-git commit -m "  add 
-        utils/attention_visualization.py
-        utils/cluster_analysis.py
-        utils/gradient_analysis.py
- (not working)
+git commit -m "   
+        modified:   utils/attention_visualization.py
+        modified:   utils/gradient_analysis.py
+ ( working)
  "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
