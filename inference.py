@@ -94,8 +94,8 @@ def inference_helper(model, feature_extractor, criterion,
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions, utterance_labels)
         
-        # Compute Precision, Recall, and F1
-        precision, recall, f1 = compute_precision_recall_f1(utterance_predictions, utterance_labels)
+        # Compute Precision, Recall, F1, and AUC
+        precision, recall, f1, auc = compute_precision_recall_f1(utterance_predictions, utterance_labels)
 
         # Average loss for the epoch
         epoch_loss /= len(test_data_loader)
@@ -107,7 +107,7 @@ def inference_helper(model, feature_extractor, criterion,
     print("===================================================")
     print(f'In Test loop, Total loss NAN count: {nan_count}')
 
-    return create_metrics_dict(utterance_eer, utterance_eer_threshold, epoch_loss, precision, recall, f1)
+    return create_metrics_dict(utterance_eer, utterance_eer_threshold, epoch_loss, precision, recall, f1, auc)
 
 
 
@@ -520,8 +520,8 @@ def dev_one_epoch(model, feature_extractor, criterion,
         utterance_predictions = torch.cat(utterance_predictions)
         utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions, utterance_labels)
         
-        # Compute Precision, Recall, and F1
-        precision, recall, f1 = compute_precision_recall_f1(utterance_predictions, utterance_labels)
+        # Compute Precision, Recall, F1, and AUC
+        precision, recall, f1, auc = compute_precision_recall_f1(utterance_predictions, utterance_labels)
 
         # Average loss for the epoch
         epoch_loss /= len(dev_data_loader)
@@ -530,7 +530,7 @@ def dev_one_epoch(model, feature_extractor, criterion,
     print("===================================================")
     print(f'In Dev loop, Total loss NAN count: {nan_count}')
     
-    return create_metrics_dict(utterance_eer, utterance_eer_threshold, epoch_loss, precision, recall, f1), nan_count
+    return create_metrics_dict(utterance_eer, utterance_eer_threshold, epoch_loss, precision, recall, f1, auc), nan_count
 
 
 

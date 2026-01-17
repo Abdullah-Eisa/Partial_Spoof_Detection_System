@@ -6,12 +6,13 @@ import torch
 import wandb
 from sklearn.metrics import roc_curve
 import json
+from sklearn.metrics import roc_auc_score
 
 from datetime import datetime
 
 # Define some utility functions used in the project
 def create_metrics_dict(utterance_eer, utterance_eer_threshold, epoch_loss, 
-                        precision=None, recall=None, f1=None):
+                        precision=None, recall=None, f1=None, auc=None):
     """
     Create a comprehensive metrics dictionary
     
@@ -22,6 +23,7 @@ def create_metrics_dict(utterance_eer, utterance_eer_threshold, epoch_loss,
         precision: Precision score (optional)
         recall: Recall score (optional)
         f1: F1 score (optional)
+        auc: AUC score (optional)
     
     Returns:
         Dictionary containing all metrics
@@ -36,6 +38,8 @@ def create_metrics_dict(utterance_eer, utterance_eer_threshold, epoch_loss,
         metrics_dict['recall'] = recall
     if f1 is not None:
         metrics_dict['f1'] = f1
+    if auc is not None:
+        metrics_dict['auc'] = auc
     return metrics_dict
 
 
@@ -201,6 +205,14 @@ def compute_precision_recall_f1(predictions, labels, threshold=0.5):
     predictions = predictions.flatten()
     labels = labels.flatten()
     
+
+    # Convert logits → probabilities if needed
+    if np.all((predictions >= 0) & (predictions <= 1)):
+        probs = predictions
+    else:
+        probs = 1 / (1 + np.exp(-predictions))  # sigmoid
+
+
     # Convert predictions to binary (0 or 1) using threshold
     # If predictions are probabilities, apply sigmoid; if logits, apply sigmoid
     if np.all((predictions >= 0) & (predictions <= 1)):
@@ -233,13 +245,24 @@ def compute_precision_recall_f1(predictions, labels, threshold=0.5):
     else:
         f1 = 2 * (precision * recall) / (precision + recall)
     
-    return float(precision), float(recall), float(f1)
+
+    # AUC (requires both classes present)
+    try:
+        if len(np.unique(labels)) < 2:
+            auc = 0.0
+        else:
+            auc = roc_auc_score(labels, probs)
+    except ValueError:
+        auc = 0.0
+
+
+    return float(precision), float(recall), float(f1), float(auc)
 
 
 
-def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, backend_model_lr, feature_extractor_lr, dropout_prob, dev_metrics_dict=None, train_precision=None, train_recall=None, train_f1=None):
+def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, backend_model_lr, feature_extractor_lr, dropout_prob, dev_metrics_dict=None, train_precision=None, train_recall=None, train_f1=None, train_auc=None):
     """
-    Log metrics to W&B including Precision, Recall, and F1 scores
+    Log metrics to W&B including Precision, Recall, F1, and AUC scores
     
     Args:
         epoch: Epoch number
@@ -253,6 +276,7 @@ def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_thresho
         train_precision: Training precision (optional)
         train_recall: Training recall (optional)
         train_f1: Training F1 score (optional)
+        train_auc: Training AUC score (optional)
     """
     log_dict = {
         'epoch': epoch + 1,
@@ -264,13 +288,15 @@ def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_thresho
         'dropout_prob': dropout_prob,
     }
     
-    # Add training precision, recall, f1 if provided
+    # Add training precision, recall, f1, auc if provided
     if train_precision is not None:
         log_dict['training_precision_epoch'] = train_precision
     if train_recall is not None:
         log_dict['training_recall_epoch'] = train_recall
     if train_f1 is not None:
         log_dict['training_f1_epoch'] = train_f1
+    if train_auc is not None:
+        log_dict['training_auc_epoch'] = train_auc
     
     # Add validation metrics if provided
     if dev_metrics_dict:
@@ -278,13 +304,15 @@ def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_thresho
         log_dict['validation_utterance_eer_epoch'] = dev_metrics_dict['utterance_eer']
         log_dict['validation_utterance_eer_threshold_epoch'] = dev_metrics_dict['utterance_eer_threshold']
         
-        # Add validation precision, recall, f1 if provided
+        # Add validation precision, recall, f1, auc if provided
         if 'precision' in dev_metrics_dict:
             log_dict['validation_precision_epoch'] = dev_metrics_dict['precision']
         if 'recall' in dev_metrics_dict:
             log_dict['validation_recall_epoch'] = dev_metrics_dict['recall']
         if 'f1' in dev_metrics_dict:
             log_dict['validation_f1_epoch'] = dev_metrics_dict['f1']
+        if 'auc' in dev_metrics_dict:
+            log_dict['validation_auc_epoch'] = dev_metrics_dict['auc']
     
     wandb.log(log_dict)
 

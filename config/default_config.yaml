@@ -2,7 +2,7 @@
 # Training configuration
 training:
   # num_epochs: &num_epochs 15
-  num_epochs: &num_epochs 5
+  num_epochs: &num_epochs 2
   learning_rate: &learning_rate 0.00075
   batch_size: &batch_size 8
   # batch_size: &batch_size 4

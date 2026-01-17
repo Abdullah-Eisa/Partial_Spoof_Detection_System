@@ -70,12 +70,12 @@ def train_one_epoch(model, train_loader, feature_extractor, optimizer, criterion
     # Average epoch loss
     epoch_loss /= len(train_loader)
     
-    # Compute Precision, Recall, and F1
+    # Compute Precision, Recall, F1, and AUC
     utterance_predictions_tensor = torch.cat(utterance_predictions)
     utterance_labels_tensor = torch.cat(utterance_labels)
-    precision, recall, f1 = compute_precision_recall_f1(utterance_predictions_tensor, utterance_labels_tensor)
+    precision, recall, f1, auc = compute_precision_recall_f1(utterance_predictions_tensor, utterance_labels_tensor)
     
-    return epoch_loss, utterance_predictions, utterance_labels, files_names, nan_count, precision, recall, f1
+    return epoch_loss, utterance_predictions, utterance_labels, files_names, nan_count, precision, recall, f1, auc
 
 # ===========================================================================================================================
 
@@ -157,7 +157,7 @@ def train_model(config, dataset_name, train_data_path, train_labels_path,
         dropout_prob = adjust_dropout_prob(PS_Model, epoch, NUM_EPOCHS)
 
         # Training step for the current epoch
-        epoch_loss, utterance_predictions, utterance_labels, files_names, train_nan_counter, train_precision, train_recall, train_f1 = train_one_epoch(
+        epoch_loss, utterance_predictions, utterance_labels, files_names, train_nan_counter, train_precision, train_recall, train_f1, train_auc = train_one_epoch(
             PS_Model, train_loader, feature_extractor, optimizer, criterion, max_grad_norm, dropout_prob, DEVICE)
 
         total_train_nan_counter += train_nan_counter
@@ -182,13 +182,13 @@ def train_model(config, dataset_name, train_data_path, train_labels_path,
             dev_metrics_dict, dev_nan_counter = dev_one_epoch(PS_Model, feature_extractor, criterion, dev_data_loader, 0, DEVICE)
             total_dev_nan_counter += dev_nan_counter
 
-            # Log metrics to W&B with precision, recall, f1
+            # Log metrics to W&B with precision, recall, f1, and auc
             if save_feature_extractor:
                 log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, optimizer.param_groups[1]['lr'], optimizer.param_groups[0]['lr'], 
-                                   dropout_prob, dev_metrics_dict, train_precision, train_recall, train_f1)
+                                   dropout_prob, dev_metrics_dict, train_precision, train_recall, train_f1, train_auc)
             else:
                 log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, optimizer.param_groups[0]['lr'], 0, 
-                                   dropout_prob, dev_metrics_dict, train_precision, train_recall, train_f1)
+                                   dropout_prob, dev_metrics_dict, train_precision, train_recall, train_f1, train_auc)
 
             # Update learning rate scheduler if enabled
             if LR_SCHEDULER is not None:
@@ -203,10 +203,10 @@ def train_model(config, dataset_name, train_data_path, train_labels_path,
         else:
             if save_feature_extractor:
                 log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, optimizer.param_groups[1]['lr'], optimizer.param_groups[0]['lr'], 
-                                   dropout_prob, dev_metrics_dict=None, train_precision=train_precision, train_recall=train_recall, train_f1=train_f1)
+                                   dropout_prob, dev_metrics_dict=None, train_precision=train_precision, train_recall=train_recall, train_f1=train_f1, train_auc=train_auc)
             else:
                 log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, optimizer.param_groups[0]['lr'], 0, 
-                                   dropout_prob, dev_metrics_dict=None, train_precision=train_precision, train_recall=train_recall, train_f1=train_f1)
+                                   dropout_prob, dev_metrics_dict=None, train_precision=train_precision, train_recall=train_recall, train_f1=train_f1, train_auc=train_auc)
             
             # Update learning rate scheduler if enabled
             if LR_SCHEDULER is not None:

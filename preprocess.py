@@ -235,6 +235,10 @@ class RFP_Dataset(Dataset):
 
         self.all_files = librosa.util.find_files(self.data_path)
         # self.all_files = librosa.util.find_files(self.data_path)[:1000]
+        import random
+        self.all_files = random.sample(self.all_files, k=1000)
+
+
         self.all_labels= self._get_labels()
 
 
