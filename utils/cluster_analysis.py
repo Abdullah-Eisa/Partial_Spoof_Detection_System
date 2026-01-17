@@ -347,29 +347,197 @@ def compare_embedding_distributions(
 # Example Usage
 # ============================================================================
 
+# if __name__ == "__main__":
+    # print("Cluster Analysis Example")
+    # print("=" * 60)
+    # print("\nThis module provides:")
+    # print("1. t-SNE/PCA visualization of embeddings")
+    # print("2. Clustering quality metrics")
+    # print("3. Misclassification analysis in embedding space")
+    # print("4. Distribution comparisons")
+    
+    # print("\nExample usage:")
+    # print("""
+    # from utils.cluster_analysis import EmbeddingExtractor, visualize_embeddings_tsne
+    
+    # # Extract embeddings
+    # extractor = EmbeddingExtractor(model, layer_name='pooling')
+    # embeddings, labels, files = extractor.extract_embeddings(
+    #     test_loader, feature_extractor, device='cuda'
+    # )
+    
+    # # Visualize
+    # visualize_embeddings_tsne(embeddings, labels)
+    
+    # # Compute metrics
+    # metrics = compute_cluster_metrics(embeddings, labels)
+    # print(f"Silhouette score: {metrics['silhouette_score']:.4f}")
+    # """)
+
+
+
 if __name__ == "__main__":
-    print("Cluster Analysis Example")
-    print("=" * 60)
-    print("\nThis module provides:")
-    print("1. t-SNE/PCA visualization of embeddings")
-    print("2. Clustering quality metrics")
-    print("3. Misclassification analysis in embedding space")
-    print("4. Distribution comparisons")
+    """
+    Standalone script to run cluster analysis on model embeddings.
     
-    print("\nExample usage:")
-    print("""
-    from utils.cluster_analysis import EmbeddingExtractor, visualize_embeddings_tsne
+    Usage:
+        python -m utils.cluster_analysis --config config/default_config.yaml
+    """
+    import argparse
+    import torch
+    from utils.config_manager import ConfigManager
+    from model import initialize_models
+    from preprocess import initialize_data_loader
+    from datetime import datetime
     
-    # Extract embeddings
-    extractor = EmbeddingExtractor(model, layer_name='pooling')
-    embeddings, labels, files = extractor.extract_embeddings(
-        test_loader, feature_extractor, device='cuda'
+    parser = argparse.ArgumentParser(description='Cluster Analysis on Model Embeddings')
+    parser.add_argument('--config', type=str, default='config/default_config.yaml',
+                       help='Path to configuration file')
+    parser.add_argument('--output-dir', type=str, default='outputs/cluster_analysis',
+                       help='Output directory for visualizations')
+    parser.add_argument('--layer-name', type=str, default='pooling',
+                       help='Layer name to extract embeddings from')
+    parser.add_argument('--perplexity', type=int, default=30,
+                       help='t-SNE perplexity parameter')
+    parser.add_argument('--n-iter', type=int, default=1000,
+                       help='t-SNE number of iterations')
+    args = parser.parse_args()
+    
+    # Load configuration
+    config = ConfigManager(args.config)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    print("="*80)
+    print("CLUSTER ANALYSIS ON MODEL EMBEDDINGS")
+    print("="*80)
+    
+    # Load model and feature extractor
+    print("\n1. Loading model...")
+    model, feature_extractor, _ = initialize_models(
+        ssl_ckpt_path=config['paths']['ssl_checkpoint'],
+        save_feature_extractor=False,
+        feature_dim=config['model']['feature_dim'],
+        num_heads=config['model']['num_heads'],
+        hidden_dim=config['model']['hidden_dim'],
+        max_dropout=config['model']['max_dropout'],
+        depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
+        conformer_layers=config['model']['conformer_layers'],
+        max_pooling_factor=config['model']['max_pooling_factor'],
+        LEARNING_RATE=0.0001,
+        DEVICE=device
     )
     
-    # Visualize
-    visualize_embeddings_tsne(embeddings, labels)
+    checkpoint = torch.load(config['paths']['ps_model_checkpoint'], map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+    feature_extractor.eval()
     
-    # Compute metrics
+    # Get test data loader
+    print("\n2. Loading test data...")
+    test_loader = initialize_data_loader(
+        dataset_name=config['data']['dataset_name'],
+        data_path=config['data']['eval_data_path'],
+        labels_path=config['data']['eval_labels_path'],
+        BATCH_SIZE=config['inference']['batch_size'],
+        shuffle=False,
+        num_workers=config['inference'].get('num_workers', 4),
+        prefetch_factor=config['inference'].get('prefetch_factor', 2),
+        pin_memory=config['inference'].get('pin_memory', True)
+    )
+    
+    # Extract embeddings
+    print(f"\n3. Extracting embeddings from layer '{args.layer_name}'...")
+    extractor = EmbeddingExtractor(model, layer_name=args.layer_name)
+    embeddings, labels, file_names = extractor.extract_embeddings(
+        test_loader, feature_extractor, device=device
+    )
+    
+    print(f"   Extracted {len(embeddings)} embeddings of dimension {embeddings.shape[1]}")
+    
+    # Create output directory
+    os.makedirs(args.output_dir, exist_ok=True)
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    
+    # 1. Visualize with t-SNE
+    print("\n4. Computing t-SNE visualization...")
+    visualize_embeddings_tsne(
+        embeddings, labels,
+        save_path=os.path.join(args.output_dir, f'tsne_visualization_{timestamp}.png'),
+        perplexity=args.perplexity,
+        n_iter=args.n_iter
+    )
+    
+    # 2. Compute cluster metrics
+    print("\n5. Computing cluster quality metrics...")
     metrics = compute_cluster_metrics(embeddings, labels)
-    print(f"Silhouette score: {metrics['silhouette_score']:.4f}")
-    """)
+    
+    print(f"\nCluster Quality Metrics:")
+    print(f"  Silhouette Score: {metrics['silhouette_score']:.4f}")
+    print(f"  Davies-Bouldin Index: {metrics['davies_bouldin_index']:.4f}")
+    print(f"  Within-class variance (Genuine): {metrics['within_class_variance_genuine']:.4f}")
+    print(f"  Within-class variance (Spoof): {metrics['within_class_variance_spoof']:.4f}")
+    print(f"  Between-class distance: {metrics['between_class_distance']:.4f}")
+    print(f"  Separability Ratio: {metrics['separability_ratio']:.4f}")
+    
+    # Save metrics to JSON
+    import json
+    metrics_path = os.path.join(args.output_dir, f'cluster_metrics_{timestamp}.json')
+    with open(metrics_path, 'w') as f:
+        json.dump(metrics, f, indent=2)
+    print(f"\n✓ Metrics saved to: {metrics_path}")
+    
+    # 3. Collect predictions for misclassification analysis
+    print("\n6. Collecting model predictions...")
+    all_predictions = []
+    
+    with torch.no_grad():
+        for batch in test_loader:
+            waveforms = batch['waveform'].to(device)
+            
+            features_output = feature_extractor(waveforms)
+            if isinstance(features_output, dict):
+                features = features_output['hidden_states'][-1]
+            else:
+                features = features_output
+            
+            lengths = torch.full((features.size(0),), features.size(1), 
+                               dtype=torch.int16, device=device)
+            outputs = model(features, lengths, dropout_prob=0.0)
+            
+            all_predictions.extend(outputs.cpu().numpy())
+    
+    predictions = np.array(all_predictions)
+    
+    # 4. Analyze misclassified samples
+    print("\n7. Analyzing misclassified samples...")
+    pred_binary = (predictions.flatten() >= 0.5).astype(int)
+    analyze_misclassified_embeddings(
+        embeddings, labels, pred_binary, file_names,
+        save_path=os.path.join(args.output_dir, f'misclassified_analysis_{timestamp}.png')
+    )
+    
+    # 5. Compare embedding distributions
+    print("\n8. Comparing embedding distributions...")
+    genuine_embeddings = embeddings[labels == 0]
+    spoof_embeddings = embeddings[labels == 1]
+    
+    compare_embedding_distributions(
+        genuine_embeddings, spoof_embeddings,
+        save_path=os.path.join(args.output_dir, f'embedding_distributions_{timestamp}.png')
+    )
+    
+    # Clean up
+    extractor.remove_hook()
+    
+    print(f"\n✓ Cluster analysis complete!")
+    print(f"  All results saved to: {args.output_dir}")
+    
+    # Print summary statistics
+    correct_mask = (pred_binary == labels)
+    accuracy = correct_mask.sum() / len(labels)
+    print(f"\nSummary Statistics:")
+    print(f"  Total samples: {len(labels)}")
+    print(f"  Genuine samples: {(labels == 0).sum()}")
+    print(f"  Spoof samples: {(labels == 1).sum()}")
+    print(f"  Accuracy: {accuracy:.4f}")
+    print(f"  Misclassified: {(~correct_mask).sum()}")

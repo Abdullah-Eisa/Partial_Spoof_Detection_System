@@ -10,8 +10,7 @@ git add *
 
 # Commit your changes
 git commit -m "   
-        modified:   utils/attention_visualization.py
-        modified:   utils/gradient_analysis.py
+ modified:   utils/cluster_analysis.py
  ( working)
  "
 # Add the remote repository
