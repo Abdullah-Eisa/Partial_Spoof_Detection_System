@@ -97,7 +97,7 @@ class AttentionExtractor:
 
             lengths = torch.full((features.size(0),), features.size(1), 
                     dtype=torch.int16, device=features.device)
-                    
+
             _ = self.model(features, lengths, dropout_prob=0.0)
         
         return self.attention_weights
@@ -389,8 +389,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Attention Visualization on Audio File')
     parser.add_argument('--config', type=str, default='config/default_config.yaml',
                        help='Path to configuration file')
-    parser.add_argument('--audio-file', type=str, required=True,
-                       help='Path to audio file for analysis')
+    # parser.add_argument('--audio-file', type=str, required=True,
+    #                    help='Path to audio file for analysis')
     parser.add_argument('--boundaries', type=float, nargs='*', default=None,
                        help='Segment boundaries in seconds (e.g., 0.5 1.2 2.0 2.8)')
     parser.add_argument('--output-dir', type=str, default='outputs/attention_analysis',
@@ -406,9 +406,9 @@ if __name__ == "__main__":
     print("="*80)
     
     # Check if audio file exists
-    if not os.path.exists(args.audio_file):
-        print(f"⚠️  Audio file not found: {args.audio_file}")
-        exit(1)
+    # if not os.path.exists(args.audio_file):
+    #     print(f"⚠️  Audio file not found: {args.audio_file}")
+    #     exit(1)
     
     # Parse segment boundaries
     segment_boundaries = None
@@ -440,68 +440,92 @@ if __name__ == "__main__":
     model.eval()
     feature_extractor.eval()
     
-    # Load audio
-    print(f"\n2. Loading audio: {args.audio_file}")
-    waveform, sr = torchaudio.load(args.audio_file)
-    waveform = waveform.to(device)
+
+
+    import json
+    file_path="/root/Partial_Spoof_Detection_System/outputs/reports/hardest_samples_20260117_094825.json"
+    with open(file_path, "r") as f:
+        data = json.load(f)
+
+    genuine_file_names = [item["file"] for item in data["genuine"]]
+    spoof_file_names = [item["file"] for item in data["spoof"]]
+
+
+    # random_file_names
+    directory = "/root/Partial_Spoof_Detection_System/database/RFP_2/testing_subset"
+    random_file_names = [
+        os.path.splitext(f)[0]
+        for f in os.listdir(directory)
+        if f.lower().endswith(".wav")
+    ]
     
-    # Extract attention
-    print("\n3. Extracting attention weights...")
-    extractor = AttentionExtractor(model)
-    attention_dict = extractor.extract_attention(waveform, feature_extractor)
-    
-    # Visualize attention
-    if 'time_pooling' in attention_dict:
-        attention = attention_dict['time_pooling'].squeeze().cpu().numpy()
+    hard_correct_prediction_files = genuine_file_names + spoof_file_names + random_file_names
+    # hard_correct_prediction_files = genuine_file_names + spoof_file_names 
+    for file_name in hard_correct_prediction_files:
+        print(file_name)
+
+        # Load audio
+        print(f"\n2. Loading audio: {file_name}")
+        waveform, sr = torchaudio.load(f"/root/Partial_Spoof_Detection_System/database/RFP/testing/{file_name}.wav")
+        waveform = waveform.to(device)
         
-        # Normalize attention
-        attention = (attention - attention.min()) / (attention.max() - attention.min())
+        # Extract attention
+        print("\n3. Extracting attention weights...")
+        extractor = AttentionExtractor(model)
+        attention_dict = extractor.extract_attention(waveform, feature_extractor)
         
-        print("\n4. Generating visualization...")
-        os.makedirs(args.output_dir, exist_ok=True)
-        
-        visualize_attention_on_spectrogram(
-            waveform.squeeze().cpu().numpy(),
-            attention,
-            sample_rate=sr,
-            segment_boundaries=segment_boundaries,
-            save_path=os.path.join(args.output_dir, 'attention_spectrogram.png'),
-            title=f'Attention Analysis: {os.path.basename(args.audio_file)}'
-        )
-        
-        # Analyze boundary focus if boundaries provided
-        if segment_boundaries:
-            print("\n5. Analyzing boundary focus...")
-            # Convert time boundaries to frame indices
-            frame_rate = len(attention) / (len(waveform.squeeze()) / sr)
-            frame_boundaries = [
-                (int(start * frame_rate), int(end * frame_rate))
-                for start, end in segment_boundaries
-            ]
+        # Visualize attention
+        if 'time_pooling' in attention_dict:
+            attention = attention_dict['time_pooling'].squeeze().cpu().numpy()
             
-            stats = analyze_attention_at_boundaries(attention, frame_boundaries)
+            # Normalize attention
+            attention = (attention - attention.min()) / (attention.max() - attention.min())
             
-            print(f"\nBoundary Attention Statistics:")
-            print(f"  Boundary mean: {stats['boundary_mean']:.4f}")
-            print(f"  Non-boundary mean: {stats['non_boundary_mean']:.4f}")
-            print(f"  Attention ratio: {stats['attention_ratio']:.4f}")
+            print("\n4. Generating visualization...")
+            os.makedirs(args.output_dir, exist_ok=True)
             
-            # Save statistics to JSON
-            import json
-            from datetime import datetime
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            stats_path = os.path.join(args.output_dir, f'attention_stats_{timestamp}.json')
-            with open(stats_path, 'w') as f:
-                json.dump({
-                    'file': args.audio_file,
-                    'boundaries': segment_boundaries,
-                    'statistics': stats
-                }, f, indent=2)
-            print(f"\n✓ Statistics saved to: {stats_path}")
-    else:
-        print("⚠️  No time_pooling attention found in model")
-    
-    extractor.remove_hooks()
-    print(f"\n✓ Attention analysis complete!")
-    print(f"  Results saved to: {args.output_dir}")
+            visualize_attention_on_spectrogram(
+                waveform.squeeze().cpu().numpy(),
+                attention,
+                sample_rate=sr,
+                segment_boundaries=segment_boundaries,
+                save_path=os.path.join(args.output_dir, f'attention_spectrogram_{file_name}.png'),
+                title=f'Attention Analysis: {os.path.basename(file_name)}'
+            )
+            
+            # Analyze boundary focus if boundaries provided
+            if segment_boundaries:
+                print("\n5. Analyzing boundary focus...")
+                # Convert time boundaries to frame indices
+                frame_rate = len(attention) / (len(waveform.squeeze()) / sr)
+                frame_boundaries = [
+                    (int(start * frame_rate), int(end * frame_rate))
+                    for start, end in segment_boundaries
+                ]
+                
+                stats = analyze_attention_at_boundaries(attention, frame_boundaries)
+                
+                print(f"\nBoundary Attention Statistics:")
+                print(f"  Boundary mean: {stats['boundary_mean']:.4f}")
+                print(f"  Non-boundary mean: {stats['non_boundary_mean']:.4f}")
+                print(f"  Attention ratio: {stats['attention_ratio']:.4f}")
+                
+                # Save statistics to JSON
+                import json
+                from datetime import datetime
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+                stats_path = os.path.join(args.output_dir, f'attention_stats_{timestamp}.json')
+                with open(stats_path, 'w') as f:
+                    json.dump({
+                        'file': args.audio_file,
+                        'boundaries': segment_boundaries,
+                        'statistics': stats
+                    }, f, indent=2)
+                print(f"\n✓ Statistics saved to: {stats_path}")
+        else:
+            print("⚠️  No time_pooling attention found in model")
+        
+        extractor.remove_hooks()
+        print(f"\n✓ Attention analysis complete!")
+        print(f"  Results saved to: {args.output_dir}")
 
