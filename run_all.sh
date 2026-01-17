@@ -9,7 +9,7 @@ git init
 git add *
 
 # Commit your changes
-git commit -m " git add statistical testing files (not working yet) "
+git commit -m "  add working statistical testing and reporting_utils.py files "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
 

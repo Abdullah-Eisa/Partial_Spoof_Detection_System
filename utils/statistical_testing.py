@@ -214,7 +214,8 @@ def run_multiple_seeds_experiment(
         train_fn(config)
         
         # Run inference
-        metrics = inference_fn(config, show_model_info=False)
+        # metrics = inference_fn(config, show_model_info=False)
+        metrics = inference_fn(config)
         
         # Store results
         results['eer'].append(metrics['utterance_eer'])
@@ -253,30 +254,227 @@ def save_statistical_results(results: Dict, output_path: str):
 # Example Usage
 # ============================================================================
 
+# if __name__ == "__main__":
+#     # Example: Bootstrap confidence intervals
+#     print("Example: Bootstrap Confidence Intervals")
+#     print("-" * 60)
+    
+#     # Simulate predictions and labels
+#     np.random.seed(42)
+#     predictions = np.random.rand(1000)
+#     labels = np.random.randint(0, 2, 1000)
+    
+#     # Define metric function (accuracy)
+#     def accuracy(preds, lbls):
+#         pred_binary = (preds >= 0.5).astype(int)
+#         return np.mean(pred_binary == lbls)
+    
+#     ci = bootstrap_confidence_interval(predictions, labels, accuracy)
+#     print(f"Accuracy: {ci['mean']:.4f} [{ci['lower']:.4f}, {ci['upper']:.4f}]")
+    
+#     # Example: McNemar's test
+#     print("\nExample: McNemar's Test")
+#     print("-" * 60)
+    
+#     predictions_model2 = np.random.rand(1000)
+#     result = mcnemar_test(predictions, predictions_model2, labels)
+#     print(f"Chi² = {result['statistic']:.4f}, p = {result['p_value']:.4f}")
+#     print(f"Result: {result['interpretation']}")
+    
+#     # Example: Bonferroni correction
+#     print("\nExample: Bonferroni Correction")
+#     print("-" * 60)
+    
+#     p_values = [0.01, 0.03, 0.06, 0.12]
+#     bonf_result = bonferroni_correction(p_values)
+#     print(f"Corrected α: {bonf_result['corrected_alpha']:.4f}")
+#     print(f"Significant tests: {bonf_result['n_significant']}/{bonf_result['n_tests']}")
+
+
+
 if __name__ == "__main__":
-    # Example: Bootstrap confidence intervals
-    print("Example: Bootstrap Confidence Intervals")
-    print("-" * 60)
+    """
+    Standalone script to run statistical tests on inference results.
     
-    # Simulate predictions and labels
-    np.random.seed(42)
-    predictions = np.random.rand(1000)
-    labels = np.random.randint(0, 2, 1000)
+    Usage:
+        python -m utils.statistical_testing --config config/default_config.yaml
+    """
+    import argparse
+    from utils.config_manager import ConfigManager
+    from inference import inference
+    from model import initialize_models
+    from preprocess import initialize_data_loader
     
-    # Define metric function (accuracy)
-    def accuracy(preds, lbls):
-        pred_binary = (preds >= 0.5).astype(int)
-        return np.mean(pred_binary == lbls)
+    parser = argparse.ArgumentParser(description='Statistical Testing on Inference Results')
+    parser.add_argument('--config', type=str, default='config/default_config.yaml',
+                       help='Path to configuration file')
+    args = parser.parse_args()
     
-    ci = bootstrap_confidence_interval(predictions, labels, accuracy)
-    print(f"Accuracy: {ci['mean']:.4f} [{ci['lower']:.4f}, {ci['upper']:.4f}]")
+    # Load configuration
+    config = ConfigManager(args.config)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     
+    print("="*80)
+    print("RUNNING STATISTICAL TESTS ON INFERENCE RESULTS")
+    print("="*80)
+    
+    # Run inference to get predictions
+    print("\n1. Running inference to collect predictions...")
+    # inference_results = inference(config, show_model_info=False)
+    inference_results = inference(config)
+    
+    # Load model and feature extractor
+    # model, feature_extractor, _ = initialize_models(
+    #     config, save_feature_extractor=False, LEARNING_RATE=0.0001, DEVICE=device
+    # )
+    
+
+    # Load model and feature extractor
+    model, feature_extractor, _ = initialize_models(
+        ssl_ckpt_path=config['paths']['ssl_checkpoint'],
+        save_feature_extractor=False,
+        feature_dim=config['model']['feature_dim'],
+        num_heads=config['model']['num_heads'],
+        hidden_dim=config['model']['hidden_dim'],
+        max_dropout=config['model']['max_dropout'],
+        depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
+        conformer_layers=config['model']['conformer_layers'],
+        max_pooling_factor=config['model']['max_pooling_factor'],
+        LEARNING_RATE=0.0001,
+        DEVICE=device
+    )
+
+    model2, feature_extractor, _ = initialize_models(
+        ssl_ckpt_path=config['paths']['ssl_checkpoint'],
+        save_feature_extractor=False,
+        feature_dim=config['model']['feature_dim'],
+        num_heads=config['model']['num_heads'],
+        hidden_dim=config['model']['hidden_dim'],
+        max_dropout=config['model']['max_dropout'],
+        depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
+        conformer_layers=config['model']['conformer_layers'],
+        max_pooling_factor=config['model']['max_pooling_factor'],
+        LEARNING_RATE=0.0001,
+        DEVICE=device
+    )
+
+
+
+    checkpoint = torch.load(config['paths']['ps_model_checkpoint'], map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+
+
+    checkpoint2 = torch.load("/root/Partial_Spoof_Detection_System/models/back_end_models/RFP_Dataset_model_epochs30_batch8_lr0.00075_20251129_083351.pth", map_location=device)
+    model2.load_state_dict(checkpoint2['model_state_dict'])
+    model2.eval()
+    
+    # Get test data loader
+    test_loader = initialize_data_loader(
+        dataset_name=config['data']['dataset_name'],
+        data_path=config['data']['eval_data_path'],
+        labels_path=config['data']['eval_labels_path'],
+        BATCH_SIZE=config['inference']['batch_size'],
+        shuffle=False,
+        num_workers=config['inference'].get('num_workers', 4),
+        prefetch_factor=config['inference'].get('prefetch_factor', 2),
+        pin_memory=config['inference'].get('pin_memory', True)
+    )
+    
+    # Collect predictions and labels
+    print("2. Collecting predictions and labels...")
+    all_predictions = []
+    all_labels = []
+    
+    with torch.no_grad():
+        for batch in test_loader:
+            waveforms = batch['waveform'].to(device)
+            labels = batch['label']
+            
+            features_output = feature_extractor(waveforms)
+            if isinstance(features_output, dict):
+                features = features_output['hidden_states'][-1]
+            else:
+                features = features_output
+            
+            lengths = torch.full((features.size(0),), features.size(1), 
+                               dtype=torch.int16, device=device)
+            outputs = model(features, lengths, dropout_prob=0.0)
+            
+            all_predictions.extend(outputs.cpu().numpy())
+            all_labels.extend(labels.numpy())
+    
+    predictions = np.array(all_predictions)
+    labels = np.array(all_labels)
+    
+
+
+    all_predictions2 = []
+
+    with torch.no_grad():
+        for batch in test_loader:
+            waveforms = batch['waveform'].to(device)
+            # labels = batch['label']
+            
+            features_output = feature_extractor(waveforms)
+            if isinstance(features_output, dict):
+                features = features_output['hidden_states'][-1]
+            else:
+                features = features_output
+            
+            lengths = torch.full((features.size(0),), features.size(1), 
+                               dtype=torch.int16, device=device)
+            outputs = model(features, lengths, dropout_prob=0.0)
+            
+            all_predictions2.extend(outputs.cpu().numpy())
+            # all_labels.extend(labels.numpy())
+    
+    predictions2 = np.array(all_predictions2)
+
+
+
+
+    # Run statistical tests
+    print("\n3. Running Bootstrap Confidence Intervals (1000 samples)...")
+    from utils.utils import compute_eer
+    ci_eer = bootstrap_confidence_interval(
+        predictions, labels,
+        metric_fn=lambda p, l: compute_eer(torch.tensor(p), torch.tensor(l))[0],
+        n_bootstrap=10000
+        # n_bootstrap=1000
+    )
+    
+
+    ci_eer2 = bootstrap_confidence_interval(
+        predictions2, labels,
+        metric_fn=lambda p, l: compute_eer(torch.tensor(p), torch.tensor(l))[0],
+        n_bootstrap=10000
+        # n_bootstrap=1000
+    )
+
+    print(f"\nResults:")
+    print(f"  EER: {ci_eer['mean']:.4f} [{ci_eer['lower']:.4f}, {ci_eer['upper']:.4f}]")
+    print(f"  95% Confidence Interval: [{ci_eer['lower']:.4f}, {ci_eer['upper']:.4f}]")
+    print(f"  Standard Deviation: {ci_eer['std']:.4f}")
+    
+    print(f"\nResults2:")
+    print(f"  EER: {ci_eer2['mean']:.4f} [{ci_eer2['lower']:.4f}, {ci_eer2['upper']:.4f}]")
+    print(f"  95% Confidence Interval: [{ci_eer2['lower']:.4f}, {ci_eer2['upper']:.4f}]")
+    print(f"  Standard Deviation: {ci_eer2['std']:.4f}")
+
+
+
+
+
+
+
+
     # Example: McNemar's test
     print("\nExample: McNemar's Test")
     print("-" * 60)
     
-    predictions_model2 = np.random.rand(1000)
-    result = mcnemar_test(predictions, predictions_model2, labels)
+    # predictions_model2 = np.random.rand(1000)
+    result = mcnemar_test(predictions, predictions2, labels)
     print(f"Chi² = {result['statistic']:.4f}, p = {result['p_value']:.4f}")
     print(f"Result: {result['interpretation']}")
     
@@ -288,3 +486,25 @@ if __name__ == "__main__":
     bonf_result = bonferroni_correction(p_values)
     print(f"Corrected α: {bonf_result['corrected_alpha']:.4f}")
     print(f"Significant tests: {bonf_result['n_significant']}/{bonf_result['n_tests']}")
+
+
+
+
+
+
+
+
+    # Save results
+    import os
+    from datetime import datetime
+    output_dir = 'outputs/statistical_tests'
+    os.makedirs(output_dir, exist_ok=True)
+    
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    save_statistical_results(
+        {'confidence_intervals': {'eer': ci_eer, 'eer2': ci_eer2}, 'mcnemar_test': result,
+         'bonferroni_correction': bonf_result},
+        os.path.join(output_dir, f'statistical_results_{timestamp}.json')
+    )
+    
+    print(f"\n✓ Statistical testing complete!")

@@ -201,12 +201,14 @@ def generate_comprehensive_report(
             hardest = results_dict['hardest_samples']
             
             f.write("\nGenuine Samples:\n")
-            for i, sample in enumerate(hardest['genuine'][:10], 1):
+            # for i, sample in enumerate(hardest['genuine'][:10], 1):
+            for i, sample in enumerate(hardest['genuine'][:100], 1):
                 f.write(f"  {i}. {sample['file']}: score={sample['score']:.4f}, "
                        f"confidence={sample['confidence']:.4f}\n")
             
             f.write("\nSpoof Samples:\n")
-            for i, sample in enumerate(hardest['spoof'][:10], 1):
+            # for i, sample in enumerate(hardest['spoof'][:10], 1):
+            for i, sample in enumerate(hardest['spoof'][:100], 1):
                 f.write(f"  {i}. {sample['file']}: score={sample['score']:.4f}, "
                        f"confidence={sample['confidence']:.4f}\n")
         
@@ -257,25 +259,162 @@ def plot_confusion_matrix(
 # Example Usage
 # ============================================================================
 
+# if __name__ == "__main__":
+#     print("Example: Enhanced Reporting")
+    
+#     # Simulate data
+#     np.random.seed(42)
+#     predictions = np.random.rand(1000)
+#     labels = np.random.randint(0, 2, 1000)
+#     file_names = [f"sample_{i}.wav" for i in range(1000)]
+    
+#     # Plot distribution
+#     plot_prediction_distribution(predictions, labels)
+    
+#     # Find hardest samples
+#     hardest = find_hardest_samples(predictions, labels, file_names, n_samples=10)
+#     print("\nTop 3 Hardest Genuine Samples:")
+#     for sample in hardest['genuine'][:3]:
+#         print(f"  {sample['file']}: score={sample['score']:.4f}")
+    
+#     # Plot confusion matrix
+#     plot_confusion_matrix(predictions, labels)
+
+
+
 if __name__ == "__main__":
-    print("Example: Enhanced Reporting")
+    """
+    Standalone script to generate reporting visualizations.
     
-    # Simulate data
-    np.random.seed(42)
-    predictions = np.random.rand(1000)
-    labels = np.random.randint(0, 2, 1000)
-    file_names = [f"sample_{i}.wav" for i in range(1000)]
+    Usage:
+        python -m utils.reporting_utils --config config/default_config.yaml
+    """
+    import argparse
+    from utils.config_manager import ConfigManager
+    from model import initialize_models
+    from preprocess import initialize_data_loader
+    import torch
     
-    # Plot distribution
-    plot_prediction_distribution(predictions, labels)
+    parser = argparse.ArgumentParser(description='Enhanced Reporting on Inference Results')
+    parser.add_argument('--config', type=str, default='config/default_config.yaml',
+                       help='Path to configuration file')
+    parser.add_argument('--output-dir', type=str, default='outputs/reports',
+                       help='Output directory for reports')
+    args = parser.parse_args()
+    
+    # Load configuration
+    config = ConfigManager(args.config)
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
+    print("="*80)
+    print("GENERATING ENHANCED REPORTS")
+    print("="*80)
+    
+    # Load model and feature extractor
+    print("\n1. Loading model...")
+    # model, feature_extractor, _ = initialize_models(
+    #     config, save_feature_extractor=False, LEARNING_RATE=0.0001, DEVICE=device
+    # )
+    
+    # Load model and feature extractor
+    model, feature_extractor, _ = initialize_models(
+        ssl_ckpt_path=config['paths']['ssl_checkpoint'],
+        save_feature_extractor=False,
+        feature_dim=config['model']['feature_dim'],
+        num_heads=config['model']['num_heads'],
+        hidden_dim=config['model']['hidden_dim'],
+        max_dropout=config['model']['max_dropout'],
+        depthwise_conv_kernel_size=config['model']['depthwise_conv_kernel_size'],
+        conformer_layers=config['model']['conformer_layers'],
+        max_pooling_factor=config['model']['max_pooling_factor'],
+        LEARNING_RATE=0.0001,
+        DEVICE=device
+    )
+
+
+
+    checkpoint = torch.load(config['paths']['ps_model_checkpoint'], map_location=device)
+    model.load_state_dict(checkpoint['model_state_dict'])
+    model.eval()
+    
+    # Get test data loader
+    test_loader = initialize_data_loader(
+        dataset_name=config['data']['dataset_name'],
+        data_path=config['data']['eval_data_path'],
+        labels_path=config['data']['eval_labels_path'],
+        BATCH_SIZE=config['inference']['batch_size'],
+        shuffle=False,
+        num_workers=config['inference'].get('num_workers', 4),
+        prefetch_factor=config['inference'].get('prefetch_factor', 2),
+        pin_memory=config['inference'].get('pin_memory', True)
+    )
+    
+    # Collect predictions and labels
+    print("2. Collecting predictions, labels, and file names...")
+    all_predictions = []
+    all_labels = []
+    all_files = []
+    
+    with torch.no_grad():
+        for batch in test_loader:
+            waveforms = batch['waveform'].to(device)
+            labels = batch['label']
+            
+            features_output = feature_extractor(waveforms)
+            if isinstance(features_output, dict):
+                features = features_output['hidden_states'][-1]
+            else:
+                features = features_output
+            
+            lengths = torch.full((features.size(0),), features.size(1), 
+                               dtype=torch.int16, device=device)
+            outputs = model(features, lengths, dropout_prob=0.0)
+            
+            all_predictions.extend(outputs.cpu().numpy())
+            all_labels.extend(labels.numpy())
+            all_files.extend(batch['file_name'])
+    
+    predictions = np.array(all_predictions)
+    labels = np.array(all_labels)
+    
+    # Generate reports
+    print("\n3. Generating visualizations...")
+    
+    # Plot prediction distribution
+    print("   - Prediction distribution...")
+    plot_prediction_distribution(
+        predictions, labels,
+        save_path=os.path.join(args.output_dir, 'prediction_distribution.png')
+    )
     
     # Find hardest samples
-    hardest = find_hardest_samples(predictions, labels, file_names, n_samples=10)
-    print("\nTop 3 Hardest Genuine Samples:")
-    for sample in hardest['genuine'][:3]:
-        print(f"  {sample['file']}: score={sample['score']:.4f}")
+    print("   - Finding hardest samples...")
+    hardest = find_hardest_samples(predictions, labels, all_files, n_samples=100)
+    
+    print("\n   Top 5 Hardest Genuine Samples:")
+    for i, sample in enumerate(hardest['genuine'][:100], 1):
+        print(f"     {i}. {sample['file']}: score={sample['score']:.4f}, confidence={sample['confidence']:.4f}")
+    
+    print("\n   Top 5 Hardest Spoof Samples:")
+    for i, sample in enumerate(hardest['spoof'][:100], 1):
+        print(f"     {i}. {sample['file']}: score={sample['score']:.4f}, confidence={sample['confidence']:.4f}")
     
     # Plot confusion matrix
-    plot_confusion_matrix(predictions, labels)
+    print("\n   - Confusion matrix...")
+    plot_confusion_matrix(
+        predictions, labels,
+        save_path=os.path.join(args.output_dir, 'confusion_matrix.png')
+    )
+    
+    # Save hardest samples to JSON
+    import json
+    from datetime import datetime
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    hardest_path = os.path.join(args.output_dir, f'hardest_samples_{timestamp}.json')
+    with open(hardest_path, 'w') as f:
+        json.dump(hardest, f, indent=2)
+    print(f"\n✓ Hardest samples saved to: {hardest_path}")
+    
+    print(f"\n✓ All reports saved to: {args.output_dir}")
 
 
