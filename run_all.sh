@@ -10,8 +10,8 @@ git add *
 
 # Commit your changes
 git commit -m "   
- modified:   utils/cluster_analysis.py
- ( working)
+ modified:   utils/reporting_utils.py and other file versions
+ ( not  working correctly)
  "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git

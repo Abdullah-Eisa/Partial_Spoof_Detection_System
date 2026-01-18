@@ -42,10 +42,8 @@ def plot_prediction_distribution(
     
     # Convert logits to probabilities if needed
     if use_logits:
-        # predictions_prob = _sigmoid(predictions)
-        # x_label = 'Prediction Probability'
-        predictions_prob = predictions   # keep logits
-        x_label = 'Prediction Logit'
+        predictions_prob = _sigmoid(predictions)
+        x_label = 'Prediction Probability'
     else:
         predictions_prob = predictions
         x_label = 'Prediction Score'
@@ -60,36 +58,24 @@ def plot_prediction_distribution(
     # Plot histogram
     axes[0].hist(genuine_preds, bins=bins, alpha=0.6, label='Genuine', color='green', density=True)
     axes[0].hist(spoof_preds, bins=bins, alpha=0.6, label='Spoof', color='red', density=True)
-    # axes[0].axvline(x=0.5, color='black', linestyle='--', linewidth=1.5, label='Threshold=0.5')
-    axes[0].axvline(x=0.0, color='black', linestyle='--', linewidth=1.5, label='Threshold=0.5')
+    axes[0].axvline(x=0.5, color='black', linestyle='--', linewidth=1.5, label='Threshold=0.5')
     axes[0].set_xlabel(x_label)
     axes[0].set_ylabel('Density')
     axes[0].set_title('Distribution of Prediction Scores')
     axes[0].legend()
     axes[0].grid(True, alpha=0.3)
-    # axes[0].set_xlim([0, 1])  # Probabilities are in [0,1]
+    axes[0].set_xlim([0, 1])  # Probabilities are in [0,1]
     
     # Plot box plot
-    # axes[1].boxplot([genuine_preds, spoof_preds], labels=['Genuine', 'Spoof'], 
-    #                 vert=False, patch_artist=True,
-    #                 boxprops=dict(facecolor='lightblue', alpha=0.6))
-    axes[1].boxplot(
-        [genuine_preds, spoof_preds],
-        vert=False,
-        showfliers=True,   # <-- add this
-        patch_artist=True,
-        labels=['Genuine', 'Spoof']
-    )
-
-
-
-    # axes[1].axvline(x=0.5, color='black', linestyle='--', linewidth=1.5, label='Threshold=0.5')
-    axes[1].axvline(x=0.0, color='black', linestyle='--', linewidth=1.5, label='Threshold=0.5')
+    axes[1].boxplot([genuine_preds, spoof_preds], labels=['Genuine', 'Spoof'], 
+                    vert=False, patch_artist=True,
+                    boxprops=dict(facecolor='lightblue', alpha=0.6))
+    axes[1].axvline(x=0.5, color='black', linestyle='--', linewidth=1.5, label='Threshold=0.5')
     axes[1].set_xlabel(x_label)
     axes[1].set_title('Box Plot of Prediction Scores by Class')
     axes[1].legend()
     axes[1].grid(True, alpha=0.3)
-    # axes[1].set_xlim([0, 1])
+    axes[1].set_xlim([0, 1])
     
     plt.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -146,8 +132,7 @@ def find_hardest_samples(
     
     # Convert logits to probabilities if needed
     if use_logits:
-        # predictions_prob = _sigmoid(predictions)
-        predictions_prob = predictions
+        predictions_prob = _sigmoid(predictions)
     else:
         predictions_prob = predictions
     
@@ -367,7 +352,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Enhanced Reporting on Inference Results')
     parser.add_argument('--config', type=str, default='config/default_config.yaml',
                        help='Path to configuration file')
-    parser.add_argument('--output-dir', type=str, default='outputs/reports7',
+    parser.add_argument('--output-dir', type=str, default='outputs/reports6',
                        help='Output directory for reports')
     args = parser.parse_args()
     

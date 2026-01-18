@@ -1,5 +1,4 @@
 
-
 """
 Enhanced Reporting Utilities
 Location: utils/reporting_utils.py
@@ -12,17 +11,11 @@ from typing import Dict, List, Tuple
 import os
 
 
-def _sigmoid(x):
-    """Apply sigmoid to convert logits to probabilities."""
-    return 1 / (1 + np.exp(-x))
-
-
 def plot_prediction_distribution(
     predictions: np.ndarray,
     labels: np.ndarray,
     save_path: str = 'outputs/prediction_distribution.png',
-    bins: int = 50,
-    use_logits: bool = True
+    bins: int = 50
 ):
     """
     Plot distribution of prediction scores for genuine vs spoof samples.
@@ -32,27 +25,16 @@ def plot_prediction_distribution(
         labels: Ground truth labels (0=genuine, 1=spoof)
         save_path: Path to save figure
         bins: Number of histogram bins
-        use_logits: If True, predictions are logits and will be converted to probs
     
     Example:
-        >>> plot_prediction_distribution(predictions, labels, use_logits=True)
+        >>> plot_prediction_distribution(predictions, labels)
     """
     predictions = predictions.flatten()
     labels = labels.flatten()
     
-    # Convert logits to probabilities if needed
-    if use_logits:
-        # predictions_prob = _sigmoid(predictions)
-        # x_label = 'Prediction Probability'
-        predictions_prob = predictions   # keep logits
-        x_label = 'Prediction Logit'
-    else:
-        predictions_prob = predictions
-        x_label = 'Prediction Score'
-    
     # Separate by class
-    genuine_preds = predictions_prob[labels == 0]
-    spoof_preds = predictions_prob[labels == 1]
+    genuine_preds = predictions[labels == 0]
+    spoof_preds = predictions[labels == 1]
     
     # Create figure
     fig, axes = plt.subplots(2, 1, figsize=(12, 8))
@@ -60,36 +42,19 @@ def plot_prediction_distribution(
     # Plot histogram
     axes[0].hist(genuine_preds, bins=bins, alpha=0.6, label='Genuine', color='green', density=True)
     axes[0].hist(spoof_preds, bins=bins, alpha=0.6, label='Spoof', color='red', density=True)
-    # axes[0].axvline(x=0.5, color='black', linestyle='--', linewidth=1.5, label='Threshold=0.5')
-    axes[0].axvline(x=0.0, color='black', linestyle='--', linewidth=1.5, label='Threshold=0.5')
-    axes[0].set_xlabel(x_label)
+    axes[0].set_xlabel('Prediction Score')
     axes[0].set_ylabel('Density')
     axes[0].set_title('Distribution of Prediction Scores')
     axes[0].legend()
     axes[0].grid(True, alpha=0.3)
-    # axes[0].set_xlim([0, 1])  # Probabilities are in [0,1]
     
     # Plot box plot
-    # axes[1].boxplot([genuine_preds, spoof_preds], labels=['Genuine', 'Spoof'], 
-    #                 vert=False, patch_artist=True,
-    #                 boxprops=dict(facecolor='lightblue', alpha=0.6))
-    axes[1].boxplot(
-        [genuine_preds, spoof_preds],
-        vert=False,
-        showfliers=True,   # <-- add this
-        patch_artist=True,
-        labels=['Genuine', 'Spoof']
-    )
-
-
-
-    # axes[1].axvline(x=0.5, color='black', linestyle='--', linewidth=1.5, label='Threshold=0.5')
-    axes[1].axvline(x=0.0, color='black', linestyle='--', linewidth=1.5, label='Threshold=0.5')
-    axes[1].set_xlabel(x_label)
+    axes[1].boxplot([genuine_preds, spoof_preds], labels=['Genuine', 'Spoof'], 
+                    vert=False, patch_artist=True,
+                    boxprops=dict(facecolor='lightblue', alpha=0.6))
+    axes[1].set_xlabel('Prediction Score')
     axes[1].set_title('Box Plot of Prediction Scores by Class')
-    axes[1].legend()
     axes[1].grid(True, alpha=0.3)
-    # axes[1].set_xlim([0, 1])
     
     plt.tight_layout()
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
@@ -99,17 +64,9 @@ def plot_prediction_distribution(
     print(f"✓ Prediction distribution saved to: {save_path}")
     
     # Print statistics
-    print("\nPrediction Statistics (Probabilities):")
+    print("\nPrediction Statistics:")
     print(f"Genuine - Mean: {genuine_preds.mean():.4f}, Std: {genuine_preds.std():.4f}")
     print(f"Spoof   - Mean: {spoof_preds.mean():.4f}, Std: {spoof_preds.std():.4f}")
-    
-    # Print logit statistics too (for debugging)
-    if use_logits:
-        genuine_logits = predictions[labels == 0]
-        spoof_logits = predictions[labels == 1]
-        print("\nPrediction Statistics (Raw Logits):")
-        print(f"Genuine - Mean: {genuine_logits.mean():.4f}, Std: {genuine_logits.std():.4f}")
-        print(f"Spoof   - Mean: {spoof_logits.mean():.4f}, Std: {spoof_logits.std():.4f}")
 
 
 def find_hardest_samples(
@@ -117,93 +74,55 @@ def find_hardest_samples(
     labels: np.ndarray,
     file_names: List[str],
     n_samples: int = 20,
-    threshold: float = 0.5,
-    use_logits: bool = True
+    threshold: float = 0.5
 ) -> Dict:
     """
     Identify hardest samples (lowest confidence correct predictions).
     
-    IMPORTANT: "Hardest" means CLOSEST to the decision boundary.
-    - For logits: boundary is at 0.0 (sigmoid(0) = 0.5)
-    - Samples with logits closest to 0 are hardest (least confident)
-    
     Args:
-        predictions: Model predictions (logits or probabilities)
+        predictions: Model predictions
         labels: Ground truth labels
         file_names: List of file names
         n_samples: Number of hardest samples to return
-        threshold: Classification threshold (in probability space)
-        use_logits: If True, predictions are logits and will be converted
+        threshold: Classification threshold
     
     Returns:
         Dictionary with hardest genuine and spoof samples
+    
+    Example:
+        >>> hardest = find_hardest_samples(preds, labels, file_names)
+        >>> print("Hardest genuine samples:")
+        >>> for sample in hardest['genuine'][:5]:
+        ...     print(f"  {sample['file']}: score={sample['score']:.4f}")
     """
     predictions = predictions.flatten()
     labels = labels.flatten()
     
-    # Store original logits for output
-    predictions_logits = predictions.copy() if use_logits else None
-    
-    # Convert logits to probabilities if needed
-    if use_logits:
-        # predictions_prob = _sigmoid(predictions)
-        predictions_prob = predictions
-    else:
-        predictions_prob = predictions
-    
     # Find correct predictions
-    pred_binary = (predictions_prob >= threshold).astype(int)
+    pred_binary = (predictions >= threshold).astype(int)
     correct_mask = (pred_binary == labels)
     
-    # Calculate "hardness" = distance from decision boundary
-    # For logits: decision boundary is at logit=0 (prob=0.5)
-    # Smaller absolute logit = harder (closer to boundary)
-    if use_logits:
-        # For genuine (label=0): logit should be negative
-        # For spoof (label=1): logit should be positive
-        # "Hardness" = how close to 0 (smaller |logit| = harder)
-        distance_from_boundary = np.abs(predictions)
-        
-        # "Confidence" as percentage: how far from boundary (0-100%)
-        # Map logit magnitude to confidence percentage
-        # Small |logit| (near 0) → low confidence
-        # Large |logit| (far from 0) → high confidence
-        max_logit = np.abs(predictions).max()
-        confidence_pct = (np.abs(predictions) / max_logit) * 100 if max_logit > 0 else np.zeros_like(predictions)
-    else:
-        distance_from_boundary = np.abs(predictions_prob - threshold)
-        confidence_pct = (distance_from_boundary / 0.5) * 100  # 0.5 is max distance from threshold
+    # Calculate confidence (distance from threshold)
+    confidence = np.abs(predictions - threshold)
     
-    # Hardest genuine samples (correct, but close to threshold)
+    # Hardest genuine samples (correct, but low confidence)
     genuine_mask = (labels == 0) & correct_mask
     genuine_indices = np.where(genuine_mask)[0]
+    genuine_confidence = confidence[genuine_indices]
+    hardest_genuine_idx = genuine_indices[np.argsort(genuine_confidence)[:n_samples]]
     
-    if len(genuine_indices) > 0:
-        genuine_distance = distance_from_boundary[genuine_indices]
-        # Sort by ASCENDING distance → smallest first (closest to boundary = hardest)
-        hardest_genuine_idx = genuine_indices[np.argsort(genuine_distance)[:n_samples]]
-    else:
-        hardest_genuine_idx = []
-    
-    # Hardest spoof samples (correct, but close to threshold)
+    # Hardest spoof samples
     spoof_mask = (labels == 1) & correct_mask
     spoof_indices = np.where(spoof_mask)[0]
-    
-    if len(spoof_indices) > 0:
-        spoof_distance = distance_from_boundary[spoof_indices]
-        # Sort by ASCENDING distance → smallest first (closest to boundary = hardest)
-        hardest_spoof_idx = spoof_indices[np.argsort(spoof_distance)[:n_samples]]
-    else:
-        hardest_spoof_idx = []
+    spoof_confidence = confidence[spoof_indices]
+    hardest_spoof_idx = spoof_indices[np.argsort(spoof_confidence)[:n_samples]]
     
     hardest = {
         'genuine': [
             {
                 'file': file_names[i],
-                'logit': float(predictions[i]) if use_logits else None,
-                'prob': float(predictions_prob[i]),
-                'distance_from_boundary': float(distance_from_boundary[i]),
-                'confidence_pct': float(confidence_pct[i]),
+                'score': float(predictions[i]),
+                'confidence': float(confidence[i]),
                 'label': int(labels[i])
             }
             for i in hardest_genuine_idx
@@ -211,10 +130,8 @@ def find_hardest_samples(
         'spoof': [
             {
                 'file': file_names[i],
-                'logit': float(predictions[i]) if use_logits else None,
-                'prob': float(predictions_prob[i]),
-                'distance_from_boundary': float(distance_from_boundary[i]),
-                'confidence_pct': float(confidence_pct[i]),
+                'score': float(predictions[i]),
+                'confidence': float(confidence[i]),
                 'label': int(labels[i])
             }
             for i in hardest_spoof_idx
@@ -283,17 +200,17 @@ def generate_comprehensive_report(
             
             hardest = results_dict['hardest_samples']
             
-            f.write("\nGenuine Samples (closest to decision boundary at logit=0):\n")
+            f.write("\nGenuine Samples:\n")
+            # for i, sample in enumerate(hardest['genuine'][:10], 1):
             for i, sample in enumerate(hardest['genuine'][:100], 1):
-                logit_str = f", logit={sample['logit']:.4f}" if sample.get('logit') is not None else ""
-                f.write(f"  {i}. {sample['file']}: prob={sample['prob']:.6f}{logit_str}, "
-                       f"dist={sample['distance_from_boundary']:.4f}, conf={sample['confidence_pct']:.1f}%\n")
+                f.write(f"  {i}. {sample['file']}: score={sample['score']:.4f}, "
+                       f"confidence={sample['confidence']:.4f}\n")
             
-            f.write("\nSpoof Samples (closest to decision boundary at logit=0):\n")
+            f.write("\nSpoof Samples:\n")
+            # for i, sample in enumerate(hardest['spoof'][:10], 1):
             for i, sample in enumerate(hardest['spoof'][:100], 1):
-                logit_str = f", logit={sample['logit']:.4f}" if sample.get('logit') is not None else ""
-                f.write(f"  {i}. {sample['file']}: prob={sample['prob']:.6f}{logit_str}, "
-                       f"dist={sample['distance_from_boundary']:.4f}, conf={sample['confidence_pct']:.1f}%\n")
+                f.write(f"  {i}. {sample['file']}: score={sample['score']:.4f}, "
+                       f"confidence={sample['confidence']:.4f}\n")
         
         f.write("\n" + "=" * 80 + "\n")
     
@@ -304,8 +221,7 @@ def plot_confusion_matrix(
     predictions: np.ndarray,
     labels: np.ndarray,
     save_path: str = 'outputs/confusion_matrix.png',
-    threshold: float = 0.5,
-    use_logits: bool = True
+    threshold: float = 0.5
 ):
     """
     Plot confusion matrix.
@@ -315,20 +231,12 @@ def plot_confusion_matrix(
         labels: Ground truth labels
         save_path: Path to save figure
         threshold: Classification threshold
-        use_logits: If True, convert logits to probabilities first
     """
     from sklearn.metrics import confusion_matrix
     import seaborn as sns
     
-    predictions = predictions.flatten()
-    labels = labels.flatten()
-    
-    # Convert logits to probabilities if needed
-    if use_logits:
-        predictions = _sigmoid(predictions)
-    
-    pred_binary = (predictions >= threshold).astype(int)
-    labels_binary = labels.astype(int)
+    pred_binary = (predictions.flatten() >= threshold).astype(int)
+    labels_binary = labels.flatten().astype(int)
     
     cm = confusion_matrix(labels_binary, pred_binary)
     
@@ -347,9 +255,7 @@ def plot_confusion_matrix(
     print(f"✓ Confusion matrix saved to: {save_path}")
 
 
-# ============================================================================
-# Example Usage in __main__
-# ============================================================================
+
 
 if __name__ == "__main__":
     """
@@ -367,7 +273,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Enhanced Reporting on Inference Results')
     parser.add_argument('--config', type=str, default='config/default_config.yaml',
                        help='Path to configuration file')
-    parser.add_argument('--output-dir', type=str, default='outputs/reports7',
+    parser.add_argument('--output-dir', type=str, default='outputs/reports',
                        help='Output directory for reports')
     args = parser.parse_args()
     
@@ -381,6 +287,11 @@ if __name__ == "__main__":
     
     # Load model and feature extractor
     print("\n1. Loading model...")
+    # model, feature_extractor, _ = initialize_models(
+    #     config, save_feature_extractor=False, LEARNING_RATE=0.0001, DEVICE=device
+    # )
+    
+    # Load model and feature extractor
     model, feature_extractor, _ = initialize_models(
         ssl_ckpt_path=config['paths']['ssl_checkpoint'],
         save_feature_extractor=False,
@@ -394,6 +305,8 @@ if __name__ == "__main__":
         LEARNING_RATE=0.0001,
         DEVICE=device
     )
+
+
 
     checkpoint = torch.load(config['paths']['ps_model_checkpoint'], map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
@@ -442,52 +355,30 @@ if __name__ == "__main__":
     # Generate reports
     print("\n3. Generating visualizations...")
     
-    # Plot prediction distribution (WITH LOGIT CONVERSION)
+    # Plot prediction distribution
     print("   - Prediction distribution...")
     plot_prediction_distribution(
         predictions, labels,
-        save_path=os.path.join(args.output_dir, 'prediction_distribution.png'),
-        use_logits=True  # IMPORTANT: Tell it these are logits
+        save_path=os.path.join(args.output_dir, 'prediction_distribution.png')
     )
     
-    # Find hardest samples (WITH LOGIT CONVERSION)
+    # Find hardest samples
     print("   - Finding hardest samples...")
-    hardest = find_hardest_samples(
-        predictions, labels, all_files, 
-        n_samples=100,
-        use_logits=True  # IMPORTANT: Tell it these are logits
-    )
-    
-    # Print diagnostic information
-    print("\n   === Diagnostic Information ===")
-    if hardest['genuine']:
-        genuine_logits = [s['logit'] for s in hardest['genuine']]
-        print(f"   Genuine logit range: [{min(genuine_logits):.2f}, {max(genuine_logits):.2f}]")
-    if hardest['spoof']:
-        spoof_logits = [s['logit'] for s in hardest['spoof']]
-        print(f"   Spoof logit range: [{min(spoof_logits):.2f}, {max(spoof_logits):.2f}]")
-    print(f"   Decision boundary: logit=0.0 (prob=0.5)")
-    print(f"   Note: 'Hardest' = closest to boundary (smallest |logit|)")
-    print("   =============================\n")
+    hardest = find_hardest_samples(predictions, labels, all_files, n_samples=100)
     
     print("\n   Top 5 Hardest Genuine Samples:")
-    for i, sample in enumerate(hardest['genuine'][:5], 1):
-        logit_str = f", logit={sample['logit']:.4f}" if sample.get('logit') is not None else ""
-        print(f"     {i}. {sample['file']}: prob={sample['prob']:.6f}{logit_str}, "
-              f"dist={sample['distance_from_boundary']:.4f}, conf={sample['confidence_pct']:.1f}%")
+    for i, sample in enumerate(hardest['genuine'][:100], 1):
+        print(f"     {i}. {sample['file']}: score={sample['score']:.4f}, confidence={sample['confidence']:.4f}")
     
     print("\n   Top 5 Hardest Spoof Samples:")
-    for i, sample in enumerate(hardest['spoof'][:5], 1):
-        logit_str = f", logit={sample['logit']:.4f}" if sample.get('logit') is not None else ""
-        print(f"     {i}. {sample['file']}: prob={sample['prob']:.6f}{logit_str}, "
-              f"dist={sample['distance_from_boundary']:.4f}, conf={sample['confidence_pct']:.1f}%")
+    for i, sample in enumerate(hardest['spoof'][:100], 1):
+        print(f"     {i}. {sample['file']}: score={sample['score']:.4f}, confidence={sample['confidence']:.4f}")
     
-    # Plot confusion matrix (WITH LOGIT CONVERSION)
+    # Plot confusion matrix
     print("\n   - Confusion matrix...")
     plot_confusion_matrix(
         predictions, labels,
-        save_path=os.path.join(args.output_dir, 'confusion_matrix.png'),
-        use_logits=True  # IMPORTANT: Tell it these are logits
+        save_path=os.path.join(args.output_dir, 'confusion_matrix.png')
     )
     
     # Save hardest samples to JSON
@@ -500,3 +391,5 @@ if __name__ == "__main__":
     print(f"\n✓ Hardest samples saved to: {hardest_path}")
     
     print(f"\n✓ All reports saved to: {args.output_dir}")
+
+
