@@ -442,31 +442,33 @@ if __name__ == "__main__":
     
 
 
-    import json
-    file_path="/root/Partial_Spoof_Detection_System/outputs/reports/hardest_samples_20260117_094825.json"
-    with open(file_path, "r") as f:
-        data = json.load(f)
+    # import json
+    # file_path="/root/Partial_Spoof_Detection_System/outputs/reports/hardest_samples_20260117_094825.json"
+    # with open(file_path, "r") as f:
+    #     data = json.load(f)
 
-    genuine_file_names = [item["file"] for item in data["genuine"]]
-    spoof_file_names = [item["file"] for item in data["spoof"]]
+    # genuine_file_names = [item["file"] for item in data["genuine"]]
+    # spoof_file_names = [item["file"] for item in data["spoof"]]
 
 
-    # random_file_names
-    directory = "/root/Partial_Spoof_Detection_System/database/RFP_2/testing_subset"
-    random_file_names = [
-        os.path.splitext(f)[0]
-        for f in os.listdir(directory)
-        if f.lower().endswith(".wav")
-    ]
+    # # random_file_names
+    # directory = "/root/Partial_Spoof_Detection_System/database/RFP_2/testing_subset"
+    # random_file_names = [
+    #     os.path.splitext(f)[0]
+    #     for f in os.listdir(directory)
+    #     if f.lower().endswith(".wav")
+    # ]
     
-    hard_correct_prediction_files = genuine_file_names + spoof_file_names + random_file_names
+    # hard_correct_prediction_files = genuine_file_names + spoof_file_names + random_file_names
     # hard_correct_prediction_files = genuine_file_names + spoof_file_names 
+    hard_correct_prediction_files =["final_1_2_1","newPF"]
     for file_name in hard_correct_prediction_files:
         print(file_name)
 
         # Load audio
         print(f"\n2. Loading audio: {file_name}")
-        waveform, sr = torchaudio.load(f"/root/Partial_Spoof_Detection_System/database/RFP/testing/{file_name}.wav")
+        # waveform, sr = torchaudio.load(f"/root/Partial_Spoof_Detection_System/database/RFP/testing/{file_name}.wav")
+        waveform, sr = torchaudio.load(f"/root/Partial_Spoof_Detection_System/database/RFP_2/testing/{file_name}.wav")
         waveform = waveform.to(device)
         
         # Extract attention
