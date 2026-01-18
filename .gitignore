@@ -4,6 +4,8 @@
 # models
 modules
 wandb
+*.zip
+
 
 database/*
 models/*

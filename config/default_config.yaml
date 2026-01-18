@@ -1,8 +1,8 @@
 
 # Training configuration
 training:
-  # num_epochs: &num_epochs 15
-  num_epochs: &num_epochs 2
+  num_epochs: &num_epochs 15
+  # num_epochs: &num_epochs 2
   learning_rate: &learning_rate 0.00075
   batch_size: &batch_size 8
   # batch_size: &batch_size 4
@@ -252,7 +252,7 @@ paths:
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019_LA_Dataset_model_epochs15_batch8_lr0.00075_20260102_162234.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/RFP_Dataset_model_epochs30_batch8_lr0.0006_20251201_001017.pth"
-  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/RFP_Dataset_model_epochs30_batch8_lr0.00075_20260108_011645__dropout_mode_fixed.pth"
+  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/RFP_Dataset_model_epochs15_batch8_lr0.00075_20260118_113719.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/2F4R/PF_Detection_by_Segment_Location_Dataset_model_epochs5_batch8_lr0.00075_20260110_063430.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/2R2F2R/PF_Detection_by_Segment_Location_Dataset_model_epochs5_batch8_lr0.00075_20260110_065104.pth"
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/4R2F/PF_Detection_by_Segment_Location_Dataset_model_epochs1_batch8_lr0.00075_20260110_065924.pth"

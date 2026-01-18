@@ -26,7 +26,7 @@ git checkout -b Sequence-Modeling-Alternatives
 git add .
 
 # Commit changes
-git commit -m " adding AUC score logic"
+git commit -m " adding dummy/no updates files"
 
 # Push new branch to remote and set upstream
 # git push -u origin Feature-Extractor-Comparison
