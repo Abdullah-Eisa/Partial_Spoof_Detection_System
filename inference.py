@@ -5,6 +5,10 @@ import torch
 import torch.nn as nn
 from datetime import datetime
 
+import time
+from thop import profile
+import numpy as np
+
 from utils import *
 from preprocess import *
 from model import *
@@ -139,7 +143,7 @@ def inference(config):
         return
 
     PS_Model.eval()
-
+    
     criterion = initialize_loss_function().to(device)
     
     # Call inference helper function

@@ -349,6 +349,10 @@ class BinarySpoofingClassificationModel(nn.Module):
 
 
     def forward(self, x, lengths,dropout_prob):
+        # print(f"Inside BinarySpoofingClassificationModel forward: x.shape before max_pooling= {x.shape}")
+        # print(f"lengths= {lengths}")
+        # print(f"dropout_prob= {dropout_prob}")
+        
         if self.max_pooling is not None:
             x = self.max_pooling(x)  # Apply max pooling
 

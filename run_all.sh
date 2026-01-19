@@ -11,17 +11,7 @@ git add *
 # Commit your changes
 git commit -m "   
 add 
-        utils/parameter_counter.py
-        utils/spoofing_algorithm_util.py
-
-        modified:   config/default_config.yaml
-        deleted:    utils/reporting_utils copy 2.py
-        deleted:    utils/reporting_utils copy 3.py
-        deleted:    utils/reporting_utils copy 4.py
-        deleted:    utils/reporting_utils copy 5.py
-        deleted:    utils/reporting_utils copy 6.py
-        deleted:    utils/reporting_utils copy 7.py
-        deleted:    utils/reporting_utils copy.py
+utils/generate_efficiency_table.py
 
  "
 # Add the remote repository
