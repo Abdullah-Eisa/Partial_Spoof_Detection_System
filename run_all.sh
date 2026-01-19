@@ -10,9 +10,8 @@ git add *
 
 # Commit your changes
 git commit -m "   
-        modified:   utils/attention_visualization.py
-        modified:   utils/gradient_analysis.py
- ( update to run on the 2 audio files)
+modified:   utils/reporting_utils.py
+ ( now working correctly)
  "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
