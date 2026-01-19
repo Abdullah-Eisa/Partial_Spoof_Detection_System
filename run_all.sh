@@ -10,7 +10,19 @@ git add *
 
 # Commit your changes
 git commit -m "   
-add calculating precision , recall , F1-score and AUC in training , validation and evaluation steps
+add 
+        utils/parameter_counter.py
+        utils/spoofing_algorithm_util.py
+
+        modified:   config/default_config.yaml
+        deleted:    utils/reporting_utils copy 2.py
+        deleted:    utils/reporting_utils copy 3.py
+        deleted:    utils/reporting_utils copy 4.py
+        deleted:    utils/reporting_utils copy 5.py
+        deleted:    utils/reporting_utils copy 6.py
+        deleted:    utils/reporting_utils copy 7.py
+        deleted:    utils/reporting_utils copy.py
+
  "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
