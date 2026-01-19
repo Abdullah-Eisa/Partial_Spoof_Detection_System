@@ -6,16 +6,48 @@ import torch
 import wandb
 from sklearn.metrics import roc_curve
 import json
+from sklearn.metrics import roc_auc_score
 
 from datetime import datetime
 
 # Define some utility functions used in the project
-def create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss):
-    metrics_dict=dict()
-    metrics_dict['utterance_eer']=utterance_eer
-    metrics_dict['utterance_eer_threshold']=utterance_eer_threshold
-    metrics_dict['epoch_loss']=epoch_loss
+# def create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss):
+#     metrics_dict=dict()
+#     metrics_dict['utterance_eer']=utterance_eer
+#     metrics_dict['utterance_eer_threshold']=utterance_eer_threshold
+#     metrics_dict['epoch_loss']=epoch_loss
+#     return metrics_dict
+def create_metrics_dict(utterance_eer, utterance_eer_threshold, epoch_loss, 
+                        precision=None, recall=None, f1=None, auc=None):
+    """
+    Create a comprehensive metrics dictionary
+    
+    Args:
+        utterance_eer: Equal Error Rate
+        utterance_eer_threshold: EER threshold
+        epoch_loss: Loss for the epoch
+        precision: Precision score (optional)
+        recall: Recall score (optional)
+        f1: F1 score (optional)
+        auc: AUC score (optional)
+    
+    Returns:
+        Dictionary containing all metrics
+    """
+    metrics_dict = dict()
+    metrics_dict['utterance_eer'] = utterance_eer
+    metrics_dict['utterance_eer_threshold'] = utterance_eer_threshold
+    metrics_dict['epoch_loss'] = epoch_loss
+    if precision is not None:
+        metrics_dict['precision'] = precision
+    if recall is not None:
+        metrics_dict['recall'] = recall
+    if f1 is not None:
+        metrics_dict['f1'] = f1
+    if auc is not None:
+        metrics_dict['auc'] = auc
     return metrics_dict
+
 
 
 def load_json_dictionary(path):
@@ -157,31 +189,168 @@ def compute_metrics(outputs, labels):
     return utterance_eer, utterance_eer_threshold
 
 
-def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, backend_model_lr, feature_extractor_lr, dropout_prob, dev_metrics_dict=None):
-    """Log metrics to W&B"""
-    if dev_metrics_dict:
-        wandb.log({
-            'epoch': epoch + 1,
-            'training_loss_epoch': epoch_loss,
-            'training_utterance_eer_epoch': utterance_eer,
-            'training_utterance_eer_threshold_epoch': utterance_eer_threshold,
-            'validation_loss_epoch': dev_metrics_dict['epoch_loss'],
-            'validation_utterance_eer_epoch': dev_metrics_dict['utterance_eer'],
-            'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold'],
-            'feature_extractor_lr': feature_extractor_lr,
-            'backend_model_lr': backend_model_lr,
-            'dropout_prob': dropout_prob,
-        })
+# def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, backend_model_lr, feature_extractor_lr, dropout_prob, dev_metrics_dict=None):
+#     """Log metrics to W&B"""
+#     if dev_metrics_dict:
+#         wandb.log({
+#             'epoch': epoch + 1,
+#             'training_loss_epoch': epoch_loss,
+#             'training_utterance_eer_epoch': utterance_eer,
+#             'training_utterance_eer_threshold_epoch': utterance_eer_threshold,
+#             'validation_loss_epoch': dev_metrics_dict['epoch_loss'],
+#             'validation_utterance_eer_epoch': dev_metrics_dict['utterance_eer'],
+#             'validation_utterance_eer_threshold_epoch': dev_metrics_dict['utterance_eer_threshold'],
+#             'feature_extractor_lr': feature_extractor_lr,
+#             'backend_model_lr': backend_model_lr,
+#             'dropout_prob': dropout_prob,
+#         })
+#     else:
+#         wandb.log({
+#             'epoch': epoch + 1,
+#             'training_loss_epoch': epoch_loss,
+#             'training_utterance_eer_epoch': utterance_eer,
+#             'training_utterance_eer_threshold_epoch': utterance_eer_threshold,
+#             'feature_extractor_lr': feature_extractor_lr,
+#             'backend_model_lr': backend_model_lr,
+#             'dropout_prob': dropout_prob,
+#         })
+
+
+def compute_precision_recall_f1(predictions, labels, threshold=0.5):
+    """
+    Safely compute Precision, Recall, and F1 score with edge case handling
+    
+    Args:
+        predictions: Tensor of model predictions (logits or probabilities)
+        labels: Tensor of ground truth labels (binary: 0 or 1)
+        threshold: Classification threshold (default 0.5)
+    
+    Returns:
+        Tuple of (precision, recall, f1) - all float values
+        Returns (0.0, 0.0, 0.0) if unable to compute (edge cases)
+    """
+    # Convert to numpy and flatten if needed
+    if isinstance(predictions, torch.Tensor):
+        predictions = predictions.detach().cpu().numpy()
+    if isinstance(labels, torch.Tensor):
+        labels = labels.detach().cpu().numpy()
+    
+    # Flatten arrays
+    predictions = predictions.flatten()
+    labels = labels.flatten()
+    
+
+    # Convert logits → probabilities if needed
+    if np.all((predictions >= 0) & (predictions <= 1)):
+        probs = predictions
     else:
-        wandb.log({
-            'epoch': epoch + 1,
-            'training_loss_epoch': epoch_loss,
-            'training_utterance_eer_epoch': utterance_eer,
-            'training_utterance_eer_threshold_epoch': utterance_eer_threshold,
-            'feature_extractor_lr': feature_extractor_lr,
-            'backend_model_lr': backend_model_lr,
-            'dropout_prob': dropout_prob,
-        })
+        probs = 1 / (1 + np.exp(-predictions))  # sigmoid
+
+
+    # Convert predictions to binary (0 or 1) using threshold
+    # If predictions are probabilities, apply sigmoid; if logits, apply sigmoid
+    if np.all((predictions >= 0) & (predictions <= 1)):
+        # Predictions are already probabilities
+        predicted_labels = (predictions >= threshold).astype(int)
+    else:
+        # Predictions are logits, apply sigmoid
+        predicted_labels = (1 / (1 + np.exp(-predictions)) >= threshold).astype(int)
+    
+    # Calculate True Positives, False Positives, False Negatives
+    tp = np.sum((predicted_labels == 1) & (labels == 1))
+    fp = np.sum((predicted_labels == 1) & (labels == 0))
+    fn = np.sum((predicted_labels == 0) & (labels == 1))
+    
+    # Calculate Precision with edge case handling
+    if (tp + fp) == 0:
+        precision = 0.0
+    else:
+        precision = tp / (tp + fp)
+    
+    # Calculate Recall with edge case handling
+    if (tp + fn) == 0:
+        recall = 0.0
+    else:
+        recall = tp / (tp + fn)
+    
+    # Calculate F1 with edge case handling
+    if (precision + recall) == 0:
+        f1 = 0.0
+    else:
+        f1 = 2 * (precision * recall) / (precision + recall)
+    
+
+    # AUC (requires both classes present)
+    try:
+        if len(np.unique(labels)) < 2:
+            auc = 0.0
+        else:
+            auc = roc_auc_score(labels, probs)
+    except ValueError:
+        auc = 0.0
+
+
+    return float(precision), float(recall), float(f1), float(auc)
+
+
+
+def log_metrics_to_wandb(epoch, epoch_loss, utterance_eer, utterance_eer_threshold, backend_model_lr, feature_extractor_lr, dropout_prob, dev_metrics_dict=None, train_precision=None, train_recall=None, train_f1=None, train_auc=None):
+    """
+    Log metrics to W&B including Precision, Recall, F1, and AUC scores
+    
+    Args:
+        epoch: Epoch number
+        epoch_loss: Training loss for the epoch
+        utterance_eer: Training EER
+        utterance_eer_threshold: Training EER threshold
+        backend_model_lr: Learning rate of backend model
+        feature_extractor_lr: Learning rate of feature extractor
+        dropout_prob: Dropout probability
+        dev_metrics_dict: Dictionary with validation metrics (optional)
+        train_precision: Training precision (optional)
+        train_recall: Training recall (optional)
+        train_f1: Training F1 score (optional)
+        train_auc: Training AUC score (optional)
+    """
+    log_dict = {
+        'epoch': epoch + 1,
+        'training_loss_epoch': epoch_loss,
+        'training_utterance_eer_epoch': utterance_eer,
+        'training_utterance_eer_threshold_epoch': utterance_eer_threshold,
+        'feature_extractor_lr': feature_extractor_lr,
+        'backend_model_lr': backend_model_lr,
+        'dropout_prob': dropout_prob,
+    }
+    
+    # Add training precision, recall, f1, auc if provided
+    if train_precision is not None:
+        log_dict['training_precision_epoch'] = train_precision
+    if train_recall is not None:
+        log_dict['training_recall_epoch'] = train_recall
+    if train_f1 is not None:
+        log_dict['training_f1_epoch'] = train_f1
+    if train_auc is not None:
+        log_dict['training_auc_epoch'] = train_auc
+    
+    # Add validation metrics if provided
+    if dev_metrics_dict:
+        log_dict['validation_loss_epoch'] = dev_metrics_dict['epoch_loss']
+        log_dict['validation_utterance_eer_epoch'] = dev_metrics_dict['utterance_eer']
+        log_dict['validation_utterance_eer_threshold_epoch'] = dev_metrics_dict['utterance_eer_threshold']
+        
+        # Add validation precision, recall, f1, auc if provided
+        if 'precision' in dev_metrics_dict:
+            log_dict['validation_precision_epoch'] = dev_metrics_dict['precision']
+        if 'recall' in dev_metrics_dict:
+            log_dict['validation_recall_epoch'] = dev_metrics_dict['recall']
+        if 'f1' in dev_metrics_dict:
+            log_dict['validation_f1_epoch'] = dev_metrics_dict['f1']
+        if 'auc' in dev_metrics_dict:
+            log_dict['validation_auc_epoch'] = dev_metrics_dict['auc']
+    
+    wandb.log(log_dict)
+
+
 
 
 

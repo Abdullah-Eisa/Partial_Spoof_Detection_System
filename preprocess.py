@@ -59,6 +59,14 @@ class ASVspoof2019(Dataset):
         self.label_map = label_map
 
         self.all_files = librosa.util.find_files(self.data_path)
+
+        # num_files = 1000
+        # self.all_files = random.sample(
+        #     self.all_files,
+        #     min(num_files, len(self.all_files))
+        # )
+
+
         self.all_labels= self._get_labels()
 
 

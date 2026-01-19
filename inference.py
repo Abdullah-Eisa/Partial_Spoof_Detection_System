@@ -75,7 +75,10 @@ def inference_helper(model, feature_extractor,criterion,
         # Get Average Utterance EER for the epoch
         utterance_labels = torch.cat(utterance_labels)
         utterance_predictions = torch.cat(utterance_predictions)
-        utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions,utterance_labels)
+        utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions, utterance_labels)
+        
+        # Compute Precision, Recall, F1, and AUC
+        precision, recall, f1, auc = compute_precision_recall_f1(utterance_predictions, utterance_labels)
 
         # Average loss for the epoch
         epoch_loss /= len(test_data_loader)
@@ -84,12 +87,10 @@ def inference_helper(model, feature_extractor,criterion,
     # Print epoch testing results
     print(f'Testing/Inference Complete. Test Loss: {epoch_loss:.4f},\n'
                f'Average Test Utterance EER: {utterance_eer:.4f}, Average Test Utterance EER Threshold: {utterance_eer_threshold:.4f}')
-    # print(f'Testing/Inference Complete. Test Loss: {epoch_loss:.4f},\n'
-    #            f'Average Test Utterance EER: {utterance_eer:.4f}, Average Test Utterance EER Threshold: {utterance_eer_threshold:.4f}')
     print("===================================================")
     print(f'In Test loop, Total loss NAN count: {nan_count}')
 
-    return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss)
+    return create_metrics_dict(utterance_eer, utterance_eer_threshold, epoch_loss, precision, recall, f1, auc)
 
 
 
@@ -215,20 +216,19 @@ def dev_one_epoch(model, feature_extractor,criterion,
         # Get Average Utterance EER for the epoch
         utterance_labels = torch.cat(utterance_labels)
         utterance_predictions = torch.cat(utterance_predictions)
-        utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions,utterance_labels)
+        utterance_eer, utterance_eer_threshold = compute_metrics(utterance_predictions, utterance_labels)
+        
+        # Compute Precision, Recall, F1, and AUC
+        precision, recall, f1, auc = compute_precision_recall_f1(utterance_predictions, utterance_labels)
 
         # Average loss for the epoch
         epoch_loss /= len(dev_data_loader)
 
-
     # Print epoch dev progress
-    # print(f'Epoch [{epoch + 1}] Complete. Validation Loss: {epoch_loss:.4f},\n'
-    #            f'Average Validation Segment EER: {segment_eer:.4f}, Average Validation Segment EER Threshold: {segment_eer_threshold:.4f},\n'
-    #            f'Average Validation Utterance EER: {utterance_eer:.4f}, Average Validation Utterance EER Threshold: {utterance_eer_threshold:.4f}')
     print("===================================================")
     print(f'In Dev loop, Total loss NAN count: {nan_count}')
     
-    return create_metrics_dict(utterance_eer,utterance_eer_threshold,epoch_loss), nan_count
+    return create_metrics_dict(utterance_eer, utterance_eer_threshold, epoch_loss, precision, recall, f1, auc), nan_count
 
 
 

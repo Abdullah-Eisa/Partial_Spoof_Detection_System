@@ -10,8 +10,7 @@ git add *
 
 # Commit your changes
 git commit -m "   
-modified:   utils/reporting_utils.py
- ( now working correctly)
+add calculating precision , recall , F1-score and AUC in training , validation and evaluation steps
  "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git
