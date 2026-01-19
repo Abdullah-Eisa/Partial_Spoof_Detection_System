@@ -41,14 +41,92 @@ class EmbeddingExtractor:
         
         def hook(module, input, output):
             self.embeddings['embedding'] = output.detach().cpu()
-        
-        # Get the layer
+    
+        # Get the layer based on layer_name
         if self.layer_name == 'pooling':
             self.hook = self.model.pooling.register_forward_hook(hook)
+            print(f"✓ Extracting embeddings from: model.pooling")
+            print(f"  Layer type: {type(self.model.pooling).__name__}")
+            print(f"  Output shape: (batch_size, hidden_dim)")
+            
+        elif self.layer_name == 'conformer':
+            self.hook = self.model.conformer.register_forward_hook(hook)
+            print(f"✓ Extracting embeddings from: model.conformer")
+            print(f"  Layer type: {type(self.model.conformer).__name__}")
+            print(f"  Output shape: (batch_size, time_dim, hidden_dim)")
+            
+        elif self.layer_name == 'max_pooling':
+            self.hook = self.model.max_pooling.register_forward_hook(hook)
+            print(f"✓ Extracting embeddings from: model.max_pooling")
+            print(f"  Layer type: {type(self.model.max_pooling).__name__}")
+            print(f"  Output shape: (batch_size, feature_dim, time_dim)")
+            
         elif hasattr(self.model, self.layer_name):
             layer = getattr(self.model, self.layer_name)
             self.hook = layer.register_forward_hook(hook)
-    
+            print(f"✓ Extracting embeddings from: model.{self.layer_name}")
+            print(f"  Layer type: {type(layer).__name__}")
+        else:
+            raise ValueError(f"Layer '{self.layer_name}' not found in model. "
+                           f"Available options: 'pooling', 'conformer', 'max_pooling'")
+
+
+    # def extract_embeddings(
+    #     self,
+    #     dataloader,
+    #     feature_extractor: nn.Module,
+    #     device: str = 'cpu'
+    # ) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+    #     """
+    #     Extract embeddings for entire dataset.
+        
+    #     Args:
+    #         dataloader: DataLoader
+    #         feature_extractor: Feature extraction model
+    #         device: Device to run on
+        
+    #     Returns:
+    #         (embeddings, labels, file_names)
+    #     """
+    #     all_embeddings = []
+    #     all_labels = []
+    #     all_files = []
+        
+    #     self.model.eval()
+    #     feature_extractor.eval()
+        
+    #     with torch.no_grad():
+    #         for batch in dataloader:
+    #             waveforms = batch['waveform'].to(device)
+    #             labels = batch['label'].to(device)
+                
+    #             # Extract features
+    #             features_output = feature_extractor(waveforms)
+    #             if isinstance(features_output, dict):
+    #                 features = features_output['hidden_states'][-1]
+    #             else:
+    #                 features = features_output
+                
+    #             lengths = torch.full((features.size(0),), features.size(1), 
+    #                                dtype=torch.int16, device=device)
+                
+    #             # Forward pass (embeddings captured by hook)
+    #             _ = self.model(features, lengths, dropout_prob=0.0)
+                
+    #             # Store results
+    #             all_embeddings.append(self.embeddings['embedding'].numpy())
+    #             all_labels.append(labels.cpu().numpy())
+    #             all_files.extend(batch['file_name'])
+        
+    #     embeddings = np.vstack(all_embeddings)
+    #     labels = np.concatenate(all_labels)
+        
+    #     print("✨✨✨✨✨",len(all_files))
+    #     print(f"  Extracted {len(embeddings)} embeddings of dimension {embeddings.shape[1]} , embeddings.shape= {embeddings.shape}, labels.shape= {labels.shape}")
+
+    #     return embeddings, labels, all_files
+
+
     def extract_embeddings(
         self,
         dataloader,
@@ -92,20 +170,101 @@ class EmbeddingExtractor:
                 _ = self.model(features, lengths, dropout_prob=0.0)
                 
                 # Store results
-                all_embeddings.append(self.embeddings['embedding'].numpy())
+                embedding = self.embeddings['embedding'].numpy()
+                
+                # Handle different shapes based on layer
+                if self.layer_name == 'conformer':
+                    # Shape: (batch_size, time_dim, hidden_dim) - keep as is
+                    all_embeddings.append(embedding)
+                elif self.layer_name in ['pooling', 'max_pooling']:
+                    # Flatten if needed: (batch_size, hidden_dim) or (batch_size, feature_dim, time_dim)
+                    if embedding.ndim == 3:
+                        # Flatten (batch_size, dim, time) to (batch_size, dim*time)
+                        batch_size = embedding.shape[0]
+                        all_embeddings.append(embedding.reshape(batch_size, -1))
+                    else:
+                        all_embeddings.append(embedding)
+                else:
+                    all_embeddings.append(embedding)
+                
                 all_labels.append(labels.cpu().numpy())
                 all_files.extend(batch['file_name'])
         
         embeddings = np.vstack(all_embeddings)
         labels = np.concatenate(all_labels)
         
+        print(f"✓ Extracted {len(embeddings)} embeddings")
+        print(f"  Shape: {embeddings.shape}")
+        print(f"  Labels shape: {labels.shape}")
+
         return embeddings, labels, all_files
-    
+
+
+
+    def extract_embeddings_from_feature_extractor(
+        self,
+        dataloader,
+        feature_extractor: nn.Module,
+        device: str = 'cpu',
+        layer_index: int = -1  # -1 for last hidden state
+    ) -> Tuple[np.ndarray, np.ndarray, List[str]]:
+        """
+        Extract embeddings directly from feature extractor.
+        
+        Args:
+            dataloader: DataLoader
+            feature_extractor: Feature extraction model
+            device: Device to run on
+            layer_index: Which hidden state to extract (-1 for last)
+        
+        Returns:
+            (embeddings, labels, file_names)
+        """
+        all_embeddings = []
+        all_labels = []
+        all_files = []
+        
+        feature_extractor.eval()
+        
+        print(f"✓ Extracting embeddings from: feature_extractor.hidden_states[{layer_index}]")
+        
+        with torch.no_grad():
+            for batch in dataloader:
+                waveforms = batch['waveform'].to(device)
+                labels = batch['label'].to(device)
+                
+                # Extract features
+                features_output = feature_extractor(waveforms)
+                if isinstance(features_output, dict):
+                    features = features_output['hidden_states'][layer_index]
+                else:
+                    features = features_output
+                
+                # Pool over time dimension to get fixed-size embedding
+                # Mean pooling across time
+                embedding = features.mean(dim=1)  # (batch, time, dim) -> (batch, dim)
+                
+                # Store results
+                all_embeddings.append(embedding.cpu().numpy())
+                all_labels.append(labels.cpu().numpy())
+                all_files.extend(batch['file_name'])
+        
+        embeddings = np.vstack(all_embeddings)
+        labels = np.concatenate(all_labels)
+        
+        print("✨✨✨✨✨",len(all_files))
+        print(f"  Extracted {len(embeddings)} embeddings of dimension {embeddings.shape[1]} , embeddings.shape= {embeddings.shape}, labels.shape= {labels.shape}")
+
+        return embeddings, labels, all_files
+
+
+
     def remove_hook(self):
         """Remove the registered hook."""
         if self.hook:
             self.hook.remove()
 
+# =============================================================================================================
 
 def visualize_embeddings_tsne(
     embeddings: np.ndarray,
@@ -343,38 +502,6 @@ def compare_embedding_distributions(
     print(f"✓ Embedding distribution comparison saved to: {save_path}")
 
 
-# ============================================================================
-# Example Usage
-# ============================================================================
-
-# if __name__ == "__main__":
-    # print("Cluster Analysis Example")
-    # print("=" * 60)
-    # print("\nThis module provides:")
-    # print("1. t-SNE/PCA visualization of embeddings")
-    # print("2. Clustering quality metrics")
-    # print("3. Misclassification analysis in embedding space")
-    # print("4. Distribution comparisons")
-    
-    # print("\nExample usage:")
-    # print("""
-    # from utils.cluster_analysis import EmbeddingExtractor, visualize_embeddings_tsne
-    
-    # # Extract embeddings
-    # extractor = EmbeddingExtractor(model, layer_name='pooling')
-    # embeddings, labels, files = extractor.extract_embeddings(
-    #     test_loader, feature_extractor, device='cuda'
-    # )
-    
-    # # Visualize
-    # visualize_embeddings_tsne(embeddings, labels)
-    
-    # # Compute metrics
-    # metrics = compute_cluster_metrics(embeddings, labels)
-    # print(f"Silhouette score: {metrics['silhouette_score']:.4f}")
-    # """)
-
-
 
 if __name__ == "__main__":
     """
@@ -395,8 +522,16 @@ if __name__ == "__main__":
                        help='Path to configuration file')
     parser.add_argument('--output-dir', type=str, default='outputs/cluster_analysis',
                        help='Output directory for visualizations')
+    # parser.add_argument('--layer-name', type=str, default='pooling',
+    #                    help='Layer name to extract embeddings from')
+
     parser.add_argument('--layer-name', type=str, default='pooling',
-                       help='Layer name to extract embeddings from')
+                       help='Layer name to extract embeddings from: '
+                            '"pooling" (after SelfWeightedPooling), '
+                            '"conformer" (after Conformer), '
+                            '"max_pooling" (after max pooling), '
+                            'or "feature_extractor" (from wav2vec2)')
+
     parser.add_argument('--perplexity', type=int, default=30,
                        help='t-SNE perplexity parameter')
     parser.add_argument('--n-iter', type=int, default=1000,
@@ -448,10 +583,16 @@ if __name__ == "__main__":
     # Extract embeddings
     print(f"\n3. Extracting embeddings from layer '{args.layer_name}'...")
     extractor = EmbeddingExtractor(model, layer_name=args.layer_name)
-    embeddings, labels, file_names = extractor.extract_embeddings(
-        test_loader, feature_extractor, device=device
-    )
+
+    # embeddings, labels, file_names = extractor.extract_embeddings(
+    #     test_loader, feature_extractor, device=device
+    # )
     
+    # Option 2: Extract from feature extractor
+    embeddings, labels, file_names = extractor.extract_embeddings_from_feature_extractor(
+        test_loader, feature_extractor, device=device, layer_index=-1
+    )
+
     print(f"   Extracted {len(embeddings)} embeddings of dimension {embeddings.shape[1]}")
     
     # Create output directory
@@ -532,6 +673,19 @@ if __name__ == "__main__":
     print(f"\n✓ Cluster analysis complete!")
     print(f"  All results saved to: {args.output_dir}")
     
+    from utils.utils import compute_precision_recall_f1
+
+    # Compute precision, recall, and F1 score
+    precision, recall, f1 , auc = compute_precision_recall_f1(pred_binary, labels)
+    output_metrics = {
+        "precision": precision,
+        "recall": recall,
+        "f1": f1,
+        "auc": auc
+    }
+    print(output_metrics)
+
+
     # Print summary statistics
     correct_mask = (pred_binary == labels)
     accuracy = correct_mask.sum() / len(labels)
@@ -540,4 +694,9 @@ if __name__ == "__main__":
     print(f"  Genuine samples: {(labels == 0).sum()}")
     print(f"  Spoof samples: {(labels == 1).sum()}")
     print(f"  Accuracy: {accuracy:.4f}")
+    print(f"  precision: {output_metrics['precision']:.4f}")
+    print(f"  recall: {output_metrics['recall']:.4f}")
+    print(f"  f1: {output_metrics['f1']:.4f}")
+    print(f"  auc: {output_metrics['auc']:.4f}")
+
     print(f"  Misclassified: {(~correct_mask).sum()}")

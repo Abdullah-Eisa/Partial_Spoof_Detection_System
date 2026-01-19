@@ -9,9 +9,8 @@ git init
 git add *
 
 # Commit your changes
-git commit -m "   
-add 
-utils/generate_efficiency_table.py
+git commit -m "   add the ability to visualize clusters at different layers or after the feature extractor
+        modified:   utils/cluster_analysis.py
 
  "
 # Add the remote repository
