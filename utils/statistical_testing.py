@@ -40,6 +40,7 @@ def bootstrap_confidence_interval(
     """
     np.random.seed(random_seed)
     n_samples = len(predictions)
+    print(f"Calculating bootstrap confidence intervals with {n_bootstrap} samples...")
     bootstrap_scores = []
     
     for _ in range(n_bootstrap):
@@ -51,12 +52,19 @@ def bootstrap_confidence_interval(
         # Compute metric on bootstrap sample
         try:
             score = metric_fn(boot_preds, boot_labels)
-            bootstrap_scores.append(score)
-        except:
+            if not np.isnan(score) and not np.isinf(score):
+                bootstrap_scores.append(score)
+        except Exception as e:
+            # Skip this bootstrap sample if metric computation fails
             continue
     
     bootstrap_scores = np.array(bootstrap_scores)
     
+    # ADD THIS:
+    if len(bootstrap_scores) < n_bootstrap * 0.9:
+        print(f"Warning: Only {len(bootstrap_scores)}/{n_bootstrap} bootstrap samples succeeded")
+
+
     # Calculate confidence interval
     alpha = 1 - confidence_level
     lower_percentile = (alpha / 2) * 100
@@ -250,46 +258,6 @@ def save_statistical_results(results: Dict, output_path: str):
     print(f"✓ Statistical results saved to: {output_path}")
 
 
-# ============================================================================
-# Example Usage
-# ============================================================================
-
-# if __name__ == "__main__":
-#     # Example: Bootstrap confidence intervals
-#     print("Example: Bootstrap Confidence Intervals")
-#     print("-" * 60)
-    
-#     # Simulate predictions and labels
-#     np.random.seed(42)
-#     predictions = np.random.rand(1000)
-#     labels = np.random.randint(0, 2, 1000)
-    
-#     # Define metric function (accuracy)
-#     def accuracy(preds, lbls):
-#         pred_binary = (preds >= 0.5).astype(int)
-#         return np.mean(pred_binary == lbls)
-    
-#     ci = bootstrap_confidence_interval(predictions, labels, accuracy)
-#     print(f"Accuracy: {ci['mean']:.4f} [{ci['lower']:.4f}, {ci['upper']:.4f}]")
-    
-#     # Example: McNemar's test
-#     print("\nExample: McNemar's Test")
-#     print("-" * 60)
-    
-#     predictions_model2 = np.random.rand(1000)
-#     result = mcnemar_test(predictions, predictions_model2, labels)
-#     print(f"Chi² = {result['statistic']:.4f}, p = {result['p_value']:.4f}")
-#     print(f"Result: {result['interpretation']}")
-    
-#     # Example: Bonferroni correction
-#     print("\nExample: Bonferroni Correction")
-#     print("-" * 60)
-    
-#     p_values = [0.01, 0.03, 0.06, 0.12]
-#     bonf_result = bonferroni_correction(p_values)
-#     print(f"Corrected α: {bonf_result['corrected_alpha']:.4f}")
-#     print(f"Significant tests: {bonf_result['n_significant']}/{bonf_result['n_tests']}")
-
 
 
 if __name__ == "__main__":
@@ -381,6 +349,8 @@ if __name__ == "__main__":
         pin_memory=config['inference'].get('pin_memory', True)
     )
     
+    print(f"✓ DataLoader initialized with {len(test_loader.dataset)} samples.")
+
     # Collect predictions and labels
     print("2. Collecting predictions and labels...")
     all_predictions = []
@@ -407,6 +377,8 @@ if __name__ == "__main__":
     predictions = np.array(all_predictions)
     labels = np.array(all_labels)
     
+    print(f"\nCollected {len(predictions)} predictions from test set")
+    assert len(predictions) == len(labels), "Predictions and labels size mismatch"
 
 
     all_predictions2 = []
@@ -440,23 +412,27 @@ if __name__ == "__main__":
     ci_eer = bootstrap_confidence_interval(
         predictions, labels,
         metric_fn=lambda p, l: compute_eer(torch.tensor(p), torch.tensor(l))[0],
-        n_bootstrap=10000
-        # n_bootstrap=1000
+        # n_bootstrap=10000
+        n_bootstrap=1000
     )
     
 
     ci_eer2 = bootstrap_confidence_interval(
         predictions2, labels,
         metric_fn=lambda p, l: compute_eer(torch.tensor(p), torch.tensor(l))[0],
-        n_bootstrap=10000
-        # n_bootstrap=1000
+        # n_bootstrap=10000
+        n_bootstrap=1000
     )
 
     print(f"\nResults:")
     print(f"  EER: {ci_eer['mean']:.4f} [{ci_eer['lower']:.4f}, {ci_eer['upper']:.4f}]")
     print(f"  95% Confidence Interval: [{ci_eer['lower']:.4f}, {ci_eer['upper']:.4f}]")
     print(f"  Standard Deviation: {ci_eer['std']:.4f}")
-    
+    ci_width = ci_eer['upper'] - ci_eer['lower']
+    print(f"  CI Width: {ci_width:.4f} (narrower = more confident)")
+    print(f"  Relative Uncertainty: {(ci_eer['std'] / ci_eer['mean'] * 100):.2f}%")
+
+
     print(f"\nResults2:")
     print(f"  EER: {ci_eer2['mean']:.4f} [{ci_eer2['lower']:.4f}, {ci_eer2['upper']:.4f}]")
     print(f"  95% Confidence Interval: [{ci_eer2['lower']:.4f}, {ci_eer2['upper']:.4f}]")
@@ -473,7 +449,7 @@ if __name__ == "__main__":
     print("\nExample: McNemar's Test")
     print("-" * 60)
     
-    # predictions_model2 = np.random.rand(1000)
+    predictions_model2 = np.random.rand(1000)
     result = mcnemar_test(predictions, predictions2, labels)
     print(f"Chi² = {result['statistic']:.4f}, p = {result['p_value']:.4f}")
     print(f"Result: {result['interpretation']}")
@@ -490,11 +466,7 @@ if __name__ == "__main__":
 
 
 
-
-
-
-
-    # Save results
+    # # Save results
     import os
     from datetime import datetime
     output_dir = 'outputs/statistical_tests'
