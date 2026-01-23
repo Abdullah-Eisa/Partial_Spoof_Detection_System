@@ -84,6 +84,42 @@ data:
   # eval_labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.eval.trl.txt"
 
 
+
+
+# Multi-dataset training configuration
+multi_dataset:
+  enabled: true  # Set to true to enable multi-dataset training
+  
+  # Training datasets
+  train_datasets:
+    - dataset_name: "RFP_Dataset"
+      data_path: "${BASE_DIR}/database/RFP/training"
+      labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_train.trl.txt"
+    
+    - dataset_name: "PartialSpoof_Dataset"
+      data_path: "${BASE_DIR}/database/PartialSpoof/database/train/con_wav"
+      labels_path: "${BASE_DIR}/database/utterance_labels/PartialSpoof_LA_cm_train_trl.json"
+    
+    - dataset_name: "ASVspoof2019_LA_Dataset"
+      data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_train/flac"
+      labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.train.trn.txt"
+  
+  # Dev/validation datasets
+  dev_datasets:
+    - dataset_name: "RFP_Dataset"
+      data_path: "${BASE_DIR}/database/RFP/validation"
+      labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_dev.trl.txt"
+    
+    - dataset_name: "PartialSpoof_Dataset"
+      data_path: "${BASE_DIR}/database/PartialSpoof/database/dev/con_wav"
+      labels_path: "${BASE_DIR}/database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json"
+    
+    - dataset_name: "ASVspoof2019_LA_Dataset"
+      data_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_dev/flac"
+      labels_path: "${BASE_DIR}/database/ASVspoof2019/LA/ASVspoof2019_LA_cm_protocols/ASVspoof2019.LA.cm.dev.trl.txt"
+
+
+
 # Model paths
 paths:
   ssl_checkpoint: "${BASE_DIR}/models/w2v_large_lv_fsh_swbd_cv.pt"

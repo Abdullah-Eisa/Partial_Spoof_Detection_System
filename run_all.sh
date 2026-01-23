@@ -10,7 +10,7 @@ git add *
 
 # Commit your changes
 git commit -m "   
- modified:   utils/statistical_testing.py
+ add initial code for cross dataset training & evaluation
  "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git

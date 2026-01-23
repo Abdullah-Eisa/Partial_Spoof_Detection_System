@@ -90,8 +90,32 @@ def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, d
 
     criterion = initialize_loss_function().to(DEVICE)
 
-    # Initialize data loader
-    train_loader = initialize_data_loader(dataset_name,train_data_path, train_labels_path,BATCH_SIZE, True, num_workers, prefetch_factor,pin_memory,apply_transform)
+    # Check if multi-dataset training is enabled
+    if config.get('multi_dataset', {}).get('enabled', False):
+        print("\n" + "="*80)
+        print("MULTI-DATASET TRAINING MODE")
+        print("="*80)
+        
+        from preprocess import initialize_multi_dataset_loader
+        
+        train_loader = initialize_multi_dataset_loader(
+            datasets_config=config['multi_dataset']['train_datasets'],
+            BATCH_SIZE=BATCH_SIZE,
+            shuffle=True,
+            num_workers=num_workers,
+            prefetch_factor=prefetch_factor,
+            pin_memory=pin_memory
+        )
+        
+        print("="*80 + "\n")
+    else:
+        # Single dataset training (original behavior)
+        train_loader = initialize_data_loader(
+            dataset_name, train_data_path, train_labels_path,
+            BATCH_SIZE, True, num_workers, prefetch_factor, pin_memory, apply_transform
+        )
+
+    
     # initialize learning rate scheduler
     LR_SCHEDULER = initialize_lr_scheduler(optimizer)
 
@@ -122,9 +146,26 @@ def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, d
 
         # Validation step (optional)
         if (epoch + 1) >= monitor_dev_epoch:
-            # Initialize dev data loader
-            dev_data_loader=initialize_data_loader(dataset_name,dev_data_path, dev_labels_path,BATCH_SIZE,False,num_workers, prefetch_factor,pin_memory)
  
+            # Check if multi-dataset validation is enabled
+            if config.get('multi_dataset', {}).get('enabled', False):
+                from preprocess import initialize_multi_dataset_loader
+                
+                dev_data_loader = initialize_multi_dataset_loader(
+                    datasets_config=config['multi_dataset']['dev_datasets'],
+                    BATCH_SIZE=BATCH_SIZE,
+                    shuffle=False,
+                    num_workers=num_workers,
+                    prefetch_factor=prefetch_factor,
+                    pin_memory=pin_memory
+                )
+            else:
+                # Single dataset validation
+                dev_data_loader = initialize_data_loader(
+                    dataset_name, dev_data_path, dev_labels_path,
+                    BATCH_SIZE, False, num_workers, prefetch_factor, pin_memory
+                )
+
             print(f"train_loader: {len(train_loader)} , dev_data_loader: {len(dev_data_loader)}")
             dev_metrics_dict, dev_nan_counter = dev_one_epoch(PS_Model, feature_extractor,criterion,dev_data_loader,0,DEVICE)
             total_dev_nan_counter+=dev_nan_counter

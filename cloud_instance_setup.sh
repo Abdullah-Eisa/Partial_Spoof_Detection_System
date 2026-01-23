@@ -30,9 +30,21 @@ PWD=$(pwd)
 
 # Set permissions recursively
 chmod -R 777 "${PWD}"
-# git restore --source HEAD~1 cloud_instance_pip_requirements.txt
-git restore --source HEAD~1 requirements.txt utils/__init__.py utils/config_manager.py environment.yml
-git restore --source HEAD~1 .gitignore .vscode/copilot-instructions.md others/RFP_problems.md run_comprehensive_evaluation.py utils/attention_visualization.py utils/cluster_analysis.py utils/gradient_analysis.py
+# git restore --source HEAD~1 \
+#   .gitignore \
+#   .vscode/copilot-instructions.md \
+#   environment.yml \
+#   others/RFP_problems.md \
+#   requirements.txt \
+#   run_comprehensive_evaluation.py \
+#   utils/__init__.py \
+#   utils/attention_visualization.py \
+#   utils/cluster_analysis.py \
+#   utils/config_manager.py \
+#   utils/generate_efficiency_table.py \
+#   utils/gradient_analysis.py \
+#   utils/parameter_counter.py \
+#   utils/spoofing_algorithm_util.py
 
 
 

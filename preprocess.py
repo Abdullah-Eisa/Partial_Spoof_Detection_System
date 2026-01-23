@@ -136,6 +136,7 @@ class ASVspoof2019(Dataset):
         # label = self.labels_dict.get(file_name)
         label = self.all_labels.get(file_name,0)
         # label = torch.tensor(label, dtype=torch.int8)
+        label = standardize_labels("ASVspoof2019_LA_Dataset", label)
         label = torch.tensor(label)
 
         return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
@@ -218,6 +219,7 @@ class PartialSpoofDataset(Dataset):
         # label = self.labels_dict.get(file_name).astype(int)
         label = self.labels_dict.get(file_name)
         # label = torch.tensor(label, dtype=torch.int8)
+        label = standardize_labels("PartialSpoof_Dataset", label)
         label = torch.tensor(label)
 
         return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
@@ -317,6 +319,7 @@ class RFP_Dataset(Dataset):
             label = self.all_labels.get(file_name, 0)   # or whatever fallback value you prefer
 
 
+        label = standardize_labels("RFP_Dataset", label)
         label = torch.tensor(label)
 
         return {'waveform': waveform, 'sample_rate': sample_rate, 'label': label, 'file_name': file_name}
@@ -390,6 +393,127 @@ def initialize_data_loader(dataset_name,data_path, labels_path,BATCH_SIZE=32, sh
     )
     
 
+
+def initialize_multi_dataset_loader(
+    datasets_config: List[Dict],
+    BATCH_SIZE=32,
+    shuffle=True,
+    num_workers=0,
+    prefetch_factor=None,
+    pin_memory=False
+):
+    """
+    Initialize DataLoader for multiple datasets combined.
+    
+    Args:
+        datasets_config: List of dicts with keys:
+            - dataset_name: str
+            - data_path: str
+            - labels_path: str
+        BATCH_SIZE: Batch size
+        shuffle: Whether to shuffle
+        num_workers: Number of worker processes
+        prefetch_factor: Prefetch factor
+        pin_memory: Pin memory for GPU
+    
+    Returns:
+        Combined DataLoader
+    
+    Example:
+        >>> datasets_config = [
+        ...     {
+        ...         'dataset_name': 'RFP_Dataset',
+        ...         'data_path': 'database/RFP/training',
+        ...         'labels_path': 'database/RFP/labels/train.txt'
+        ...     },
+        ...     {
+        ...         'dataset_name': 'PartialSpoof_Dataset',
+        ...         'data_path': 'database/PartialSpoof/train/con_wav',
+        ...         'labels_path': 'database/PartialSpoof/labels/train.json'
+        ...     }
+        ... ]
+        >>> loader = initialize_multi_dataset_loader(datasets_config, BATCH_SIZE=8)
+    """
+    import torch.multiprocessing as mp
+    from torch.utils.data import ConcatDataset
+    
+    # Set multiprocessing start method
+    if num_workers > 0:
+        if os.name == 'nt':  # Windows
+            mp.set_start_method('spawn', force=True)
+        else:  # Unix
+            mp.set_start_method('fork', force=True)
+    
+    # Create individual datasets
+    all_datasets = []
+    
+    for config in datasets_config:
+        dataset_name = config['dataset_name']
+        data_path = config['data_path']
+        labels_path = config['labels_path']
+        
+        print(f"Loading {dataset_name}...")
+        
+        if dataset_name == "RFP_Dataset":
+            dataset = RFP_Dataset(data_path, labels_path)
+        
+        elif dataset_name == "PartialSpoof_Dataset":
+            dataset = PartialSpoofDataset(data_path, labels_path)
+        
+        elif dataset_name == "ASVspoof2019_LA_Dataset":
+            dataset = ASVspoof2019(data_path, labels_path)
+        
+        else:
+            raise ValueError(f"Unknown dataset: {dataset_name}")
+        
+        all_datasets.append(dataset)
+        print(f"  Loaded {len(dataset)} samples")
+    
+    # Combine datasets
+    combined_dataset = ConcatDataset(all_datasets)
+    total_samples = len(combined_dataset)
+    
+    print(f"\nCombined Dataset Statistics:")
+    print(f"  Total samples: {total_samples}")
+    for i, dataset in enumerate(all_datasets):
+        print(f"  {datasets_config[i]['dataset_name']}: {len(dataset)} "
+              f"({len(dataset)/total_samples*100:.1f}%)")
+    
+    # Create DataLoader
+    return DataLoader(
+        combined_dataset,
+        batch_size=BATCH_SIZE,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        pin_memory=pin_memory,
+        prefetch_factor=prefetch_factor,
+        collate_fn=custom_collate_fn
+    )
+
+
+
+def standardize_labels(dataset_name, label):
+    """
+    Standardize labels across datasets to consistent format.
+    Convention: 0 = bonafide/genuine, 1 = spoof
+    
+    Args:
+        dataset_name: Name of the dataset
+        label: Original label from dataset
+    
+    Returns:
+        Standardized label (0 or 1)
+    """
+    if dataset_name == "PartialSpoof_Dataset":
+        # PartialSpoof: 0=spoof, 1=bonafide (INVERTED!)
+        return 1 - label  # Flip: 0→1, 1→0
+    
+    elif dataset_name in ["ASVspoof2019_LA_Dataset", "RFP_Dataset"]:
+        # ASVspoof & RFP: 0=bonafide, 1=spoof (CORRECT)
+        return label
+    
+    else:
+        raise ValueError(f"Unknown dataset: {dataset_name}")
 
 if __name__ == "__main__":
     # Test the ASVspoof2019 dataset

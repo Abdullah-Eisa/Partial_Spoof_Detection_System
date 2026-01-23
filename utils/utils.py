@@ -396,3 +396,33 @@ class EarlyStopping:
             if self.counter >= self.patience:
                 self.early_stop = True
                 print("Early stopping triggered.")
+
+
+
+from typing import List
+from huggingface_hub import hf_hub_download
+
+def download_huggingface_hub_datasets(
+    files: List[str] = ["database.zip", "LA.zip"],
+    repo_id: str = "alsuhba/Rfp_Test",
+    repo_type: str = "dataset",
+    local_dir: str = "./database/Rfp_Test",
+) -> None:
+    """
+    Download specific files from a Hugging Face dataset repository.
+    """
+    for filename in files:
+        try:
+            print(f"Downloading {filename}...")
+            hf_hub_download(
+                repo_id=repo_id,
+                repo_type=repo_type,
+                filename=filename,
+                local_dir=local_dir,
+                local_dir_use_symlinks=False,
+            )
+        except Exception as e:
+            print(f"Failed to download {filename}: {e}")
+
+# download_huggingface_hub_datasets(files=["database.zip", "LA.zip"])
+
