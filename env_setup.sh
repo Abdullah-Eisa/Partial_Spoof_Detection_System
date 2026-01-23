@@ -46,6 +46,7 @@ if [ $retVal -ne 0 ]; then
     pip install tqdm
     pip install transformers
     pip install wandb
+    pip install thop
     
     # make empty folders if not available
     python -c "import os; os.makedirs('database', exist_ok=True)"

@@ -424,5 +424,5 @@ def download_huggingface_hub_datasets(
         except Exception as e:
             print(f"Failed to download {filename}: {e}")
 
-# download_huggingface_hub_datasets(files=["database.zip", "LA.zip"])
+# download_huggingface_hub_datasets(files=["partialspoof.zip" , "database.zip", "LA.zip"])
 

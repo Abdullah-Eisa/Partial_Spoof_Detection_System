@@ -11,6 +11,8 @@ from utils.utils import *
 from preprocess import *
 from model import *
 from inference import dev_one_epoch
+from utils.config_manager import ConfigManager
+
 
 # ===========================================================================================================================
 # Define training logic for one epoch
@@ -79,6 +81,8 @@ def train_model(dataset_name,train_data_path, train_labels_path,dev_data_path, d
     """Train the model for NUM_EPOCHS"""
     # Initialize W&B
     initialize_wandb()
+
+    config = ConfigManager()
 
     # # Initialize early stopping
     early_stopping = EarlyStopping(patience=patience, verbose=True)

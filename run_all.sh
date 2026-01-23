@@ -10,7 +10,7 @@ git add *
 
 # Commit your changes
 git commit -m "   
- add initial code for cross dataset training & evaluation
+ add working code for cross dataset training
  "
 # Add the remote repository
 git remote add origin https://github.com/Abdullah-Eisa/Partial_Spoof_Detection_System.git

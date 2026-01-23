@@ -5,12 +5,14 @@ training:
   num_epochs: &num_epochs 2
   learning_rate: &learning_rate 0.00075
   batch_size: &batch_size 8
+  # batch_size: &batch_size 16
   save_interval: 5
   patience: 15
   max_grad_norm: 1.0
   gamma: 0.9
   monitor_dev_epoch: 0
-  use_wandb: true
+  # use_wandb: true
+  use_wandb: false
 
 # WandB sweep configuration
 wandb_sweep:
@@ -97,7 +99,8 @@ multi_dataset:
       labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_train.trl.txt"
     
     - dataset_name: "PartialSpoof_Dataset"
-      data_path: "${BASE_DIR}/database/PartialSpoof/database/train/con_wav"
+      # data_path: "${BASE_DIR}/database/PartialSpoof/database/train/con_wav"
+      data_path: "${BASE_DIR}/database/PartialSpoof/train/con_wav"
       labels_path: "${BASE_DIR}/database/utterance_labels/PartialSpoof_LA_cm_train_trl.json"
     
     - dataset_name: "ASVspoof2019_LA_Dataset"
@@ -111,7 +114,8 @@ multi_dataset:
       labels_path: "${BASE_DIR}/database/RFP/labels/ASVspoof2017_V2_dev.trl.txt"
     
     - dataset_name: "PartialSpoof_Dataset"
-      data_path: "${BASE_DIR}/database/PartialSpoof/database/dev/con_wav"
+      # data_path: "${BASE_DIR}/database/PartialSpoof/database/dev/con_wav"
+      data_path: "${BASE_DIR}/database/PartialSpoof/dev/con_wav"
       labels_path: "${BASE_DIR}/database/utterance_labels/PartialSpoof_LA_cm_dev_trl.json"
     
     - dataset_name: "ASVspoof2019_LA_Dataset"

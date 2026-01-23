@@ -11,6 +11,7 @@ from torch.utils.data import Dataset, DataLoader , ConcatDataset
 from torch.nn.utils.rnn import pad_sequence
 import torch.multiprocessing as mp
 import librosa
+from typing import Dict, List
 
 # Data augmentation transforms for Audio files
 class PitchShiftTransform:
@@ -400,7 +401,9 @@ def initialize_multi_dataset_loader(
     shuffle=True,
     num_workers=0,
     prefetch_factor=None,
-    pin_memory=False
+    pin_memory=False,
+    # WeightedRandomSampling=False
+    WeightedRandomSampling=True
 ):
     """
     Initialize DataLoader for multiple datasets combined.
@@ -479,16 +482,49 @@ def initialize_multi_dataset_loader(
         print(f"  {datasets_config[i]['dataset_name']}: {len(dataset)} "
               f"({len(dataset)/total_samples*100:.1f}%)")
     
-    # Create DataLoader
-    return DataLoader(
-        combined_dataset,
-        batch_size=BATCH_SIZE,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        pin_memory=pin_memory,
-        prefetch_factor=prefetch_factor,
-        collate_fn=custom_collate_fn
-    )
+
+
+    if WeightedRandomSampling:
+        
+        from torch.utils.data import WeightedRandomSampler
+        # Calculate class weights
+        dataset_sizes = [len(d) for d in all_datasets]
+        weights = [1.0 / size for size in dataset_sizes]
+        sample_weights = []
+
+        for i, dataset in enumerate(all_datasets):
+            sample_weights.extend([weights[i]] * len(dataset))
+
+        print(f"Sample weights distribution: {sample_weights[:10]}...")
+
+        sampler = WeightedRandomSampler(
+            sample_weights, 
+            num_samples=len(combined_dataset),
+            replacement=True
+        )
+
+        # Modify return statement:
+        return DataLoader(
+            combined_dataset,
+            batch_size=BATCH_SIZE,
+            sampler=sampler,  # Use sampler instead of shuffle
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            prefetch_factor=prefetch_factor,
+            collate_fn=custom_collate_fn
+        )
+
+    else:
+        # Create DataLoader
+        return DataLoader(
+            combined_dataset,
+            batch_size=BATCH_SIZE,
+            shuffle=shuffle,
+            num_workers=num_workers,
+            pin_memory=pin_memory,
+            prefetch_factor=prefetch_factor,
+            collate_fn=custom_collate_fn
+        )
 
 
 
