@@ -74,5 +74,3 @@ class ConfigManager:
         return self.config[key]
 
 
-    def get(self, key, default=None):
-        return self.config.get(key, default)

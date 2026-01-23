@@ -39,7 +39,8 @@ def main():
                 'parameters': config['wandb_sweep']  # Move sweep parameters to config
             }
             
-            project_name = f"{config['data']['dataset_name']}_Wav2Vec2_Conformer_binary_classifier"
+            # project_name = f"{config['data']['dataset_name']}_Wav2Vec2_Conformer_binary_classifier"
+            project_name = f"cross_dataset_training__Wav2Vec2_Conformer_binary_classifier"
             sweep_id = wandb.sweep(sweep=sweep_config, project=project_name)
             wandb.agent(sweep_id, function=lambda: train(config), count=1)
         else:

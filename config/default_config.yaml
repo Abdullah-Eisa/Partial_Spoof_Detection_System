@@ -1,18 +1,18 @@
 
 # Training configuration
 training:
-  # num_epochs: &num_epochs 30
+  # num_epochs: &num_epochs 20
   num_epochs: &num_epochs 2
   learning_rate: &learning_rate 0.00075
   batch_size: &batch_size 8
   # batch_size: &batch_size 16
   save_interval: 5
-  patience: 15
+  patience: 30
   max_grad_norm: 1.0
   gamma: 0.9
   monitor_dev_epoch: 0
-  # use_wandb: true
-  use_wandb: false
+  use_wandb: true
+  # use_wandb: false
 
 # WandB sweep configuration
 wandb_sweep:
@@ -145,7 +145,7 @@ inference:
 
 # System configuration
 system:
-  num_workers: 8
+  num_workers: 16
   prefetch_factor: 2
   pin_memory: true
   device: "cuda"  # Will be overridden based on availability
