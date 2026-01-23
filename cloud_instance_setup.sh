@@ -29,7 +29,8 @@ conda --version
 PWD=$(pwd)
 
 # Set permissions recursively
-chmod -R 777 "${PWD}"
+# chmod -R 777 "${PWD}"
+
 # git restore --source HEAD~1 \
 #   .gitignore \
 #   .vscode/copilot-instructions.md \

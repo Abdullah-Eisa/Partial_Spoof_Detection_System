@@ -73,4 +73,6 @@ class ConfigManager:
         """Allow dictionary-like access to config"""
         return self.config[key]
 
+    def get(self, key, default=None):
+        return self.config.get(key, default)
 

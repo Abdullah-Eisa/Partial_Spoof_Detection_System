@@ -249,7 +249,7 @@ class RFP_Dataset(Dataset):
         #     self.all_files,
         #     min(num_files, len(self.all_files))
         # )
-        # self.all_labels= self._get_labels()
+        self.all_labels= self._get_labels()
 
 
     def __len__(self):

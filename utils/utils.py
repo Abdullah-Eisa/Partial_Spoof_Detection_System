@@ -406,7 +406,7 @@ def download_huggingface_hub_datasets(
     files: List[str] = ["database.zip", "LA.zip"],
     repo_id: str = "alsuhba/Rfp_Test",
     repo_type: str = "dataset",
-    local_dir: str = "./database/Rfp_Test",
+    local_dir: str = "./database/",
 ) -> None:
     """
     Download specific files from a Hugging Face dataset repository.
