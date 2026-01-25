@@ -11,34 +11,7 @@ git add *
 # Commit your changes
 git commit -m "   
 
-truly modified files: 
-        modified:   cloud_instance_setup.sh
-        modified:   config/default_config.yaml
-        modified:   preprocess.py
-        modified:   utils/config_manager.py
-        modified:   utils/utils.py
-
-
-not truly:
-        modified:   .gitignore
-        modified:   .vscode/copilot-instructions.md
-        modified:   cloud_instance_setup.sh
-        modified:   config/default_config.yaml
-        modified:   cross_dataset_evaluation.py
-        modified:   environment.yml
-        modified:   others/RFP_problems.md
-        modified:   preprocess.py
-        modified:   requirements.txt
-        modified:   run_comprehensive_evaluation.py
-        modified:   utils/__init__.py
-        modified:   utils/attention_visualization.py
-        modified:   utils/cluster_analysis.py
-        modified:   utils/config_manager.py
-        modified:   utils/generate_efficiency_table.py
-        modified:   utils/gradient_analysis.py
-        modified:   utils/parameter_counter.py
-        modified:   utils/spoofing_algorithm_util.py
-        modified:   utils/utils.py
+correct the cross_dataset_evaluation.py code 
 
  "
 # Add the remote repository

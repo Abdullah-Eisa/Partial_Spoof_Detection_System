@@ -60,7 +60,7 @@ def cross_dataset_evaluation(config):
             'name': 'PartialSpoof',
             'dataset_name': 'PartialSpoof_Dataset',
             'data_path': config['data'].get('ps_eval_data_path',
-                                           'database/PartialSpoof/database/eval/con_wav'),
+                                           'database/PartialSpoof/eval/con_wav'),
             'labels_path': config['data'].get('ps_eval_labels_path',
                                              'database/utterance_labels/PartialSpoof_LA_cm_eval_trl.json')
         },
@@ -102,6 +102,15 @@ def cross_dataset_evaluation(config):
             DEVICE=device
         )
         
+
+        # Convert numpy / torch scalars to native Python types
+        for k, v in metrics.items():
+            if isinstance(v, (torch.Tensor,)):
+                metrics[k] = v.item()
+            elif hasattr(v, "item"):  # numpy scalar (e.g., float32)
+                metrics[k] = v.item()
+
+
         results[dataset_info['name']] = metrics
         
         print(f"\nResults on {dataset_info['name']}:")

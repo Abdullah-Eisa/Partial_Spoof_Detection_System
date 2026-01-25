@@ -131,7 +131,8 @@ paths:
   wandb_key_file: "${BASE_DIR}/config/wandb_key.txt"
   # Add the PS model checkpoint path
   # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/ASVspoof2019LA_model_epochs25_batch8_lr0.0001_20250116_192748.pth"
-  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/RFP_Dataset_model_epochs30_batch8_lr0.0006_20251201_001017.pth"
+  # ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model_epochs5_batch8_lr0.00075_20260124_163712.pth"
+  ps_model_checkpoint: "${BASE_DIR}/models/back_end_models/model_epochs10_batch8_lr0.00075_20260125_041810.pth"
 
 
 # Inference configuration
