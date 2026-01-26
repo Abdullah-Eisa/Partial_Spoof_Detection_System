@@ -11,7 +11,7 @@ git add *
 # Commit your changes
 git commit -m "   
 
-correct the cross_dataset_evaluation.py code 
+update cross_dataset_evaluation.py to allow running inference based on multiple checkpoints sequentially
 
  "
 # Add the remote repository
